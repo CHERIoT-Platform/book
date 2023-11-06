@@ -1,0 +1,142 @@
+[#shared_heap]
+= Memory management in CHERIoT RTOS
+${include("_header.adoc", always_embed=True, leveloffset=None)}
+
+It is common for embedded systems to avoid heap allocation entirely and preallocate all memory that they will need.
+This means that the total amount of memory that a system requires is the sum of the peak memory usage of all components.
+
+The CHERIoT platform is designed to enable safe reuse of memory.
+The shared heap allows memory to be dynamically allocated for individual uses and then reused.
+This means that the total memory requirement for a system becomes the peak combined usage of all components.
+If two components use a lot of memory at different times, they can safely share the same memory.
+
+== Understanding allocation capabilities
+
+The memory allocator uses a capability model.
+Every caller of a memory allocation or deallocation function must present a capability that authorises allocation.
+This is a _sealed_ capability to an `AllocatorCapabilityState` structure.
+Sealed capabilities were introduced in <<sealing_intro>>.
+
+This uses the static sealing mechanism described in *TODO:* Cross reference
+There is no limit to the number of allocator capabilities that a compartment can hold.
+Each allocation capability holds an independent quota.
+
+There is no requirement that the sum of all allocation quotas is less than the total available heap space.
+You can over-commit memory if you know that it will not all be needed at the same time.
+The quota mechanism gives you a way of limiting the total memory consumption of individual compartments (or groups of compartments) and of cleaning up after failure.
+
+== Recalling the memory safety guarantees
+
+Every pointer to a new allocation provided by memory allocator is derived from a capability to a large heap region and bounded.
+The _monotonicity_ guarantees in a CHERI system ensure that a caller cannot expand the bounds of the returned pointer.
+
+The CHERIoT platform provides two additional features for temporal safety.
+These both depend on a revocation bitmap, a shadow memory space that stores one bit per eight bytes of heap memory.
+When an object is freed, the allocator paints the bits associated with it.
+
+The _load filter_ then ensures that any pointer to the object will have its tag cleared when it is loaded.
+This gives deterministic use-after-free protection; any attempt to use a pointer to a deallocated object will trap.
+The object is then placed in _quarantine_.
+
+The _revoker_ periodically scans all memory and invalidates any pointers whose base address points to a deallocated object.
+The monotonicity of bounds ensures that the base of a capability always points either somewhere within the allocation or, if the length is zero, to the word immediately after it.
+
+NOTE: The allocator marks the metadata between allocations as freed.
+This means that a zero-length capability to the end of an object is likely to be untagged.
+
+The load filter ensures that no new pointers to deallocated objects can appear in memory and so the revocation sweep can proceed asynchronously.
+Any object that is in quarantine at the start of a sweep is safe to remove from quarantine at the end.
+
+This combination of features allows the allocator to provide complete spatial and temporal safety for heap objects.
+
+== Allocating with an explicit capability
+
+${insert("heap_allocate", leveloffset="+3")}
+${insert("heap_free", leveloffset="+3")}
+
+The ${link("heap_allocate")} and ${link("heap_free")} functions take a capability, as described above, that authorises allocation and deallocation.
+When an object is allocated with an explicit capability, it may be freed only by presenting the same capability.
+This means that, if you pass a heap-allocated buffer to another compartment, that compartment cannot free it unless you also pass the authorising capability.
+
+NOTE: The allocation uses a timeout because the allocation API is able to block if insufficient memory is available.
+In contrast the deallocation API will always make progress.
+The allocator uses a priority-inheriting lock, which is dropped while blocking.
+If a high-priority thread frees memory while a lower-priority thread owns the lock then the lower-priority thread will wake up, complete its allocation or deallocation, release the lock, and allow the higher-priority thread to resume.
+
+If you need to clean up all memory allocated by a particular capability, ${link("heap_free_all")} will walk the heap and deallocate everything owned by that capability.
+This is useful when a compartment has crashed, to reclaim all of its heap memory.
+
+CAUTION: This currently includes objects allocated with the token APIs but that is subject to change.
+
+
+== Using C/{cpp} default allocators
+
+If you are porting existing C/{cpp} code then it is likely that it uses `malloc` / `free` or the {cpp} `new` / `delete` operators.
+These are implemented as wrappers around ${link("heap_allocate")} and ${link("heap_free")} that pass `MALLOC_CAPABILITY` as the authorising capability.
+You can also pass this capability explicitly to allocate things from the same quota as the standard allocation routines.
+
+NOTE: `MALLOC_CAPABILITY` is a macro referring to the default allocation capability _in the current compartment_.
+It refers to a different capability in every compartment.
+
+You can control the amount of memory provided by this capability by defining the `MALLOC_QUOTA` for your compartment.
+If a compartment is not supposed to allocate memory on its own behalf, you can define `CHERIOT_NO_AMBIENT_MALLOC`.
+This will disable `malloc` and `free`.
+Defining `CHERIOT_NO_NEW_DELETE` will disable the global {cpp} operator `new` and `delete`.
+
+Defining these does not prevent memory allocation, you can still define non-default allocator capabilities and use them directly, but it prevents accidental allocation.
+
+[#token_apis]
+== Allocating on behalf of a caller
+
+Sometimes a compartment needs to be able to allocate memory but that memory is not logically owned by the compartment.
+This pattern appears even in the core of the RTOS.
+The scheduler allocates memory for things like message queues, on behalf of a caller.
+It does this by taking an allocator capability as an argument and forwarding it to the allocator.
+
+Often, if a compartment is allocating on behalf of a caller, it needs to ensure that the caller doesn't tamper with the object.
+The token APIs provide a lightweight mechanism for doing this.
+
+${insert("token_sealed_unsealed_alloc", leveloffset="+3")}
+${insert("token_obj_unseal", leveloffset="+3")}
+${insert("token_obj_destroy", leveloffset="+3")}
+
+When you call ${link("token_sealed_unsealed_alloc")}, you must provide two capabilities:
+
+ - An allocator capability.
+ - A permit-seal sealing capability.
+
+The first of these authorises memory allocation, the second authorises sealing.
+The CHERIoT ISA includes only three bits of object type space in the capability encoding and so the allocator provides a virtualised sealing mechanism.
+This allocates an object with a small header containing the sealing type and returns a sealed capability to the entire allocation and an unsealed capability to all except the header.
+
+The unsealed capability can be used just like any other pointer to heap memory.
+The sealed capability can be used with ${link("token_obj_unseal")} to retrieve a copy of the unsealed capability.
+The `token_obj_unseal` function requires a permit-unseal capability whose value matches the permit-seal capability passed to `token_sealed_unsealed_alloc`.
+
+CAUTION: The virtualised sealing mechanism must be able to derive an accurate capability for the object excluding the header.
+This means that the size is currently restricted to a little under 4 KiB.
+Attempting to allocate larger sealed objects will fail.
+If you need larger sealed objects, allocate them as unsealed objects and store a pointer to them in a sealed object.
+
+An object allocated in this way can be deallocated only by presenting _both_ the allocator capability and the sealing capability that match the original allocation.
+This is very convenient for compartments that expose services because the memory cannot go away while they are using it and can be reclaimed only when the same caller (or something acting on its behalf) authorises the deallocation.
+
+[#heap_claim]
+== Ensuring that heap objects are not deallocated
+
+If malicious caller passes a compartment a buffer and then frees it, then the callee can be induced to trap.
+There are some situations where this is acceptable.
+In some cases, compartments exist in a hierarchical trust relationship and it's fine for a more-trusted compartment to be able to crash a less-trusted one.
+In other cases, the compartment is fault tolerant.
+For example, the scheduler ensures that its data structures are in a consistent state before performing any operations on user-provided data that may trap.
+As such, it can unwind to the caller and, at worst, leak memory owned by the caller.
+
+In situations involving mutual distrust, the callee needs to _claim_ the memory to prevent its deallocation.
+The ${link("heap_claim")} function allows you to place a claim on an object.
+The claim is dropped by calling ${link("heap_free")}.
+
+While you have a claim on an object, that object counts towards your quota.
+You can claim the same object multiple times, each time adds a new claim to the object but (if it is already claimed with that quota) does not consume quota.
+
+NOTE: You can pass a capability with bounds that do not cover an entire object to `heap_claim` but your claim will cover the entire object because you cannot 
+

@@ -1,0 +1,141 @@
+= Features for debug builds
+${include("_header.adoc", always_embed=True, leveloffset=None)}
+
+CHERIoT provides a small set of APIs for use in debug builds in `debug.hh`.
+These include:
+
+ - Rich log messages
+ - Assertions with error messages
+ - Invariants that are checked in release builds but provide debugging help only in release builds
+
+All of the message-producing aspects of these APIs use direct access to the UART.
+This can cause the messages to be interleaved but ensures that they are generated even if part of the system has crashed or deadlocked.
+
+Access to the UART will show up in the linker report.
+You should ensure that your auditing checks ensure that you have not left debug access to the UART enabled in release builds.
+
+== Enabling per-component debugging
+
+Debug builds can often be significantly larger than release builds.
+They contain more code and potentially large strings for debug messages.
+CHERIoT RTOS is designed to allow debugging features to be turned on on a per-compartment basis to help mitigate this.
+You can see this in the core components.
+If you run `xmake config --help` in a firmware build, you will see this at the end of the output:
+
+----
+--debug-token_library=[y|n] Enable verbose output and assertions in the token_library
+--debug-allocator=[y|n]     Enable verbose output and assertions in the allocator
+--debug-loader=[y|n]        Enable verbose output and assertions in the loader
+--debug-scheduler=[y|n]     Enable verbose output and assertions in the scheduler
+----
+
+Each of the core components allows extra debugging modes to be enabled independently, rather than via a global debug-mode switch.
+Adding something similar requires two changes in your `xmake.lua` file.
+The first line, at top-level scope, declares the option:
+
+[,lua]
+----
+debugOption("myComponent")
+----
+
+With this, you will get a message in `xmake config --help` like the one above, but it won't actually do anything.
+You must also opt your compartment or library into debugging support by adding the corresponding rule in the description of your compartment or library:
+
+[,lua]
+----
+compartment("myComponent")
+	add_rules("cherimcu.component-debug")
+----
+
+By default, this assumes that the `debugOption` that you've provided has the same name as the target.
+Sometimes, it's useful to have a single debug option that enables or disables debugging for multiple components.
+You can set the `cherimcu.debug-name` target property in your component to the name that you expect, with a line like this:
+
+[,lua]
+----
+compartment("myComponent")
+	add_rules("cherimcu.component-debug")
+	on_load(function (target)
+		target:set('cherimcu.debug-name', "nameOfDebugOption")
+	end)
+----
+
+CAUTION: The use of cherimcu here is historical.
+This will change to cheriot in a future version.
+
+Now, your compartment will be compiled with a macro that starts with `DEBUG_` and ends with the name of the debug option in all capitals.
+In the first example above, this would be `DEBUG_MYCOMPONENT`.
+
+This can then be used with the `ConditionalDebug` class from `debug.hh`.
+This is typically used as follows:
+
+[,cpp]
+----
+using Debug = ConditionalDebug<DEBUG_MYCOMPONENT, "My component">;
+----
+
+The first template parameter is a boolean value that indicates whether this component is being debugged.
+The second is a free-form string literal that will be prepended (in magenta) to any debug line.
+
+The rest of this chapter will assume that the `Debug` type has been defined in this way.
+
+== Generating log messages
+
+Printing log messages is the simplest use of the debug APIs.
+The `Debug::log()` function takes a format string and then a set of arguments.
+This is similar to `printf` or `std::format`, inserting the arguments into the output, replacing placeholders.
+The syntax here is modelled on `std::format`, but does not currently accept any format modifiers.
+The `{}` syntax for placeholders makes it possible to add modifiers in the future.
+This class is designed to avoid needing heap allocator or large amounts of stack space and so is intentionally less flexible than a general-purpose formatting library.
+
+Unsigned integers are printed as hex.
+Signed integers are printed as decimal.
+Floating point numbers are not supported.
+Individual characters are printed as characters, strings (either `const char*` or `std::string_view`) are printed as strings.
+
+Enumerated types are converted to strings using the Magic Enum library and printed with their numeric value in brackets.
+This has some limitations (in particular, by default, it does not work with very large enumeration values).
+It also requires capability relocations because it generates tables of strings.
+If you compile a compartment with `CHERIOT_AVOID_CAPRELOCS` defined then enumerations will be printed as numeric values.
+
+Two other types have rich formatted output.
+`PermissionSet` objects (see <<cheri_capability_cpp>>) are printed using the characters from the tables in <<permissions>>.
+Capabilities (either as raw pointers or instances of the `CHERI::Capability` class) are printed in full detail.
+Printing a capability will give a block that looks something like this:
+
+----
+0x2004cc8c (v:1 0x2004cc8c-0x2004cc90 l:0x4 o:0x0 p: G RWcgm- -- ---)
+----
+
+This starts with the address and then has the metadata in brackets.
+The metadata includes the tag (valid) bit, then the range, then the length, object type, and permissions.
+
+== Asserting invariants
+
+Assertions and invariants use the same formatting infrastructure as lthe log message code.
+In debug mode (for this component), the following two are equivalent:
+
+[,cpp]
+----
+Debug::Invariant(theAnswer == 42, "The answer was {}, expected 42", theAnswer);
+Debug::Assert(theAnswer == 42, "The answer was {}, expected 42", theAnswer);
+----
+
+They will both check whether then answer is 42 and, if not, print a message to the UART telling you what the real value was.
+They will then issue an invalid instruction.
+If your compartment does not have an error handler (see <<handling_errors>>, then this will unwind to the compartment that called you.
+If it does, then you can handle this just like any other error.
+
+In release builds, assertions are removed entirely.
+Invariants are still checked, but no longer log a message on failure, they just trigger an illegal instruction.
+
+In some cases, you may find that the expression that calculates the assertion condition is expensive and the compiler does not successfully optimise it away in release builds.
+In this case, you can use the version that takes a lambda instead:
+
+[,cpp]
+----
+Debug::Assert([]() { return someExpensiveCheck(); }, "An expensive check failed");
+----
+
+The lambda is never executed in release builds and so the compiler will strip it away.
+You can also use this form if you have multiple steps (which may have side effects) leading up to the assertion condition.

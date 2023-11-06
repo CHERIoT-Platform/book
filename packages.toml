@@ -1,0 +1,6 @@
+[packages]
+
+[packages.cheriot_rtos]
+type = "local"
+package_dir = "doxygen"
+
