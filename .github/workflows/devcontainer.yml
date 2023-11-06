@@ -8,7 +8,7 @@ on: workflow_dispatch
 # workflow builds.
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: book-build-container
+  IMAGE_NAME: cheriot-platform/book-build-container
 
 jobs:
   build-and-push-image:
