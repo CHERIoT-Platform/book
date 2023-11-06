@@ -34,7 +34,7 @@ jobs:
            docker pull ghcr.io/cheriot-platform/book-build-container:main
       - name: Build book
         run: |
-           ./scripts/generate_doxygen.sh || true
+           ./scripts/generate_doxygen.sh
            ./scripts/build.sh
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
