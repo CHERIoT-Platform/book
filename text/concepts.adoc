@@ -85,7 +85,7 @@ For many of these, it's more useful to think about what can't be done if you lac
 |c                   | Load / Store Capability | R / W      | May be used to load or store capabilities as well as non-capability data.
 |g                   | Load Global             | R          | May be used to load capabilities with the global permission.
 |m                   | Load Mutable            | R          | May be used to load capabilities with write permission.
-|l                   | Store local             | W          | May be used to as a jump target (executed).
+|l                   | Store local             | W          | May be used to store capabilities that do _not_ have global permission.
 |a                   | Access System Registers | X          | Code run via this capability may access reserved special registers.
 |===
 
@@ -95,7 +95,7 @@ Removing this permission is useful for pure-data buffers.
 You can't accidentally store a valid pointer into them, and if they already contain a valid pointer then no one can load it.
 
 Load global allows loading permissions with the global permission.
-Any capability loaded via a capability without this permission will have its global permission stripped.
+Any capability loaded via a capability without this permission will have its global (and load-global) permission stripped.
 It can then be stored only via a capability that has the store-local permission.
 CHERIoT RTOS provides the store-local permission exclusively to stacks.
 This means that removing global gives a shallow no-capture pointer (code that it is passed to can store it in registers and on the stack but nowhere else), removing load-global gives a deep no-capture (not even objects loaded by an arbitrary amount of pointer chasing can be captured).
