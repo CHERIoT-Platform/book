@@ -29,7 +29,7 @@ RUN cmake \
 RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja install-distribution install-cmake-exports install-clang-cmake-exports install-llvm-headers install-clang-headers
 WORKDIR /
 # Clone doxygen and build it using the libclang that we've just built.
-RUN git clone https://github.com/doxygen/doxygen.git
+RUN git clone https://github.com/doxygen/doxygen.git && cd doxygen && git checkout Release_1_9_8
 RUN mkdir -p doxygen/build
 WORKDIR /doxygen/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release \
