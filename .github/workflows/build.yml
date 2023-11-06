@@ -39,7 +39,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          input: "build/"
+          path: "build/"
 
   # Deployment job
   deploy:
