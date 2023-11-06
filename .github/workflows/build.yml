@@ -36,6 +36,7 @@ jobs:
         run: |
            ./scripts/generate_doxygen.sh
            ./scripts/build.sh
+           ls -lah build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
         with:
