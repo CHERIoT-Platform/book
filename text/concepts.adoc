@@ -210,7 +210,7 @@ Specifically:
 
  - All registers except argument registers are zeroed.
  - The stack capability is truncated to exclude the portion used by the caller.
- - The shared portion of the stack that is shared is zeroed.
+ - The portion of the stack that is delegated from the caller to the callee is zeroed.
 
 On return, the stack becomes accessible again but a similar set of state clearing guarantees confidentiality from the callee to the caller.
 
