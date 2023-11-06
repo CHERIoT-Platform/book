@@ -1,0 +1,68 @@
+= Porting from bare metal
+${include("_header.adoc", always_embed=True, leveloffset=None)}
+
+If you have existing code that runs happily bare metal, you may consider CHERIoT for a variety of reasons, for example:
+
+ - You want to add network connectivity and so need to isolate network communication.
+ - You are consolidating multiple functions from different microcontrollers onto a single device.
+ - You really love memory safety.
+
+These reasons are often some variation on needing to do two more more things in different security contexts on a single device.
+This means that your workloads are going to now run with their privileges reduced enough that they cannot interfere (beyond permitted amounts) with each other.
+
+== Replacing a real-time control loop
+
+Control systems often run with a single loop that polls or some input and manages a (potentially very complex) state machine and sets some output state.
+You can get precisely this model by running code in CHERIoT RTOS with interrupts disabled.
+
+A function that has the `[[cheri::interrupt_state(disabled)]]` attribute will run with interrupts disabled and so has exclusive use of the core until it yields.
+You can add this attribute to the entry point for the thread running your control loop to start with interrupts disabled.
+
+WARNING: Not true.
+See issue 129, should be fixed soon! 
+
+The scheduler will always schedule the highest-priority runnable thread (or round-robin schedule threads if more than one is runnable at the same priority).
+If your thread is the highest priority, it won't be preempted, but interrupts may still fire and cause the scheduler to perform some book-keeping work.
+Disabling interrupts and running with the highest priority ensures that a thread is scheduled first and continues to run for as long as it wants to.
+
+This is a direct replacement of a real-time control loop, but somewhat misses the point of running an RTOS: no other threads will run.
+
+== Yielding 
+
+If it makes sense for a control loop to run on a multitasking operating system then there will be times when it able to safely yield.
+Just yielding from a high-priority thread is not normally sufficient because it remains the highest-priority thread and so will be the next to run.
+
+<<threads>> discusses the various ways for a thread to block.
+This can be as simple as sleeping.
+If a realtime thread sleeps for one tick then another thread can run, but the next timer interrupt will return control to the realtime thread (unless another thread is running with interrupts disabled - this can be prevented via a policy on the linker report).
+
+More commonly, a realtime control loop will want to block until some external event occurs and triggers an interrupt.
+<<interrupt_waiting>> describes how to wait for an interrupt to fire.
+
+When an interrupt fires, the thread waiting for it will become runnable and, if it is higher priority than any other thread, will be scheduled immediately.
+If the code that yielded had interrupts disabled then interrupts will be disabled once again on return.
+
+== Replacing direct device access
+
+In bare-metal code for non-CHERI systems, it is common to construct pointers to memory-mapped devices by either casting an integer to a pointer or by creating a global that is placed in the correct location via a linker script.
+
+Neither of these works in the CHERIoT model.
+Instead, you must use the macros described in <<mmio_capabilities>> to construct valid capabilities to devices.
+This mechanism allows auditing, with a link-time record of which compartments can access each device.
+
+If your code is using `volatile` pointers to access device memory then you should be able to port your code to CHERIoT RTOS by simply changing how you first construct those pointers.
+
+== Replacing interrupt service routines
+
+Some bare-metal environments have special attributes for declaring interrupt-service routines and associating them with different channels.
+As discussed in <<interrupt_waiting>>, this kind of mechanism would violate the CHERIoT security model and so is not provided.
+You can implement your own dispatcher in a CHERIoT environment by waiting on multiple interrupts with the multiwaiter APIs (see <<multiwaiter>>) and then calling the interrupt routines yourself.
+
+// TODO: Example here.
+
+If interrupts are marked as edge-triggered in the board description then they are implicitly acknowledged in the interrupt controller by the scheduler.
+If not, then you must explicitly acknowledge them before they can fire again.
+This model is closer to the implicit masking during an ISR.
+
+CAUTION: Simply waiting for multiple interrupts and handling them as they arrive does not allow interrupt handlers to be preempted.
+You can wait for different-priority interrupts on different-priority threads, but the threads that handle the lower-priority interrupts must run with interrupts enabled to allow preemption.
