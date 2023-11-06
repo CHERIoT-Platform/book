@@ -200,7 +200,7 @@ CHERIoT provides two composable abstractions for isolation.
  - Threads are units of temporal isolation
 
 A compartment owns some code and some globals.
-It exports a set of functions as entry points and may import some entry points from other threads.
+It exports a set of functions as entry points and may import some entry points from other compartments.
 A thread owns a register state and a stack and is a schedulable entity.
 
 At any given point, the core is executing one thread in one compartment.
