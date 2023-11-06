@@ -1,0 +1,252 @@
+[#threads]
+= Communicating between threads
+${include("_header.adoc", always_embed=True, leveloffset=None)}
+
+CHERIoT RTOS provides threads as a core abstraction.
+Threads run until they either yield or are preempted via an interrupt, and then later resume from the same point.
+There are a small number of scheduler APIs that allow threads to block; higher-level APIs from other compartments may block by indirectly invoking them.
+
+Remember that, in most respects, the scheduler is just another compartment.
+It doesn't run with elevated privileges, it makes a decision about which thread to run next but it is not able to see the stacks or register states associated with threads.
+
+== Defining threads
+
+Threads in CHERIoT RTOS cannot be dynamically created.
+Creating threads at run time would require allocating stacks at run time.
+The no-capture guarantees that CHERIoT RTOS enforces are based on the guarantee that no code (after the loader) has access to two stacks' memory at a time and so the switcher can zero stacks and avoid leaks.
+The only store-local capabilities that a thread ever has access to are derived from its current stack.
+Allowing stack creation would violate that: at least the memory allocator would have access to multiple stacks at once.
+It would be possible to allocate stacks from a separate pool, but that's not really different from allocating stacks up front and having a small compartment that switches them from one use to another or implements a thread pool.
+There is an example thread pool in `lib/thread_pool` and `thread_pool.h` that you can either use directly or use as inspiration for your own design, if you want to create new thread-like contexts.
+
+Threads in CHERIoT RTOS are constructed with four properties:
+
+ - The size of their stack.
+ - The size of their _trusted stack_.
+ - Their priority.
+ - The entry point where they start executing.
+
+The stack size means the same as on any other platform.
+Specifically on CHEIRoT, the stack-pointer capability will be bounded to this size (rounded up if necessary for alignment) and any overflow of the stack, even by a single byte, will trap.
+The trusted stack size is the maximum number of cross-compartment calls that this thread can do.
+Each cross-compartment call invokes the switcher, which pushes a new frame on the trusted stack describing where to return.
+
+NOTE: In the current version, each trusted stack frame is three capabilities (24 bytes).
+A larger trusted stack does not make much difference to total memory consumption.
+
+The priority of threads matters only in relative terms.
+Like FreeRTOS (and unlike UNIX), higher numbers mean higher priorities.
+The scheduler has some data structures whose size depends on the number of priorities, so compiling with fewer priorities can make the scheduler smaller.
+
+The entry point is a compartment entry point.
+It must be exposed as described in <<compartments>>.
+Thread entry points take no arguments and return no arguments.
+
+On most other systems, thread creation functions take a pointer.
+This does not make sense for threads that are not dynamically created because there is no context for their creation.
+
+== Identifying the current thread
+
+You will sometimes need to know which thread is currently running.
+This can be for something as simple as debugging but may also be needed for maintaining per-thread data structures.
+You can call the scheduler with ${link("thread_id_get")} to be told the current thread.
+
+${insert("thread_id_get")}
+
+It is quite expensive to to a cross-compartment call to read a single 16-bit value.
+To avoid this repeated overhead, you can instead call ${link("thread_id_get_pointer")}.
+This returns a (read-only) pointer to the variable in the global in the scheduler that contains the thread ID of the currently scheduled thread.
+When a new thread is scheduled, this is updated to contain the current thread ID and so reading it will always give the current thread.
+From the perspective of any given thread, the value read here never changes.
+
+${insert("thread_id_get_pointer")}
+
+If you're writing {cpp}, there is a helper available, ${link("thread_id_get_fast")}, that caches this value automatically and simply dereferences it on calls after the first one.
+There is very little reason to prefer ${link("thread_id_get")} over ${link("thread_id_get_fast")} if you are writing {cpp} rather than C.
+
+${insert("thread_id_get_fast")}
+
+== Using the `Timeout` structure
+
+Several RTOS APIs have timeouts.
+These are expressed as a pointer to a `Timeout` structure.
+This design is intended to allow a single timeout to be passed down a chain of operations.
+
+NOTE: Timeouts represent time spent blocking (yielding waiting to be runnable), not time spent running (doing useful work).
+
+Timeouts measure time in scheduler `Ticks`.
+A tick is a single scheduling quantum, which depends on the board configuration.
+This is the minimum amount of time for which it is plausible for a thread to sleep.
+If a thread sleeps then another thread becomes runnable and is then allowed to run (unless it also yields) for one tick.
+
+At the end of each tick, the scheduler receives the timer interrupt and chooses the next thread to run.
+Threads may only run at all if no higher-priority thread is runnable.
+Threads at the same priority level are round-robin scheduled.
+
+The timeout structure captures the amount of time that is allowed to block and the number of ticks for which it has blocked.
+Each subsequent call that is passed the same timeout structure may increase the amount of slept time and decrease the remaining time.
+
+NOTE: A thread may block for more than the permitted limit if it is sleeping while a higher-priority thread runs.
+Only the highest-priority thread can make strong realtime guarantees in the presence of other runnable threads.
+
+Functions that take a timeout should always expect it as the first argument.
+This allows it to be forwarded to subsequent calls trivially.
+
+== Sleeping
+
+Sleeping for a bounded number of ticks is the simplest form of blocking available.
+The ${link("thread_sleep")} call causes the caller to yield until a certain number of ticks have run.
+
+${insert("thread_sleep")}
+
+As with other calls that take a `Timeout`, the number of ticks that have elapsed during the call can be checked by reading the `elapsed` field of the timeout structure.
+
+[#futex]
+== Building locks with futexes
+
+The scheduler exposes a set of futex APIs as a building block for various notification and locking mechanisms.
+Futex is a contraction of 'fast userspace mutex'.
+This does not quite apply on a CHERIoT system, where there is no userspace, but the core concept of avoiding a privilege transition on fast paths still applies.
+
+A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-sleep (${link("futex_timed_wait")}) and notify (${link("futex_wake")}) operations.
+
+${insert("futex_timed_wait")}
+${insert("futex_wake")}
+
+A futex allows you to use atomic operations on a 32-bit word for fast paths but then sleep and wake threads when they are blocked, rather than spinning.
+Anything that can be implemented with a spin-wait loop can usually be made more efficient with a futex.
+
+For example, consider the simplest possible spinlock, which uses a single word containing a one to indicate locked and a zero to indicate unlocked.
+When you encounter a one, you sit in a loop doing an atomic compare-and-swap trying to replace a zero with a one.
+When this succeeds, you've acquired the lock.
+
+On most operating systems with single-core systems, you will sit in this loop until you exhaust your quantum, then a timer will fire and another thread will run.
+Your thread may be scheduled before the thread that owns the lock finishes, so you'll then spin for another quantum.
+
+The first simple optimisation on this design is to yield in the spin loop.
+This will allow other threads to run but the waiting thread remains runnable and so may be rescheduled early.
+With an RTOS priority scheduler, if the thread that's waiting is a higher priority than thread that owns the lock then the thread that owns the lock may never be scheduled.
+
+A futex lets the waiting thread sleep.
+The `futex_timed_wait` call will compare the value in the futex word to the expected value (one, indicating locked, in this case) and, if they match, will send the thread to sleep and remain asleep until the thread owning the lock will then do a `futex_wake` call when unlocking.
+
+A more complete futex-based lock uses three values in the lock word to differentiate between locked states with and without waiters.
+This allows the uncontended case to avoid any cross-compartment calls.
+
+The `locks.hh` header contains some C++ wrappers around the futex primitives to give some different locks.
+
+ - `TicketLock` provides guaranteed FIFO semantics.
+   Each thread waits until the thread in front of it in the queue has released the lock.
+ - `FlagLock` is a simple lock that wakes waiters in the order of their thread priorities.
+ - `FlagLockPriorityInherited` is a variant of `FlagLock` that supports priority inheritance (see <<priority_inheritance>>).
+
+These implement a uniform interface and so it's easy to switch between them.
+This header also defines a `NoLock` class that provides the same interface but does not do any locking so generic data structures can be implemented with and without locking.
+
+Futexes can be used to build other waiting mechanisms beyond locks.
+For example, a ring buffer with producer and consumer counters can have the sender wait while the ring is full by using a futex wait on the consumer counter and the receiver can do likewise with the producer counter.
+This allows a ring buffer design that is mostly lockless, yet allows the producer to sleep when the ring is full or the consumer to sleep when it is empty.
+
+[#priority_inheritance]
+== Inheriting priorities
+
+Simple futex-based locks are vulnerable to _priority inversion_.
+Consider a case with three threads.
+The first is a low-priority thread that acquires a lock.
+The second is a medium-priority thread that preempts the first.
+The third is a high-priority thread that waits for the lock.
+
+The high-priority thread in this example cannot make progress until the low-priority thread releases the lock.
+The low-priority thread cannot make progress until the medium-priority thread blocks.
+This means that the medium-priority thread is preventing the high-priority thread from making progress, which is the opposite of the desired situation.
+
+_Priority inheritance_ is the solution to this kind of problem.
+The blocking high-priority thread loans its priority to the low-priority thread, allowing it to (temporarily) be scheduled in preference to the medium-priority thread.
+
+The futex APIs implement this by storing the thread ID of the owning thread in the bottom 16 bits of the futex word and passing `FutexPriorityInheritance` to the `flags` argument in the wait call.
+The specified thread will have its priority set to the highest priority of any of the waiting threads.
+The priority boost lasts until the waiters time out or the boosted thread releases the lock, whichever happens first.
+
+A single thread can hold multiple priority-inheriting locks and receive priority boosts from all of them.
+
+== Securing futexes
+
+Most of the time you will want to use futexes to synchronise operations within a single compartment.
+Futex-based locks rely on the contents of the lock word to be valid.
+For example, if a `FlagLock` is directly accessible by two mutually distrusting compartments, one can write an invalid value to the word and either prevent the other from waking waiters or cause it to spuriously believe that it has acquired the lock.
+
+This is not normally a limitation because locks typically protect some data structure or other resource that should not be concurrently mutated by multiple threads.
+Providing mutable views of such a structure to multiple compartments is almost certainly a security vulnerability, even without attacks on the futex.
+
+There is one situation where futexes are safe to share across compartment boundaries.
+If you have a component that others trust for availability, it can share read-only views of a futex to allow waiting for an out-of-band event.
+The scheduler does this for interrupts (see <<drivers>>), allowing threads to use the futex wait operation to block until an interrupt is ready.
+
+== Using event groups
+
+The scheduler provides an event group API that is primarily intended for porting code written against FreeRTOS's event groups APIs.
+An event group is a set of up to 24 values that can be set or cleared independently.
+Waiters can wait for any or all of an arbitrary subset of these.
+
+CAUTION: A future version of the scheduler may remove event groups and replace them with bitset operations on futexes.
+At that point, the APIs will likely change.
+In particular, ${link("event_create")} will no longer be required.
+
+Event groups are created with the ${link("event_create")} function.
+This returns an opaque handle to the event group, which can be used for setting, clearing, or waiting on events.
+
+${insert("event_create")}
+
+Note that, because this allocates memory, it requires an _allocation capability_.
+See <<shared_heap>> for more information about what this means.
+
+You can then use ${link("event_bits_set")} and ${link("event_bits_clear")} to set and clear some or all of the event flags in this group.
+Both of these calls return the old values of the bits.
+
+${insert("event_bits_set")}
+${insert("event_bits_clear")}
+
+You can then subsequently wait for some of the events to be set with the ${link("event_bits_wait")} function.
+This takes a set of events to wait for and can wait until either any or all of them are set.
+
+${insert("event_bits_wait")}
+
+This call can also atomically clear the bits that you've waited on, giving them edge-triggered behaviour.
+
+[#message_queue]
+== Sending messages
+
+CAUTION: The message queue APIs will probably be moved out of the scheduler at some point.
+At that point, the exact APIs are likely to change.
+
+The scheduler provides a message queue API.
+A message queue is a FIFO capable of storing a fixed number of fixed-sized entries.
+Queues are created with ${link("queue_create")}, which allocates the buffer and returns an opaque handle.
+
+
+${insert("queue_create")}
+
+Messages are then sent with ${link("queue_send")} and received with ${link("queue_recv")}.
+These are blocking (if allowed to by with a non-zero timeout) calls that send or receive a single message.
+
+${insert("queue_send")}
+${insert("queue_recv")}
+
+[#multiwaiter]
+== Waiting for multiple events
+
+The multiwaiter API allows waiting for any of a set of independent events.
+It is conceptually similar to `select`, `poll`, `epoll`, and `kqueue` in *NIX operating systems or `WaitForMultipleObjects` in Windows.
+It is designed to bound the amount of time that the scheduler must spend checking multiwaiters and to minimise the amount of memory that multiwaiters consume.
+Memory is allocated only when a multiwaiter is created, with ${link("multiwaiter_create")}.
+This creates a multiwaiter with space for a fixed number of events.
+
+${insert("multiwaiter_create")}
+
+Each ${link("multiwaiter_wait")} call is a one-shot operation.
+The call is passed a set of things to wait for and the associated condition via the `events` array and returns the waited status via the same array.
+This is typically an on-stack array.
+
+${insert("multiwaiter_wait")}
+
+

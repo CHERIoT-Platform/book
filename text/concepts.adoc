@@ -1,0 +1,262 @@
+= CHERIoT Concepts
+${include("_header.adoc", always_embed=True, leveloffset=None)}
+
+The CHERIoT platform is an embedded environment that provides a number of low-level features via a mixture of hardware and software features.
+
+== Understanding CHERI capabilities
+
+A capability, in the abstract sense, is an unforgeable token of authority that must be presented to perform an operation.
+Capabilities exist in the physical world in various forms.
+For example, a key to a padlock is a capability to unlock the padlock.
+When the key is presented, the padlock can be unlocked, without the key the padlock cannot be unlocked without exploiting some security vulnerability.
+It doesn't matter to the padlock who presents the key, only that the correct key has been presented.
+Some complex building locks have different keys that authorise unlocking different sets of doors.
+For example, a team leader may have a key that unlocks the offices of everyone on their team and the building manager may hold a key that unlocks everything.
+
+Capabilities can be delegated.
+The building manager may loan their key to someone else to unlock a door.
+The key and the door don't care who is holding them.
+
+Some kinds of capabilities can also be _revoked_.
+This is traditionally the hardest operation to perform on capabilities.
+Someone may perform an audit of all of the keys and remove some of them from people that shouldn't have them.
+This is often solved in capabilities by adding a layer of indirection; you hold a capability that authorises you to do something with a capability in some table and your rights can be removed by deleting the capability from the table.
+
+On a CHERI system, capabilities are used to authorise access to memory.
+Any instruction that takes an address in a conventional architecture takes a _CHERI capability_ as the operand instead.
+The CHERI capability both describes a location in memory and grants access to it.
+
+You can think of a CHERI memory capability as a pointer that the hardware understands.
+In C, if you hold a pointer to an object then you are allowed to access the object that it points to.
+If you do some pointer arithmetic that goes out of bounds, C says that this is undefined behaviour.
+CHERI says more concretely that it will trap: you are not authorised to access that memory _with this capability_.
+If you hold two pointers to objects that are adjacent in memory, then you may be authorised to access the memory, but not with the pointer that you are using.
+This highlights the two key security principles that capability systems are able to enforce:
+
+ - *The principle of least privilege*, which states that a piece of running code should have the rights to do what it needs to do and no more.
+ - *The principle of intentional use*, which states that any privileged operation must be performed by intentionally exercising the specific right that is needed.
+
+Capability systems make it easy to implement least privilege by providing running code only with the minimal set of capabilities (with the limited set of rights) that they need.
+They make it easy to implement intentionality by requiring the specific capability to be presented along with each operation.
+The latter avoids a large category of confused deputy attacks, where a component holding one privilege is tricked into exercising it on behalf of a differently trusted component.
+
+The phrase 'differently trusted' in the previous paragraph is not an attempt to extend political correctness to software components.
+Capability systems do not imply hierarchical trust models.
+Two components may hold disjoint or overlapping sets of capabilities that allow each to perform some set of actions that the other cannot.
+
+In a CHERI system, this can include one component having read access to an object and another write access, or two components having access to different fields of the same structure.
+
+[#permissions]
+== Decomposing permissions in CHERIoT
+
+Any CHERI system provides a set of permissions on capabilities.
+Most existing CHERI systems have 64-bit addresses (and therefore 128-bit capabilities) and so have a lot of space for permissions as an orthogonal bitfield.
+The CHERIoT platform has 32-bit addresses (and therefore 64-bit capabilities) and so has to compress the permissions.
+This is done, in part, by separating the permissions into primary and derived permissions.
+The primary permissions (listed in <<primary_permissions>>) have meaning by themselves.
+If you use the CHERIoT RTOS logging support to print capabilities, the permissions will be listed using the letters in the first column.
+
+.CHERIoT primary permissions
+[cols="1,1,4",frame=none,grid=all,stripes=even,options="unbreakable"]
+[#primary_permissions]
+|===
+|Debug output letter | Permission name | Meaning
+|G                   | Global          | May be stored anywhere in memory.
+|R                   | Load (Read)     | May be used to read.
+|W                   | Store (Write)   | May be used to write.
+|X                   | Execute         | May be used to as a jump target (executed).
+|S                   | Seal            | May be used to seal other capabilities (see <<sealing_intro>>).
+|U                   | Unseal          | May be used to unseal sealed capabilities.
+|0                   | User 0          | Reserved for software use.
+|===
+
+Read and write permission allow the capability to be used as an operand to load and store instructions, respectively.
+Execute allows the capability to be used as a jump target, where it will end up installed as the _program counter capability_ and used for instruction fetch.
+We'll cover the sealing and unsealing permissions later.
+
+The derived permissions (listed in <<derived_permissions>>) provide more fine-grained control.
+For many of these, it's more useful to think about what can't be done if you lack the permission than to think about what can be done if you have it.
+
+.CHERIoT derived permissions
+[cols="1,1,1,4",frame=none,grid=all,stripes=even,options="unbreakable"]
+[#derived_permissions]
+|===
+|Debug output letter | Permission name         | Depends on | Meaning
+|c                   | Load / Store Capability | R / W      | May be used to load or store capabilities as well as non-capability data.
+|g                   | Load Global             | R          | May be used to load capabilities with the global permission.
+|m                   | Load Mutable            | R          | May be used to load capabilities with write permission.
+|l                   | Store local             | W          | May be used to as a jump target (executed).
+|a                   | Access System Registers | X          | Code run via this capability may access reserved special registers.
+|===
+
+By default, the load and store permissions authorise instructions to load and store non-capability data.
+With the load / store capability permission, they also allow loading and / or storing capabilities.
+Removing this permission is useful for pure-data buffers.
+You can't accidentally store a valid pointer into them, and if they already contain a valid pointer then no one can load it.
+
+Load global allows loading permissions with the global permission.
+Any capability loaded via a capability without this permission will have its global permission stripped.
+It can then be stored only via a capability that has the store-local permission.
+CHERIoT RTOS provides the store-local permission exclusively to stacks.
+This means that removing global gives a shallow no-capture pointer (code that it is passed to can store it in registers and on the stack but nowhere else), removing load-global gives a deep no-capture (not even objects loaded by an arbitrary amount of pointer chasing can be captured).
+
+Similarly, the load-mutable permission allows loading writable permissions and will strip write and load-mutable permissions from any capability that is loaded.
+Removing write permission will give a shallow immutability (the object pointed to by this pointer cannot be modified), also removing load-mutable will give a deep immutability.
+The latter can be used for read-only sharing of complex data structures.
+
+The access-system-registers permission controls access to a small number of privileged registers and is never handed out to code other than a tiny amount of TCB.
+
+== Building memory safety
+
+Memory safety is a property of a source-level abstract machine.
+Memory safety for C, Java, or Rust mean different things.
+At the hardware level, CHERIoT is designed to enable implementations of languages to enforce memory safety, in the presence of untrusted code such as inline assembly or code written in a different language.
+Most importantly, it provides the tools that allow code in a compartment (see <<_isolating_components_with_threads_and_compartments>>) to protect itself from arbitrary code in a different compartment.
+This means protecting objects such that code from a different security context cannot:
+
+ - Access object unless passed pointers to them.
+ - Access outside the bounds of an object given a valid pointer to that object.
+ - Access an object (or the memory that was formerly used for the object) after the object has been freed.
+ - Hold a pointer to an object with automatic storage duration (an 'on-stack' object) after the end of the call in which it was created.
+ - Hold a temporarily delegated pointer beyond a single call.
+ - Modify an object passed via immutable reference.
+ - Modify any object reachable from an object that is passed as a deeply immutable reference.
+ - Tamper with an object passed via opaque reference.
+
+The hardware provides tools for enforcing all of these properties but it's up to the compiler and the RTOS to cooperate to use them correctly.
+For example, in the CHERIoT ABI, each compartment has a single capability in a register that spans all of its globals and a single capability that grants access to its entire stack.
+The compiler will derive capabilities from these that are bounded to individual globals or on-stack objects.
+Inline assembly that references the global-pointer or stack-pointer registers directly can bypass spatial memory safety for these objects, but only from within the same compartment.
+
+None of the properties relating to heap objects make sense in the absence of a heap.
+CHERIoT RTOS provides a shared heap (see <<shared_heap>>), which enforces spatial and temporal safety for heap objects.
+
+[#sealing_intro]
+== Sealing pointers for tamper proofing
+
+We have discussed all of the primary permissions from <<primary_permissions>> with the exception of those related to _sealing_.
+Sealing a capability transforms it from something that conveys rights and can be used to exercise those rights into an opaque token.
+It can be transformed back with the converse unseal operation.
+
+A sealed capability has an _object type_ associated with it.
+This is taken from the value (the part that would be the address in a memory capability) in the capability that authorises sealing.
+It can then be unsealed only with a capability that has the same value and the permit-unseal permission.
+
+If you attempt to unseal a capability that is not sealed with the value of the permit-unseal capability then you will get back an untagged value.
+Sealed capabilities can therefore be used as trusted handles that can be shared with untrusted code.
+If the untrusted code tries to modify the value in any way, you can detect the tampering.
+
+The CHERIoT encoding has space for only three bits of object type (in contrast with 'big CHERI' systems such as Morello that typically have 18 bits).
+This is sufficient for a small number of core parts of the ABI but not enough for general-purpose use.
+To mitigate this limitation, the memory allocator provides a set of APIs (see <<token_apis>>) that virtualise the sealing mechanism.
+The same mechanism is also used to build software-defined capabilities.
+
+The object type in a CHERIoT capability is interpreted differently depending on whether the sealed capability is executable or not.
+For executable capabilities, most of the object types are reserved for sealed entry (_sentry_) capabilities.
+A sentry capability can be unsealed automatically by jumping to it.
+Return addresses are automatically sealed by the jump-and-link instructions, so you cannot modify a return address, you can only jump to it.
+
+NOTE: CHERIoT v1 does not currently differentiate between forward and backwards sentries.
+This is a limitation inherited from RISC-V, which lacks an explicit return instruction and so has no convenient mechanism for determining whether a branch is intended as forward or backwards control flow.
+This will be addressed in a future version of the CHERIoT ISA.
+
+Sentries are also used as a building block for cross-compartment calls.
+A sentry can point to a region of memory that contains both code and data.
+The data is accessible via PC-relative addressing only after jumping into the code.
+
+== Controlling interrupt status with sentries
+
+In conventional RISC-V (and most other architectures) the interrupt status is controlled via a special register.
+This register can be modified only in some privileged mode.
+The CHERIoT ISA allows it to be modified by any code running with the access-system-registers permission in the program counter capability.
+
+Embedded software often wants to disable interrupts for short periods but granting the permission to toggle interrupts makes auditing availability guarantees between mutually distrusting components almost impossible.
+Instead, CHERIoT provides three kinds of sentries that control the interrupt status.
+These either enable or disable interrupts, or leave the interrupt enabled state untouched.
+The branch-and-link instruction captures the current exception state in the return sentry.
+
+This allows you to provide function pointers to functions that will run with interrupts disabled and guarantee that, on return, the interrupt status is reset as it should be.
+In effect, this brings structured programming to interrupt status.
+
+In the RTOS, for example, the atomics library provides a set of functions that (on single-core systems without hardware atomics) perform simple read-modify-write operations with interrupts disabled.
+A compartment can use these without having the ability to arbitrarily toggle interrupts, giving a limit on the amount of time that it can run with interrupts disabled.
+
+== Isolating components with threads and compartments
+
+Most mainstream operating systems have a process model that evolved from mainframe systems.
+This is built around isolation, with sharing as an afterthought.
+The primary goal for process isolation was to allow consolidation, replacing multiple minicomputers with a single mainframe.
+These abstractions were designed with the assumption that they ran independent workloads that wanted to share computational resources.
+Gradually, communication mechanisms have been added on top.
+
+CHERIoT starts from a fundamental assumption that *isolation is easy, (safe) sharing is hard*.
+Particularly in the embedded space, it's easy to provide a separate core and SRAM if you want strong isolation without sharing.
+Most useful workloads involve communication between distrusting entities.
+For example, if you want to connect an IoT device to a back-end service, your ethernet driver needs to communicate with the TCP/IP stack, which needs to communicate with the TLS stack, which needs to communicate with a higher-level protocol stack such as MQTT, which needs to communicate with your device-specific logic.
+
+CHERIoT provides two composable abstractions for isolation.
+
+ - Compartments are units of spatial isolation
+ - Threads are units of temporal isolation
+
+A compartment owns some code and some globals.
+It exports a set of functions as entry points and may import some entry points from other threads.
+A thread owns a register state and a stack and is a schedulable entity.
+
+At any given point, the core is executing one thread in one compartment.
+Threads move between compartments via function call and return.
+When code in one compartment calls another, it loses access to everything that was not explicitly shared.
+Specifically:
+
+ - All registers except argument registers are zeroed.
+ - The stack capability is truncated to exclude the portion used by the caller.
+ - The shared portion of the stack that is shared is zeroed.
+
+On return, the stack becomes accessible again but a similar set of state clearing guarantees confidentiality from the callee to the caller.
+
+Arguments that are passed from one compartment to another may include capabilities.
+At the start of execution, each compartment has a guarantee that nothing else can see or modify its globals.
+If one compartment passes a pointer to one of its globals to another, you now have shared memory.
+This can be useful with restricted permissions for sharing read-only epoch counters and similar.
+
+== Sharing code with libraries
+
+Invoking reusable components does not always involve a change of security context.
+The CHERIoT software model provides _shared libraries_ for cases where this is the case.
+
+Unlike compartments, shared libraries do not have mutable globals.
+They are reusable code and read-only data, nothing else.
+They are invoked via a much lighter-weight mechanism than a full cross-compartment call.
+This mechanism doesn't clear the stack or registers.
+
+Using a CHERIoT shared library is conceptually equivalent to copying the code that implements it into every compartment that uses it.
+Unlike simple copying, shared libraries are independently auditable and require only a single copy of the code in memory.
+
+All entry points exported from a shared library are invoked via sentries.
+This means that they can enable or disable interrupts for the duration of the call.
+
+Some shared libraries expose very simple functions, others are a lot more complex.
+For example, the atomics library provides some functions that are only a handful of instructions long.
+In contrast, shared library that packages link:https://microvium.com[Microvium] provides a complete JavaScript interpreter.
+
+== Auditing firmware images
+
+When a CHERIoT firmware image starts, the loader initialises all of the capabilities that compartments hold at boot.
+It does this using metadata provided by the linker.
+This means that everything that leads to capabilities being provided is visible to the linker.
+The CHERIoT linker, in addition to providing the firmware image, provides a report about this structure.
+The report includes:
+
+ - The hashes of the sections that form each compartment.
+ - The list of exports from each compartment and each library.
+ - The list of functions imported for each compartment and each library.
+ - Whether each entry point runs with interrupts enabled, disabled, or inherited.
+ - The list of MMIO regions accessible by any compartment.
+ - How much memory each compartment is permitted to allocate.
+ - The initial entry point, stack size, and priority for each thread.
+
+This allows automated auditing of various high-level security policies.
+For example, you can check that a single compartment, containing a known binary (for example, one that has been approved by regulators), is the only thing that is able to access a specified device.
+You can require that nothing runs with interrupts disabled except a specific set of permitted library functions.
+Or you can say that users can provide their own logic for controlling their IoT device, but only your code may connect to the network stack if you want to sign the image with a key that authorises release of a private key.
+
