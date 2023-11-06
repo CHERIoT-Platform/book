@@ -30,10 +30,10 @@ jobs:
         with:
           submodules: recursive
       - name: Fetch dev container
-         run: |
+        run: |
            docker pull ghcr.io/cheriot-platform/book-build-container:main
       - name: Build book
-         run: |
+        run: |
            ./scripts/generate_doxygen.sh
            ./scripts/build.sh
       - name: Upload artifact
