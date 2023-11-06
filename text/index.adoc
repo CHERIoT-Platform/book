@@ -13,6 +13,9 @@ This is a public draft of the CHERIoT Programmers' Guide.
 WARNING: This is an early draft.
 It is public for early feedback and to help people get started with the CHERIoT Platform.
 It is guaranteed to contain errors, both factual and typographic.
+In particular, cross references between chapters are currently broken in the HTML output and will show up as [link target name].
+
+<<<
 
 ${include("copyright.adoc", multipage_link=False)}
 
