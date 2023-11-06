@@ -1,2 +1,2 @@
 #!/bin/sh
-podman run --mount type=bind,src=$(realpath $(dirname $0)/..),target=/mnt --rm asciidoxy bash -c 'cd /mnt/ && /doxygen/bin/doxygen'
+podman run --mount type=bind,src=$(realpath $(dirname $0)/..),target=/mnt --rm cheriot-platform/book-build-container bash -c 'cd /mnt/ && /doxygen/bin/doxygen'
