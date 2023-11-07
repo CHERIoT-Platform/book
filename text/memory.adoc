@@ -17,7 +17,7 @@ Every caller of a memory allocation or deallocation function must present a capa
 This is a _sealed_ capability to an `AllocatorCapabilityState` structure.
 Sealed capabilities were introduced in <<sealing_intro>>.
 
-This uses the static sealing mechanism described in *TODO:* Cross reference
+This uses the static sealing mechanism described in <<software_capabilities>>.
 There is no limit to the number of allocator capabilities that a compartment can hold.
 Each allocation capability holds an independent quota.
 
