@@ -48,7 +48,7 @@ FROM ubuntu:22.04
 # AsciiDoxy depends on Python and Ruby, so install both
 RUN apt update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y pip rubygems
 # Install the Ruby bits
-RUN gem install asciidoctor asciidoctor-rouge asciidoctor-pdf asciidoctor-diagram
+RUN gem install asciidoctor asciidoctor-rouge asciidoctor-pdf asciidoctor-diagram asciidoctor-multipage
 # Install the Python bits
 RUN pip3 install asciidoxy
 # Copy the doxygen version that we've just built
