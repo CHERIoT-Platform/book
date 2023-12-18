@@ -49,22 +49,16 @@ This does not make sense for threads that are not dynamically created because th
 
 You will sometimes need to know which thread is currently running.
 This can be for something as simple as debugging but may also be needed for maintaining per-thread data structures.
-You can call the scheduler with ${link("thread_id_get")} to be told the current thread.
+The ID of each thread is stored in the register save area for that thread and the switcher exposes a library call (${link("thread_id_get")}) to read it.
 
 ${insert("thread_id_get")}
 
-It is quite expensive to to a cross-compartment call to read a single 16-bit value.
-To avoid this repeated overhead, you can instead call ${link("thread_id_get_pointer")}.
-This returns a (read-only) pointer to the variable in the global in the scheduler that contains the thread ID of the currently scheduled thread.
-When a new thread is scheduled, this is updated to contain the current thread ID and so reading it will always give the current thread.
-From the perspective of any given thread, the value read here never changes.
+Thread IDs start at one (not zero!) because zero is used to indicate the idle thread and so is never visible.
+The ${link("thread_count")} function returns the number of threads that have been created in the system.
+This is not decremented when threads exit and so provides the upper bound on the number of threads that may exist.
+This can be used to size data structures that are indexed by thread ID.
 
-${insert("thread_id_get_pointer")}
-
-If you're writing {cpp}, there is a helper available, ${link("thread_id_get_fast")}, that caches this value automatically and simply dereferences it on calls after the first one.
-There is very little reason to prefer ${link("thread_id_get")} over ${link("thread_id_get_fast")} if you are writing {cpp} rather than C.
-
-${insert("thread_id_get_fast")}
+${insert("thread_count")}
 
 == Using the `Timeout` structure
 
@@ -92,6 +86,10 @@ Only the highest-priority thread can make strong realtime guarantees in the pres
 Functions that take a timeout should always expect it as the first argument.
 This allows it to be forwarded to subsequent calls trivially.
 
+WARNING: Timeouts may not be stored on the heap.
+Any function checking timeouts may refuse to accept a heap-allocated timeout.
+It is difficult to work with heap-allocated timeouts because they may be deallocated while the thread is sleeping, which would then cause it to crash on updating the timeout structure.
+
 == Sleeping
 
 Sleeping for a bounded number of ticks is the simplest form of blocking available.
@@ -113,6 +111,9 @@ A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-s
 ${insert("futex_timed_wait")}
 ${insert("futex_wake")}
 
+NOTE: In {cpp}, `std::atomic<uint32_t>` provides `wait`, `notify_all`, and `notify_one` methods that expose futex functionality and may be more convenient to call than the raw futex APIs.
+These include some additional (non-standard) overloads that expose more of the underlying futex functionality.
+
 A futex allows you to use atomic operations on a 32-bit word for fast paths but then sleep and wake threads when they are blocked, rather than spinning.
 Anything that can be implemented with a spin-wait loop can usually be made more efficient with a futex.
 
@@ -133,14 +134,16 @@ The `futex_timed_wait` call will compare the value in the futex word to the expe
 A more complete futex-based lock uses three values in the lock word to differentiate between locked states with and without waiters.
 This allows the uncontended case to avoid any cross-compartment calls.
 
-The `locks.hh` header contains some C++ wrappers around the futex primitives to give some different locks.
+The `locks` library provides a set of futex-based locks.
+The `locks.h` header exposes the interface to this library.
 
- - `TicketLock` provides guaranteed FIFO semantics.
-   Each thread waits until the thread in front of it in the queue has released the lock.
- - `FlagLock` is a simple lock that wakes waiters in the order of their thread priorities.
- - `FlagLockPriorityInherited` is a variant of `FlagLock` that supports priority inheritance (see <<priority_inheritance>>).
+Ticket locks:: provide guaranteed FIFO semantics for waiters.
+Flag locks::  are simple locks that wake waiters in the order of their thread priorities.
+These can optionally provide priority inheritance (see <<priority_inheritance>>).
+Recursive mutexes:: wrap a priority-inheriting flag lock and allow the same thread to acquire a lock multiple times.
+Semaphores:: provide a counting semaphore abstraction.
 
-These implement a uniform interface and so it's easy to switch between them.
+{cpp} users may prefer to use the wrappers provided in `locks.hh`, which implement a uniform interface for different lock types.
 This header also defines a `NoLock` class that provides the same interface but does not do any locking so generic data structures can be implemented with and without locking.
 
 Futexes can be used to build other waiting mechanisms beyond locks.
@@ -169,11 +172,22 @@ The priority boost lasts until the waiters time out or the boosted thread releas
 
 A single thread can hold multiple priority-inheriting locks and receive priority boosts from all of them.
 
+The priority inheritance mechanism can also be used to build asymmetric locks.
+These have a fast path that doesn't do any cross-compartment calls and a slow path that does.
+You can find one example of this in the hazard pointer mechanism for short-lived claims.
+This must detect when a thread has tried to add a hazard pointer while the allocator is scanning the list, without slowing down the allocator.
+Before reading the list, the allocator increments the top 16 bits of the futex word and sets the low 16 to the thread ID performing the operation.
+Threads updating the hazard set check the futex word before and after updating the list.
+If the top 16 bits have changed, they know that the allocator has scanned the list and they must retry.
+If the top 16 bits contain an odd value, the allocator is currently scanning the list and they must wait.
+They can do a priority-inheriting wait with a one-tick timeout _even though the allocator will not ever call `futex_wake`_.
+They will yield for one tick, boosting the priority of the thread that's currently in the allocator, but then resume at the end of the tick.
+
 == Securing futexes
 
-Most of the time you will want to use futexes to synchronise operations within a single compartment.
+Most of the time you will want to use futexes (and the locks that wrap them) to synchronise operations within a single compartment.
 Futex-based locks rely on the contents of the lock word to be valid.
-For example, if a `FlagLock` is directly accessible by two mutually distrusting compartments, one can write an invalid value to the word and either prevent the other from waking waiters or cause it to spuriously believe that it has acquired the lock.
+For example, if a flag lock is directly accessible by two mutually distrusting compartments, one can write an invalid value to the word and either prevent the other from waking waiters or cause it to spuriously believe that it has acquired the lock.
 
 This is not normally a limitation because locks typically protect some data structure or other resource that should not be concurrently mutated by multiple threads.
 Providing mutable views of such a structure to multiple compartments is almost certainly a security vulnerability, even without attacks on the futex.
@@ -184,53 +198,85 @@ The scheduler does this for interrupts (see <<drivers>>), allowing threads to us
 
 == Using event groups
 
-The scheduler provides an event group API that is primarily intended for porting code written against FreeRTOS's event groups APIs.
+The `event_group` library provides an event group API that is primarily intended for porting code written against FreeRTOS's event groups APIs.
+The `event.h` header exposes the interface to this library.
+These APIs do not have a clear trust model and so should be avoided in new code that is not ported from FreeRTOS.
+You can build more convenient interfaces atop futexes for most synchronisation operations.
+You may also simply use multiple futexes and the `multiwaiter` API (see <<multiwaiter>>) to wait for multiple events.
+
 An event group is a set of up to 24 values that can be set or cleared independently.
 Waiters can wait for any or all of an arbitrary subset of these.
 
-CAUTION: A future version of the scheduler may remove event groups and replace them with bitset operations on futexes.
-At that point, the APIs will likely change.
-In particular, ${link("event_create")} will no longer be required.
-
-Event groups are created with the ${link("event_create")} function.
+Event groups are created with the ${link("eventgroup_create")} function.
 This returns an opaque handle to the event group, which can be used for setting, clearing, or waiting on events.
 
-${insert("event_create")}
+${insert("eventgroup_create")}
 
 Note that, because this allocates memory, it requires an _allocation capability_.
 See <<shared_heap>> for more information about what this means.
 
-You can then use ${link("event_bits_set")} and ${link("event_bits_clear")} to set and clear some or all of the event flags in this group.
+You can then use ${link("eventgroup_set")} and ${link("eventgroup_clear")} to set and clear some or all of the event flags in this group.
 Both of these calls return the old values of the bits.
 
-${insert("event_bits_set")}
-${insert("event_bits_clear")}
+${insert("eventgroup_set")}
+${insert("eventgroup_clear")}
 
-You can then subsequently wait for some of the events to be set with the ${link("event_bits_wait")} function.
+You can then subsequently wait for some of the events to be set with the ${link("eventgroup_wait")} function.
 This takes a set of events to wait for and can wait until either any or all of them are set.
 
-${insert("event_bits_wait")}
+${insert("eventgroup_wait")}
 
 This call can also atomically clear the bits that you've waited on, giving them edge-triggered behaviour.
 
 [#message_queue]
 == Sending messages
 
-CAUTION: The message queue APIs will probably be moved out of the scheduler at some point.
-At that point, the exact APIs are likely to change.
-
-The scheduler provides a message queue API.
 A message queue is a FIFO capable of storing a fixed number of fixed-sized entries.
-Queues are created with ${link("queue_create")}, which allocates the buffer and returns an opaque handle.
+There are two distinct use cases for message queues:
 
+ - Communicating between two threads in the same compartment.
+ - Communicating between different compartments.
+
+In the first case, the endpoints are in the same trust domain.
+The `message_queue_library` library provides a simple message queue API that is intended for this use case.
+When the endpoints are in different trust domains, the endpoints must be protected from tampering.
+The `message_queue` compartment wraps the library in a compartment that exposes an almost identical interface to the library but with the endpoints exposed as (tamper-proof) sealed capabilities.
+
+Queues for use within a single compartment are created with ${link("queue_create")}, which allocates the buffer and returns a handle that can be used for sending and receiving messages.
+There is no explicit `queue_destroy` function.
+The memory allocated can simply be freed when the queue is no longer needed.
+The pointer returned via the `outAllocation` parameter refers to the entire allocation used for the queue and so can be passed to `heap_free`, along with the heap capability used to allocate the queue.
 
 ${insert("queue_create")}
 
-Messages are then sent with ${link("queue_send")} and received with ${link("queue_recv")}.
+Messages are then sent with ${link("queue_send")} and received with ${link("queue_receive")}.
 These are blocking (if allowed to by with a non-zero timeout) calls that send or receive a single message.
 
 ${insert("queue_send")}
-${insert("queue_recv")}
+${insert("queue_receive")}
+
+For defence in depth, you can use ${link("queue_make_receive_handle")} or ${link("queue_make_send_handle")} to create a handle that can only be used for receiving or sending messages, respectively.
+
+${insert("queue_make_receive_handle")}
+${insert("queue_make_send_handle")}
+
+CAUTION: The library interfaces to queues are not intended to be robust in the presence of malicious callers.
+They run in the same security context as the caller and so a caller may abuse them to corrupt its own state.
+They do aim to be robust with respect to the source or destination buffer for sending and receiving messages being invalid or concurrently deallocated.
+
+You can probe the number of messages in a queue with ${link("queue_items_remaining")}.
+
+${insert("queue_items_remaining")}
+
+If you are passing messages between compartments, you should use the versions of these functions with the `_sealed` suffix.
+The ${link("queue_create_sealed")} function creates a queue and returns separate send and receive handles, which can be passed to separate compartments.
+This queue can be destroyed by calling ${link("queue_destroy_sealed")} with the send and receive handles.
+The queue is not destroyed until both handles have been passed to this function.
+
+${insert("queue_create_sealed")}
+${insert("queue_destroy_sealed")}
+
+The corresponding send and receive functions are identical to their library counterparts, but take one of the queue handles returned from ${link("queue_destroy_sealed")}.
 
 [#multiwaiter]
 == Waiting for multiple events
@@ -249,4 +295,8 @@ This is typically an on-stack array.
 
 ${insert("multiwaiter_wait")}
 
+The multiwaiter can natively wait only for futex notifications but higher-level mechanisms are built out of futexes.
+For example, if you wish to wait for a message queue (see <<message_queue>>) to be ready to send, you can call ${link("multiwaiter_queue_receive_init")} to initialise a multiwaiter event with the queue's receive counter and expected value.
+This event will then fire if the queue becomes non-full.
+The normal caveats about race conditions apply: the queue may become full again if another thread sends messages in between your receiving the notification and sending a message.
 
