@@ -38,6 +38,7 @@ ${include("threads.adoc", multipage_link=False)}
 ${include("memory.adoc", multipage_link=False)}
 ${include("debugging_apis.adoc", multipage_link=False)}
 ${include("drivers.adoc", multipage_link=False)}
+${include("adding_a_new_board.adoc", multipage_link=False)}
 ${include("porting_from_bare_metal.adoc", multipage_link=False)}
 ${include("porting_from_freertos.adoc", multipage_link=False)}
 
