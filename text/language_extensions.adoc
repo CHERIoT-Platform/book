@@ -175,10 +175,10 @@ These provide methods that are modelled to allow you to pretend that they give d
 For example, you can write:
 
 [,cpp]
----
+----
 capability.address() += 4;
 capability.permissions() &= permissionSet;
----
+----
 
 This modifies the address of `capability`, increasing it by four, and removes all permissions not present in `permissionSet`.
 Other operations are also defined to be orthogonal.
