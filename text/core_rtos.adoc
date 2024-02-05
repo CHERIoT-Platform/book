@@ -70,7 +70,7 @@ This risk is mitigated in several ways:
 When the switcher receives an interrupt (including an explicit yield), it delegates the decision about what to run next to the _scheduler_.
 The scheduler has direct access to the interrupt controller but, in most respects, is just another compartment.
 
-The switcher also holds a capability to a small stack that is used when it is invoked from the switcher.
+The switcher also holds a capability to a small stack for use by the scheduler.
 This is not quite a full thread.
 It cannot make cross-compartment calls and is not independently schedulable.
 When the switcher takes an interrupt, it invokes the switcher's entry point on this stack.
@@ -89,10 +89,12 @@ It is not; however, in the TCB for confidentiality or integrity.
 The scheduler has no mechanism to inspect the state of an interrupted thread.
 When invoked explicitly, it is called with a normal cross-compartment call and so has no access to anything other than the arguments.
 
-== Sharing memory with the allocator
+== Sharing memory from the allocator
 
-The final core component is the memory allocator, which provides the shared heap.
+The final core component is the memory allocator, which provides the heap, which is used for all dynamic memory allocations.
 This is discussed in detail in <<shared_heap>>.
+Sharing memory between compartments in CHERIoT requires nothing more than passing pointers (until you start to add availability requirements in the presence of mutual distrust).
+This means that you can allocate objects (or complex object graphs) from a few bytes up to the entire memory of the system and share them with other compartments.
 
 The allocator has access to the shadow bitmap and hardware revocation engine that enforce temporal safety for the heap, and is responsible for setting bounds on allocated memory.
 It is therefore trusted for confidentiality and integrity of memory allocated from the heap.
@@ -101,6 +103,7 @@ If it incorrectly configures revocation state or reuses memory too early then a 
 
 The allocator is not able to bypass capability permissions, it simply holds a capability that spans the whole of heap memory.
 As such, it is in the TCB only with respect to heap allocations.
+It cannot access globals (or code), held in other compartments and so a compartment that does not use the heap does not need to trust the allocator.
 
 == Building firmware images
 

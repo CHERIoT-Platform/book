@@ -90,7 +90,7 @@ Defining these does not prevent memory allocation, you can still define non-defa
 
 Sometimes a compartment needs to be able to allocate memory but that memory is not logically owned by the compartment.
 This pattern appears even in the core of the RTOS.
-The scheduler allocates memory for things like message queues, on behalf of a caller.
+The compartment that provides message queues, for example, allocates memory on behalf of a caller, it does not hold the right to allocate memory on its own behalf.
 It does this by taking an allocator capability as an argument and forwarding it to the allocator.
 
 Often, if a compartment is allocating on behalf of a caller, it needs to ensure that the caller doesn't tamper with the object.
