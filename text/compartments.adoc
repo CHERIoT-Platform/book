@@ -6,9 +6,17 @@ Compartments in CHERIoT are somewhere between libraries and processes in mainstr
 They have private code and globals and constitute a security boundary.
 They can export functions to be called form other compartments and can call functions exported from other compartments.
 
-Libraries are lightweight stateless compartments.
+Libraries are a lightweight way of reusing code without duplicating it into different compartments.
 Calling a library function does not involve crossing a security boundary.
-It is possible for libraries to hold secrets but, unless library functions are written in very careful assembly, they should assume that any private state in the library can leak to callers.
+Libraries contain code and read-only data but do not have mutable globals.
+It is possible for libraries to hold secrets but, unless library functions are written in very careful assembly, they should assume that any (immutable) globals in the library can leak to callers.
+Each library entry point is exposed as a sentry capability (see <<sealing_intro>>) to the callers, which means that the caller cannot directly read its code or (immutable) data.
+
+WARNING: If a library traps, the error handler for the caller compartment may see the register file for the middle of the library.
+Similarly, the compiler may spill arbitrary values onto the stack or leave them in registers at the end of a library function.
+As such, you should assume that anything processed in a library written in a compiled language will leak to the caller and anything written in assembly must be *very* careful to avoid leaking secrets.
+This is not normally a problem because most libraries just exist as an alternative to compiling the same functions into multiple compartments.
+For example, the functions that implement locks on top of futexes (see <<futex>>) are in a library to reduce overall code size, but simply copying the implementations of these functions into each caller would have no security implications.
 
 == Understanding the structure of a compartment
 
@@ -216,6 +224,13 @@ You can use this to propagate faults up to callers, to track the number of times
 The spilled register file does not contain a tagged value for the program counter capability.
 This is to prevent library functions that run with interrupts disabled or with access to secrets from accidentally leaking on faults.
 All other registers will be preserved exactly as they are in the register file.
+
+NOTE: Error handlers are somewhat similar to UNIX signal handlers, but with some important differences.
+They are invoked for synchronous faults, not arbitrary event notification.
+Importantly, they are required only to handle the current compartment's errors.
+You cannot, for example, call `malloc` in a signal handler because it would deadlock (or corrupt state) if the signal arrives during a call to `malloc` or `free`.
+In contrast, if a call to `heap_allocate` fails then that error will be handled in the allocator compartment.
+Your error handler will never be invoked in the middle of a call to the allocator and so it is fine to use error handlers to release locks and free memory.
 
 At the end of your error handler, you have two choices.
 You can either ask the switcher to resume, installing your modified register file (rederiving the PCC from the compartment's code capability), or you can ask it to continue unwinding.
