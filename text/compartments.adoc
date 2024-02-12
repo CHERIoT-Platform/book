@@ -303,7 +303,7 @@ This is cross-referenced with a section like this:
   "sealing_type": {
     "compartment": "alloc",
     "key": "MallocKey",
-    "provided_by": "build/cheriot/cheriot/release/cherimcu.allocator.compartment",
+    "provided_by": "build/cheriot/cheriot/release/cheriot.allocator.compartment",
     "symbol": "__export.sealing_type.alloc.MallocKey"
   }
 },

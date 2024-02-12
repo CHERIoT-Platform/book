@@ -44,24 +44,21 @@ You must also opt your compartment or library into debugging support by adding t
 [,lua]
 ----
 compartment("myComponent")
-	add_rules("cherimcu.component-debug")
+	add_rules("cheriot.component-debug")
 ----
 
 By default, this assumes that the `debugOption` that you've provided has the same name as the target.
 Sometimes, it's useful to have a single debug option that enables or disables debugging for multiple components.
-You can set the `cherimcu.debug-name` target property in your component to the name that you expect, with a line like this:
+You can set the `cheriot.debug-name` target property in your component to the name that you expect, with a line like this:
 
 [,lua]
 ----
 compartment("myComponent")
-	add_rules("cherimcu.component-debug")
+	add_rules("cheriot.component-debug")
 	on_load(function (target)
-		target:set('cherimcu.debug-name', "nameOfDebugOption")
+		target:set('cheriot.debug-name', "nameOfDebugOption")
 	end)
 ----
-
-CAUTION: The use of cherimcu here is historical.
-This will change to cheriot in a future version.
 
 Now, your compartment will be compiled with a macro that starts with `DEBUG_` and ends with the name of the debug option in all capitals.
 In the first example above, this would be `DEBUG_MYCOMPONENT`.
