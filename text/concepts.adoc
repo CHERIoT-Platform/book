@@ -40,6 +40,12 @@ Capability systems make it easy to implement least privilege by providing runnin
 They make it easy to implement intentionality by requiring the specific capability to be presented along with each operation.
 The latter avoids a large category of confused deputy attacks, where a component holding one privilege is tricked into exercising it on behalf of a differently trusted component.
 
+NOTE: In a CHERIoT system, *every* pointer in a higher-level language such as C, and every implicit pointer (such as the stack pointer, global pointer, and so on) used to build the language's abstractions, is a CHERI capability.
+If you have used other CHERI systems then you may have seen a hybrid mode, where only some pointers are capabilities and others are integers relative to an implicit capability.
+CHERIoT does not have this hybrid mode.
+The hybrid mode is intended for running legacy binaries but makes it harder to provide fine-grained sandboxing.
+CHERIoT assumes all code will be recompiled for the new target.
+
 The phrase 'differently trusted' in the previous paragraph is not an attempt to extend political correctness to software components.
 Capability systems do not imply hierarchical trust models.
 Two components may hold disjoint or overlapping sets of capabilities that allow each to perform some set of actions that the other cannot.
