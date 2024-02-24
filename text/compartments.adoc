@@ -18,6 +18,28 @@ As such, you should assume that anything processed in a library written in a com
 This is not normally a problem because most libraries just exist as an alternative to compiling the same functions into multiple compartments.
 For example, the functions that implement locks on top of futexes (see <<futex>>) are in a library to reduce overall code size, but simply copying the implementations of these functions into each caller would have no security implications.
 
+== Compartments and libraries export functions
+
+In a UNIX-like system, a shared library can export any kind of symbol.
+This includes functions and global variables.
+In CHERIoT, compartments and libraries can export only functions as entry points.
+Global variables are always private to a compartment or library, unless a pointer is explicitly passed out as a function argument or return in a cross-compartment call.
+This design is intended to make it easier to reason about sharing between compartments.
+
+If you declare a global in a header and define it in a library or a compartment, you will see linker errors if you try to use it in other compartments or libraries.
+This hold even for `const` globals exported from libraries.
+You can place a `static const` global in a header for a library, but that will introduce tight coupling: the value in the header may be inlined at any use site.
+For very large globals, this may also increase code size significantly.
+
+NOTE: As mentioned previously, (read-only) globals in a library are hidden in a software-engineering sense, but may be leaked to callers and should not be considered private in a security sense.
+
+You can still use globals to share data but you must explicitly expose them via an accessor.
+This makes CHERIoT compartments and libraries similar to Smalltalk-style objects, with public methods and private instance variables.
+
+If you expose an interface that returns a pointer to a global, you can use CHERI permissions to restrict access.
+Returning a read-only pointer to a global is a common idiom for building a lightweight broadcast communication channel.
+The owning compartment can write to the global and other compartments can read from via their copy of the pointer, with guarantees that only the owning compartment is making changes.
+
 == Understanding the structure of a compartment
 
 From a distance, a compartment is a very simple construct.
