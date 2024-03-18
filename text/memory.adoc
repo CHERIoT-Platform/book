@@ -25,6 +25,23 @@ There is no requirement that the sum of all allocation quotas is less than the t
 You can over-commit memory if you know that it will not all be needed at the same time.
 The quota mechanism gives you a way of limiting the total memory consumption of individual compartments (or groups of compartments) and of cleaning up after failure.
 
+[#custom_alloc_capabilities]
+== Creating custom allocation capabilities
+
+A compartment may hold different allocation capabilities for different purposes.
+The ${link("heap_free_all")} function allows you to free all memory allocated with a specified capability and so using multiple allocation quotas can be useful for error recovery.
+
+You can forward-declare an allocator capability with the `DECLARE_ALLOCATOR_CAPABILITY` macro.
+This takes a single argument: the name of the allocator capability.
+You can then define the allocator capability with the `DEFINE_ALLOCATOR_CAPABILITY` macro, which takes the name and the quota size as arguments.
+These can be combined with the `DECLARE_AND_DEFINE_ALLOCATOR_CAPABILITY` macro.
+
+CAUTION: The allocator capabilities are exposed as COMDATs in {cpp}.
+This allows them to be defined in a header and used in multiple translation units.
+C does not expose a similar mechanism and so you must use the separate declare and define macros in C if your compartment has more than one compilation unit that wish to share an allocator capability and define the capability in a single compilation unit.
+
+In future versions of CHERIoT RTOS, allocator capabilities are likely to gain additional restrictions (for example, separating the ability to allocate from the ability to claim).
+
 == Recalling the memory safety guarantees
 
 Every pointer to a new allocation provided by memory allocator is derived from a capability to a large heap region and bounded.
@@ -66,8 +83,7 @@ If a high-priority thread frees memory while a lower-priority thread owns the lo
 If you need to clean up all memory allocated by a particular capability, ${link("heap_free_all")} will walk the heap and deallocate everything owned by that capability.
 This is useful when a compartment has crashed, to reclaim all of its heap memory.
 
-CAUTION: This currently includes objects allocated with the token APIs but that is subject to change.
-
+${insert("heap_free_all", leveloffset="+3")}
 
 == Using C/{cpp} default allocators
 
@@ -80,10 +96,22 @@ It refers to a different capability in every compartment.
 
 You can control the amount of memory provided by this capability by defining the `MALLOC_QUOTA` for your compartment.
 If a compartment is not supposed to allocate memory on its own behalf, you can define `CHERIOT_NO_AMBIENT_MALLOC`.
-This will disable `malloc` and `free`.
-Defining `CHERIOT_NO_NEW_DELETE` will disable the global {cpp} operator `new` and `delete`.
+This will disable C's `malloc` and `free` and {cpp}'s global `new` and `delete` operators.
+Defining `CHERIOT_NO_NEW_DELETE` will disable the global {cpp} operator `new` and `delete`, but leave `malloc` and `free` available.
 
 Defining these does not prevent memory allocation, you can still define non-default allocator capabilities and use them directly, but it prevents accidental allocation.
+
+== Defining custom allocation capabilities for `malloc` and `free`
+
+If you simply wish to change the quota that is available to `malloc` and `free` then you can define `MALLOC_QUOTA` when compiling your compartment.
+If you require more control, such as controlling the compilation unit that contains the definition of the allocator capability, then you can define `CHERIOT_CUSTOM_DEFAULT_MALLOC_CAPABILITY`.
+This macro will cause `stdlib.h` to provide a forward declaration of the default allocator capability, but not to define it.
+You must define it as described in <<custom_alloc_capabilities>>.
+
+This is most useful for C compartments with multiple compilation units.
+These will need to define the malloc capability in a single compilation unit.
+
+NOTE: This limitation will be removed in a future toolchain iteration.
 
 [#token_apis]
 == Allocating on behalf of a caller
