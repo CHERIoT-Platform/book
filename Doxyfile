@@ -956,6 +956,7 @@ EXCLUDE                = \
                           rtos-source/sdk/include/libc++ \
                           rtos-source/sdk/include/fail-simulator-on-error.h \
                           rtos-source/sdk/include/ds \
+                          rtos-source/sdk/include/FreeRTOS-Compat \
                           rtos-source/sdk/third_party/magic_enum
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
