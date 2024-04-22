@@ -206,7 +206,7 @@ If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
 NOTE: Checking the pointer is not the only option.
-A CHERI fault will invoke the compartment's error handler (see <<_handling_errors>>) and so it may be possible to recover.
+A CHERI fault will invoke the compartment's error handler (see <<handling_errors>>) and so it may be possible to recover.
 Some compartments chose to assume that their arguments are valid and just gracefully clean up if they aren't.
 
 If a pointer refers to a heap location, there is one additional attack possible.
@@ -218,6 +218,51 @@ You can check whether a pointer refers to heap memory by calling ${link("heap_ad
 If this returns true, you can prevent deallocation by using the _claim_ mechanism, described in <<heap_claim>>.
 
 ${insert("heap_address_is_valid")}
+
+== Ensuring adequate stack space
+
+The stack is shared between compartments invoked on the same thread.
+The callee has access to the portion of the stack that its callers have not used.
+This means that a malicious compartment can consume almost all of the stack and then try to force a callee to trap when it tries to use the stack.
+
+Before entering a compartment, the switcher will check the amount of stack space against the required amount in the export table.
+By default, the compiler will fill this value with the amount that is required by the function that serves as an entry point.
+This is sufficient for leaf functions, but if your function calls others (and they are not inlined) then this will be insufficient.
+
+You can specify the stack space required by a function by using the `__cheriot_minimum_stack` attribute.
+This is a function attribute that takes a single argument, the number of bytes of stack space that the function requires.
+Using this attribute requires you to know how much stack space the function will use.
+
+CHERIoT CPUs include a feature called a stack high-water mark that tracks the amount of stack that is used so that the switcher can avoid zeroing unused portions of the stack.
+The switcher provides a function, ${link("stack_lowest_used_address")}, that you can call to find the lowest address.
+You can then use the difference between the top of the stack capability (accessed via the `__builtin_cheri_stack_get` built-in function) to determine how much stack space has been used in a particular invocation of a compartment entry point.
+
+${insert("stack_lowest_used_address")}
+
+NOTE: This helper checks the amount of stack usage *of the current compartment*.
+The switcher check is not intended to ensure that the invocation of the current compartment can succeed, only that failures are detectable and recoverable.
+If you want to ensure that a called compartment *also* has enough stack then you will need to add its stack requirements to those of your compartment.
+
+The `debug.hh` header includes a {cpp} helper class, `StackUsageCheck`.
+This takes a template argument allowing it to be disabled, enabled and just log if you use more than the expected amount of stack, or enabled and trap if you use more than the expected amount of stack.
+This is most commonly used with a macro like this:
+
+[,cpp]
+----
+#define STACK_CHECK(expected) \ 
+       StackUsageCheck<StackMode, expected, __PRETTY_FUNCTION__> stackCheck
+----
+
+The `StackMode` template argument is one of `StackCheckMode::Asserting`, `StackCheckMode::Logging`, or `StackCheckMode::Disabled`.
+Typically, you will use it in logging mode initially, then disabled mode in production.
+Use it in asserting mode when running representative tests in CI so that it fails if you have increased your stack requirements and not updated the caller.
+
+It's important that the tests that you run in asserting mode have good coverage.
+It's typically fine for this to be function-granularity coverage: with the exception of variable-length arrays, functions stack usage does not depend on control flow within the function.
+
+CAUTION: It's tempting to enable the stack checks in debug builds.
+This is usually a bad idea because debug builds include extra checks that increase stack usage.
+Enabling the stack checks in debug builds will cause you to demand more stack space than a release build actually needs, increasing overall memory pressure.
 
 [#handling_errors]
 == Handling errors
