@@ -99,6 +99,34 @@ ${insert("thread_sleep")}
 
 As with other calls that take a `Timeout`, the number of ticks that have elapsed during the call can be checked by reading the `elapsed` field of the timeout structure.
 
+Sleeping in a system with an RTOS scheduler conflates two concepts:
+
+ - Waiting for some time to elapse.
+ - Allowing lower-priority threads to run.
+
+The ${link("thread_sleep")} call supports both of these but understanding how they differ requires understanding a little of the scheduler's behaviour.
+
+Traditional OS schedulers from the earlies preemptive multitasking systems used a fixed scheduling quantum.
+The scheduler would configure a periodic timer interrupt and would make a new scheduling decision at each interrupt or at explicit yields.
+This fixed quantum is the origin of the tick abstraction in CHERIoT RTOS.
+
+The CHERIoT RTOS scheduler is *tickless*.
+This means that, although it uses ticks as an abstraction for defining scheduling quanta, it does not schedule a regular timer interrupt.
+When two threads at the same priority level are runnable, the scheduler will request a timer interrupt to preempt the current one and switch to the other.
+If the running thread has no peers, the scheduler will allow it to run until either it yields or another higher or equal-priority thread's timeout expires.
+The tick abstraction remains as a convenient way of expressing time to the scheduler, but internally the scheduler tracks only elapsed cycles.
+
+By default, if `0` is passed as the `flags` argument to `thread_sleep`, the sleep operation is treated as a *yield*.
+This is a way for the running thread to communicate to the scheduler that it is happy for other (lower or equal-priority) threads to run for up to the specified number of ticks.
+The scheduler may wake the yielding thread if no other thread is going to be runnable within that number of ticks.
+This allows a high-priority threads to allow other threads to run, but continue using the CPU is no other thread is runnable.
+
+In some cases, you really want to sleep.
+For example, if you're updating a clock display, you will want to run once a second or once a minute to update a display.
+The same applies if you're sending keep-alive packets or periodically monitoring some other component.
+Even if no other threads are runnable, you have no useful work to do for a bit.
+You can pass `ThreadSleepNoEarlyWake` as the `flags` argument to `thread_sleep` to indicate that you really want to sleep.
+
 [#futex]
 == Building locks with futexes
 
