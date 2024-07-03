@@ -100,7 +100,7 @@ With the load / store capability permission, they also allow loading and / or st
 Removing this permission is useful for pure-data buffers.
 You can't accidentally store a valid pointer into them, and if they already contain a valid pointer then no one can load it.
 
-Load global allows loading permissions with the global permission.
+Load global allows loading capabilities with the global permission.
 Any capability loaded via a capability without this permission will have its global (and load-global) permission stripped.
 It can then be stored only via a capability that has the store-local permission.
 CHERIoT RTOS provides the store-local permission exclusively to stacks.
