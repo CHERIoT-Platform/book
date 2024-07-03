@@ -88,10 +88,10 @@ For many of these, it's more useful to think about what can't be done if you lac
 [#derived_permissions]
 |===
 |Debug output letter | Permission name         | Depends on | Meaning
-|c                   | Load / Store Capability | R / W      | May be used to load or store capabilities as well as non-capability data.
-|g                   | Load Global             | R          | May be used to load capabilities with the global permission.
-|m                   | Load Mutable            | R          | May be used to load capabilities with write permission.
-|l                   | Store local             | W          | May be used to store capabilities that do _not_ have global permission.
+|c                   | Load / Store Capability | R or W     | May be used to load or store capabilities as well as non-capability data.
+|g                   | Load Global             | R and c    | May be used to load capabilities with the global permission.
+|m                   | Load Mutable            | R and c    | May be used to load capabilities with write permission.
+|l                   | Store local             | W and c    | May be used to store capabilities that do _not_ have global permission.
 |a                   | Access System Registers | X          | Code run via this capability may access reserved special registers.
 |===
 
