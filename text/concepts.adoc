@@ -58,7 +58,7 @@ In a CHERI system, this can include one component having read access to an objec
 Any CHERI system provides a set of permissions on capabilities.
 Most existing CHERI systems have 64-bit addresses (and therefore 128-bit capabilities) and so have a lot of space for permissions as an orthogonal bitfield.
 The CHERIoT platform has 32-bit addresses (and therefore 64-bit capabilities) and so has to compress the permissions.
-This is done, in part, by separating the permissions into primary and derived permissions.
+This is done, in part, by separating the permissions into primary and dependent permissions.
 The primary permissions (listed in <<primary_permissions>>) have meaning by themselves.
 If you use the CHERIoT RTOS logging support to print capabilities, the permissions will be listed using the letters in the first column.
 
@@ -80,12 +80,12 @@ Read and write permission allow the capability to be used as an operand to load 
 Execute allows the capability to be used as a jump target, where it will end up installed as the _program counter capability_ and used for instruction fetch.
 We'll cover the sealing and unsealing permissions later.
 
-The derived permissions (listed in <<derived_permissions>>) provide more fine-grained control.
+The dependent permissions (listed in <<dependent_permissions>>) provide more fine-grained control.
 For many of these, it's more useful to think about what can't be done if you lack the permission than to think about what can be done if you have it.
 
-.CHERIoT derived permissions
+.CHERIoT dependent permissions
 [cols="1,1,1,4",frame=none,grid=all,stripes=even,options="unbreakable"]
-[#derived_permissions]
+[#dependent_permissions]
 |===
 |Debug output letter | Permission name         | Depends on | Meaning
 |c                   | Load / Store Capability | R / W      | May be used to load or store capabilities as well as non-capability data.
