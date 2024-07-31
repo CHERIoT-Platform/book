@@ -166,5 +166,6 @@ The claim is dropped by calling ${link("heap_free")}.
 While you have a claim on an object, that object counts towards your quota.
 You can claim the same object multiple times, each time adds a new claim to the object but (if it is already claimed with that quota) does not consume quota.
 
-NOTE: You can pass a capability with bounds that do not cover an entire object to `heap_claim` but your claim will cover the entire object because you cannot 
+NOTE: You can pass a capability with bounds that do not cover an entire object to `heap_claim` but your claim will cover the entire object because you cannot free part of an object.
 
+${insert("heap_claim", leveloffset="+3")}
