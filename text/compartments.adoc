@@ -395,4 +395,44 @@ The allocator uses the static sealing mechanism to define allocation capabilitie
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
 
+== Sharing globals between compartments
+
+CHERIoT supports a notion of pre-shared objects.
+Each pre-shared object is allocated in a dedicated region of memory and can be imported into one or more compartments.
+Each import can have a different set of permissions.
+
+This model lets you define a global that is, for example, writeable by one compartment but readable from many, with no control flow between the communicating compartments.
+
+Currently, the syntax for importing a pre-shared object is more verbose, a future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on `extern` declarations.
+
+You can import a pre-shared object with the `SHARED_OBJECT(type, name)` macro.
+This takes the type of the object and its name (which must be globally unique across the firmware image) as arguments.
+This evaluates to a pointer to the object.
+Objects imported with this macro have the full set of permissions for imported objects.
+
+You can also disable individual permissions using the `SHARED_OBJECT_WITH_PERMISSIONS` macros.
+This takes an additional four additional boolean arguments that define the following set of permissions:
+
+ - Load
+ - Store
+ - Load or store capabilities
+ - Load mutable
+
+Note that load-mutable depends on both load and load/store capability permissions.
+You cannot load a capability that has store permission if you cannot load a capability.
+
+Shared objects are defined in the build system, by setting the `shared_objects` value on a target (typically a compartment).
+For example:
+
+[,lua]
+----
+    on_load(function(target)
+        target:values_set("shared_objects", { exampleK = 1024, test_word = 4 }, {expand = false})
+    end)
+----
+
+This is from the test suite and defines a `test_word` object that is a single 32-bit value and an `exampleK` object that is 1024 bytes.
+Note that the objects are defined as sizes, not as types.
+The type cannot be enforced by CHERI and depends on the compartment that imports the object.
+If a single compartment has write access to an object then that compartment forms the TCB for type safety of that object.
 
