@@ -141,10 +141,10 @@ The unsealed capability can be used just like any other pointer to heap memory.
 The sealed capability can be used with ${link("token_obj_unseal")} to retrieve a copy of the unsealed capability.
 The `token_obj_unseal` function requires a permit-unseal capability whose value matches the permit-seal capability passed to `token_sealed_unsealed_alloc`.
 
-CAUTION: The virtualised sealing mechanism must be able to derive an accurate capability for the object excluding the header.
-This means that the size is currently restricted to a little under 4 KiB.
-Attempting to allocate larger sealed objects will fail.
-If you need larger sealed objects, allocate them as unsealed objects and store a pointer to them in a sealed object.
+NOTE: The virtualised sealing mechanism must be able to derive an accurate capability for the object excluding the header.
+This is trivial for objects up to a little under 4 KiB.
+After that, the allocator will create some padding.
+The padding is placed at the *start* of the allocation, so you can see how much is there by querying the base and address of the returned (sealed) capability.
 
 An object allocated in this way can be deallocated only by presenting _both_ the allocator capability and the sealing capability that match the original allocation.
 This is very convenient for compartments that expose services because the memory cannot go away while they are using it and can be reclaimed only when the same caller (or something acting on its behalf) authorises the deallocation.
