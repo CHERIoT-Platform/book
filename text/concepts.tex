@@ -65,7 +65,7 @@ The primary permissions (listed in \ref{tbl:primary_permissions}) have meaning b
 If you use the CHERIoT RTOS logging support to print capabilities, the permissions will be listed using the letters in the first column.
 
 \begin{table}
-	\begin{tabular}
+	\begin[cols="20%fw 20%fw 60%fw"]{tabular}
 		\tr{ \th{Debug output letter} \th{Permission name} \th{Meaning}}
 		\tr{ \td{G} \td{Global} \td{May be stored anywhere in memory.}}
 		\tr{ \td{R} \td{Load (Read)} \td{May be used to read.}}
@@ -143,7 +143,7 @@ CHERIoT RTOS provides a shared heap (see \ref{shared_heap}) which enforces spati
 
 \section[label=sealing_intro]{Sealing pointers for tamper proofing}
 
-We have discussed all of the primary permissions from \ref{tbl:primary_permissions} with the exception of those related to _sealing_.
+We have discussed all of the primary permissions from \ref{tbl:primary_permissions} with the exception of those related to \keyword{sealing}.
 Sealing a capability transforms it from something that conveys rights and can be used to exercise those rights into an opaque token.
 It can be transformed back with the converse unseal operation.
 
