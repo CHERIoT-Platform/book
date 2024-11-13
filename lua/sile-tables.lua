@@ -4,6 +4,7 @@ function visit(textTree)
 	if type(textTree) ~= "string" then
 		if textTree.kind == "tabular" then
 			textTree.kind = "ptable"
+			textTree:attribute_set("cellborder", "0")
 			local columns = textTree:attribute("cols")
 			if columns == "" then
 				local columnCount = 0
@@ -40,11 +41,18 @@ function visit(textTree)
 						row:visit(function(cell)
 							if type(cell) ~= "string" then
 								if cell.kind == "th" then
+									cell:attribute_set("border", "0.8pt 0.4pt 0 0")
+									cell:attribute_set("halign", "center")
 									-- FIXME: Style headings
 									cell.kind = "cell"
 								elseif cell.kind == "td" then
 									cell.kind = "cell"
+								else
+									return {cell}
 								end
+								-- Here we know it is some kind of cell
+								local noindent = TextTree.new("noindent")
+								table.insert(cell.children, 1, noindent)
 							end
 							return {cell}
 						end)

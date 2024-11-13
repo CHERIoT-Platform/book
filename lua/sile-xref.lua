@@ -42,6 +42,7 @@ function resolveXrefs(textTree)
 				textTree:error("Unknown label: " .. targetName)
 			end
 			textTree:attribute_set("marker", targetName)
+			textTree:attribute_set("type", "section")
 			textTree:extract_children()
 		else
 			textTree:visit(resolveXrefs)

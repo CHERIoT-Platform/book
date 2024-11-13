@@ -8,6 +8,9 @@ function process(textTree)
 		if tree.kind == "note" then
 			return tree:extract_children()
 		end
+		if tree.kind == "caution" then
+			return tree:extract_children()
+		end
 		return {tree}
 	end)
 	return textTree
