@@ -1,18 +1,17 @@
-= The RTOS Core
-${include("_header.adoc", always_embed=True, leveloffset=None)}
+\chapter{The RTOS Core}
 
 The core of the RTOS is a set of privilege-separated components.
 Each core component runs with some privileges that mean that it is (at least partially) in the trusted computing base (TCB) for other things.
 
-== Starting the system with the loader
+\section{Starting the system with the loader}
 
-The _loader_ runs on system startup.
+The \keyword{loader} runs on system startup.
 It reads the compartment headers and populates each compartment with the set of capabilities that it needs.
 If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise pointer by deriving a capability from one out of the compartment's code or data capabilities.
 In addition, cross-compartment and cross-library calls and imported MMIO regions all require capabilities to be set up, as does the initial register file for each thread.
 
 The loader is the most privileged component in the system.
-When a CHERIoT CPU boots, it will have a small set of _root capabilities_ in registers.
+When a CHERIoT CPU boots, it will have a small set of \keyword{root capabilities} in registers.
 These, between them, convey the full set of rights that can be granted by a capability.
 Every capability in the running system is derived (often via many steps) from one of these.
 As such, the loader is able to do anything.
@@ -23,7 +22,7 @@ It is also possible to validate this by running the loader in a simulator and ca
 
 The loader enforces some of the guarantees in the initial state.
 It is structured to be able to enforce some of these by construction.
-For example, only stacks and trusted stacks (accessible only by the switcher, see <<_changing_trust_domain_with_the_switcher>>) have store-local permission and these do not have global permission.
+For example, only stacks and trusted stacks (accessible only by the switcher, see \ref{_changing_trust_domain_with_the_switcher}) have store-local permission and these do not have global permission.
 The scheduler derives these from a capability that has store-local but not global permissions and derives all other capabilities from one that has the store-local permission removed.
 
 Before starting the system, the loader erases almost all of its code (leaving the stub that handles this erasure), its stack, and clears its registers.
@@ -31,18 +30,18 @@ The last bit of the loader's code becomes the idle thread (a wait-for-interrupt 
 The loader's stack is used for the scheduler stack.
 The memory that held loader's code is used for heap memory.
 
-== Changing trust domain with the switcher
+\section{Changing trust domain with the switcher}
 
-The _switcher_ is the most privileged component that runs after the system finishes booting.
+The \keyword{switcher} is the most privileged component that runs after the system finishes booting.
 It is responsible for transitions between threads (context switches) and between compartments (cross-compartment calls and returns).
 The switcher is a very small amount of code—under 500 instructions—that is expected to be amenable to formal verification.
 
 The switcher is the only component in a running CHERIoT system that has access-system-registers permission.
-It uses this primarily to access a single reserved register that holds the _trusted stack_.
+It uses this primarily to access a single reserved register that holds the \keyword{trusted stack}.
 The trusted stack is a region of memory containing the register save area for context switches and a small frame for every cross-compartment call that allows safe return even if the callee has corrupted all state that it has access to.
 
 Trusted stacks are set up by the loader.
-The loader passes the scheduler (see <<_time_slicing_with_the_scheduler>>) a sealed capability to each of these on initialisation.
+The loader passes the scheduler (see \ref{_time_slicing_with_the_scheduler}) a sealed capability to each of these on initialisation.
 The switcher holds the only permit-unseal capability for the type used to seal trusted stacks.
 
 The context switch path spills all registers to the current trusted stack's save area and then invokes the scheduler, which returns a sealed capability to the next thread to run.
@@ -57,15 +56,17 @@ This means that the switcher is the only component that has access to either two
 As such, it is in the TCB for both compartment and thread isolation.
 This risk is mitigated in several ways:
 
- - The switcher is small.
-   It contains a similar number of instructions to the amount of unverified code in seL4.
- - The switcher is defensive.
-   Most errors simply forcibly unwind to the previous trusted stack frame, so a compartment that attempts to attack the switcher exits to its caller.
- - Like everything else in the system, it must follow the capability rules.
-   Unlike an operating system running in a privileged mode on mainstream hardware, it does not get to opt out of memory protection, it is not able to access beyond the bounds of capabilities passed to it or access any memory to which it does not have an explicit capability.
- - It is largely stateless, all state that it modifies is held in the trusted stack.
+\begin{itemize}
+	\item{The switcher is small.
+		It contains a similar number of instructions to the amount of unverified code in seL4.}
+	\item{The switcher is defensive.
+		Most errors simply forcibly unwind to the previous trusted stack frame, so a compartment that attempts to attack the switcher exits to its caller.}
+	\item{Like everything else in the system, it must follow the capability rules.
+		Unlike an operating system running in a privileged mode on mainstream hardware, it does not get to opt out of memory protection, it is not able to access beyond the bounds of capabilities passed to it or access any memory to which it does not have an explicit capability.}
+	\item{It is largely stateless, all state that it modifies is held in the trusted stack.}
+\end{itemize}
 
-== Time slicing with the scheduler
+\section{Time slicing with the scheduler}
 
 When the switcher receives an interrupt (including an explicit yield), it delegates the decision about what to run next to the _scheduler_.
 The scheduler has direct access to the interrupt controller but, in most respects, is just another compartment.
@@ -89,10 +90,10 @@ It is not; however, in the TCB for confidentiality or integrity.
 The scheduler has no mechanism to inspect the state of an interrupted thread.
 When invoked explicitly, it is called with a normal cross-compartment call and so has no access to anything other than the arguments.
 
-== Sharing memory from the allocator
+\section{Sharing memory from the allocator}
 
 The final core component is the memory allocator, which provides the heap, which is used for all dynamic memory allocations.
-This is discussed in detail in <<shared_heap>>.
+This is discussed in detail in \ref{shared_heap}.
 Sharing memory between compartments in CHERIoT requires nothing more than passing pointers (until you start to add availability requirements in the presence of mutual distrust).
 This means that you can allocate objects (or complex object graphs) from a few bytes up to the entire memory of the system and share them with other compartments.
 
@@ -105,7 +106,7 @@ The allocator is not able to bypass capability permissions, it simply holds a ca
 As such, it is in the TCB only with respect to heap allocations.
 It cannot access globals (or code), held in other compartments and so a compartment that does not use the heap does not need to trust the allocator.
 
-== Building firmware images
+\section{Building firmware images}
 
 CHERIoT RTOS uses the xmake build system.
 Xmake is a build system implemented in Lua.
@@ -122,50 +123,47 @@ Next, compartments and libraries are linked.
 This requires a special invocation of the linker that produces a relocatable object file with the correct structure.
 At this point, the only exported symbols are those for exported functions and the only undefined symbols should be those for MMIO regions or exports from other compartments (see <<compartments>> for more information).
 
-NOTE: The build system produces a `.library` or `.compartment` file for each shared library and each compartment.
+NOTE: The build system produces a \file{.library} or \file{.compartment} file for each shared library and each compartment.
 In theory, these can be distributed as binaries and linked into a firmware image but this is not yet handled automatically by the build system.
 
 The final link step produces a firmware image.
 It also produces the JSON report that describes all cross-compartment interactions and is used for auditing.
 
-Using the RTOS build system involves writing an `xmake.lua` file that describes the build.
+Using the RTOS build system involves writing an \file{xmake.lua} file that describes the build.
 This starts with some boilerplate:
 
-[,lua]
-----
+\begin{luasnippet}
 set_project("CHERIoT examaple project")
 sdkdir = "../../sdk"
 includes(sdkdir)
 set_toolchains("cheriot-clang")
-----
+\end{luasnippet}
 
 The first line gives a name to the project.
 The next three import the build system components from the CHERIoT RTOS SDK.
-The `sdkdir` variable should point to the location of the `sdk` directory from the RTOS repository.
+The \lua{sdkdir} variable should point to the location of the \file{sdk} directory from the RTOS repository.
 The other lines should be reproduced verbatim.
 
 Next, you may wish to include some shared libraries from the RTOS.
-Each of these libraries has an `xmake.lua` that you can include by listing the directory containing it as an argument to `includes`.
+Each of these libraries has an \file{xmake.lua} that you can include by listing the directory containing it as an argument to `includes`.
 A typical image will include something like this:
 
-[,lua]
-----
+\begin{luasnippet}
 -- Support libraries
 includes(path.join(sdkdir, "lib/freestanding"),
          path.join(sdkdir, "lib/atomic"),
          path.join(sdkdir, "lib/crt"))
-----
+\end{luasnippet}
 
-This includes the core definitions for a freestanding C implementation (`memcpy` and friends), the atomic helpers for cores without atomic instructions, and the C runtime things that are called from compiler builtins.
-See the `lib` directory in the SDK for a full list.
+This includes the core definitions for a freestanding C implementation (\c{memcpy} and friends), the atomic helpers for cores without atomic instructions, and the C runtime things that are called from compiler builtins.
+See the \file{lib} directory in the SDK for a full list.
 
 Next you need to provide the option for selecting the board:
 
-[,lua]
-----
+\begin{luasnippet}
 option("board")
     set_default("sail")
-----
+\end{luasnippet}
 
 You can set a default here.
 This refers to a board description file.
@@ -174,60 +172,39 @@ If you're targeting a particular hardware platform, setting the default here all
 Next, you need to add any compartments and libraries that are specific to this firmware image.
 In most cases, you can do this in just two lines, the first providing the name of the compartment and the second providing the list of files:
 
-[,lua]
-----
+\begin{luasnippet}
 compartment("example")
     add_files("example.cc")
 
 compartment("mylib")
     add_files("lib.cc")
-----
+\end{luasnippet}
 
-CAUTION: The name of the compartment in the `xmake.lua` must match the name used for the exported function as described in <<exporting_functions>>.
+\begin{caution}
+	The name of the compartment in the \file{xmake.lua} must match the name used for the exported function as described in \ref{exporting_functions}.
+\end{caution}
 If they do not match, the compiler will raise an error that a function is defined in the wrong compartment.
 
-Finally, you must provide a `firmware` block that defines the complete integration:
+Finally, you must provide a \lua{firmware} block that defines the complete integration:
 
-[,lua]
-----
--- Firmware image for the example.
-firmware("hello_world")
-    add_deps("crt", "freestanding", "atomic_fixed")
-    add_deps("example", "mylib")
-    on_load(function(target)
-        target:values_set("board", "$(board)")
-        target:values_set("threads", {
-            {
-                compartment = "hello",
-                priority = 1,
-                entry_point = "say_hello",
-                stack_size = 0x200,
-                trusted_stack_frames = 1
-            }
-        }, {expand = false})
-    end)
-----
+\lualisting[filename=../rtos-source/examples/01.hello_world/xmake.lua,firstline=20,lastline=34]{}
 
-The `add_deps` lines refer to `library` and `compartment` blocks defined earlier.
+The \lua{add_deps} lines refer to \lua{library} and \lua{compartment} blocks defined earlier.
 The first refers to the ones imported from the SDK, the second to the ones from this example.
-The `on_load` block then sets the CHERIoT-specific configuration.
-The `board` key is set to the value from the option that we defined.
+The \lua{on_load} block then sets the CHERIoT-specific configuration.
+The \lua{board} key is set to the value from the option that we defined.
 You can hard-code this to a single board or provide multiple firmware targets for different boards if required.
 
-The `threads` key is set to an array of thread descriptions.
+The \lua{threads} key is set to an array of thread descriptions.
 Each thread must set five properties:
 
-`compartment`::
-The compartment in which this thread starts.
-`entry_point`::
-The name of the function for this thread's entry point.
-This must be a function that takes and returns `void`, exported from the compartment specified by the `compartment` key.
-`priority`::
-The priority of this thread.
-Higher numbers indicate higher priorities.
-`stack_size`::
-The number of bytes of stack space that this thread has allocated.
-`trusted_stack_frames`::
-The number of trusted stack frames.
-Each cross-compartment call pushes a new frame onto this stack and so this defines the maximum number of compartments call depth (including the entry point) for this thread.
-
+\begin{description}
+	\item[tag=compartment]{The compartment in which this thread starts.}
+	\item[tag=entry_point]{The name of the function for this thread's entry point.
+		This must be a function that takes and returns \c{void}, exported from the compartment specified by the \lua{compartment} key.}
+	\item[tag=priority]{The priority of this thread.
+		Higher numbers indicate higher priorities.}
+	\item[tag=stack_size]{The number of bytes of stack space that this thread has allocated.}
+	\item[tag=trusted_stack_frames]{The number of trusted stack frames.
+		Each cross-compartment call pushes a new frame onto this stack and so this defines the maximum number of compartments call depth (including the entry point) for this thread.}
+\end{description}
