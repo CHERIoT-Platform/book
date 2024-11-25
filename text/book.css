@@ -1,4 +1,19 @@
 
+dt {
+	text-indent: 2em;
+	margin-inline-start: 2em;
+}
+
+dd {
+	display: inline;
+	text-indent: 0pt;
+	margin-inline-start: 0pt;
+}
+dd::after {
+	content: '\A';
+	white-space: pre;
+}
+
 pre.listing-code-numbered > code.listing-line:before {
 	content: counter(listing-line, decimal) " ";
 	-webkit-user-select: none; /* Safari */
