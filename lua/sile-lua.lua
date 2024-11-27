@@ -1,7 +1,9 @@
 
 function visit(tree)
 	if type(tree) ~= 'string' then
-		if tree.kind == 'luasnippet' then
+		if tree.kind == 'cxxsnippet' then
+			tree.kind = 'verbatim'
+		elseif tree.kind == 'luasnippet' then
 			tree.kind = 'verbatim'
 		elseif tree.kind == 'lualisting' then
 			tree.kind = 'verbatim'
