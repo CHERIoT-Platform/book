@@ -121,7 +121,7 @@ This means that, when building compartments, the compiler invocation must know t
 
 Next, compartments and libraries are linked.
 This requires a special invocation of the linker that produces a relocatable object file with the correct structure.
-At this point, the only exported symbols are those for exported functions and the only undefined symbols should be those for MMIO regions or exports from other compartments (see <<compartments>> for more information).
+At this point, the only exported symbols are those for exported functions and the only undefined symbols should be those for MMIO regions or exports from other compartments (see \ref{compartments} for more information).
 
 NOTE: The build system produces a \file{.library} or \file{.compartment} file for each shared library and each compartment.
 In theory, these can be distributed as binaries and linked into a firmware image but this is not yet handled automatically by the build system.
@@ -187,7 +187,24 @@ If they do not match, the compiler will raise an error that a function is define
 
 Finally, you must provide a \lua{firmware} block that defines the complete integration:
 
-\lualisting[filename=../rtos-source/examples/01.hello_world/xmake.lua,firstline=20,lastline=34]{}
+\begin{luasnippet}
+-- Firmware image for the example.
+firmware("hello_world")
+    add_deps("crt", "freestanding", "atomic_fixed")
+    add_deps("example", "mylib")
+    on_load(function(target)
+        target:values_set("board", "$(board)")
+        target:values_set("threads", {
+            {
+                compartment = "hello",
+                priority = 1,
+                entry_point = "say_hello",
+                stack_size = 0x200,
+                trusted_stack_frames = 1
+            \}
+        \}, {expand = false\})
+    end)
+\end{luasnippet}
 
 The \lua{add_deps} lines refer to \lua{library} and \lua{compartment} blocks defined earlier.
 The first refers to the ones imported from the SDK, the second to the ones from this example.

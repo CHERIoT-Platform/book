@@ -1,6 +1,8 @@
 function visit(tree)
 	if type(tree) ~= "string" then
-		if tree.kind == "luasnippet" then
+		if tree.kind == "cxxsnippet" then
+			tree.kind = "pre"
+		elseif tree.kind == "luasnippet" then
 			tree.kind = "pre"
 		elseif tree.kind == "lualisting" then
 			tree.kind = "pre"

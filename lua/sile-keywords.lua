@@ -1,3 +1,10 @@
+function makeMonospace(textTree)
+	textTree.kind = "font"
+	textTree:attribute_set("family", "Hack")
+	--textTree:attribute_set("size", "1.2ex")
+	return textTree
+end
+
 function visit(textTree)
 	if type(textTree) == "string" then
 		return { textTree }
@@ -8,16 +15,17 @@ function visit(textTree)
 	elseif textTree.kind == "textem" then
 		textTree.kind = "font"
 		textTree:attribute_set("style", "italic")
+	elseif textTree.kind == "flag" then
+		makeMonospace(textTree)
 	elseif textTree.kind == "file" then
-		textTree.kind = "font"
-		textTree:attribute_set("family", "Source Code Pro")
+		makeMonospace(textTree)
 		-- TODO: Keyword matching
 	elseif textTree.kind == "c" then
-		textTree.kind = "font"
-		textTree:attribute_set("family", "Source Code Pro")
+		makeMonospace(textTree)
+	elseif textTree.kind == "cxx" then
+		makeMonospace(textTree)
 	elseif textTree.kind == "lua" then
-		textTree.kind = "font"
-		textTree:attribute_set("family", "Source Code Pro")
+		makeMonospace(textTree)
 	end
 	textTree:visit(visit)
 	return { textTree }
