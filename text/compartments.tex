@@ -1,6 +1,4 @@
-[#compartments]
-= Compartments and libraries
-${include("_header.adoc", always_embed=True, leveloffset=None)}
+\chapter[label=compartments]{Compartments and libraries}
 
 Compartments in CHERIoT are somewhere between libraries and processes in mainstream operating systems.
 They have private code and globals and constitute a security boundary.
@@ -10,15 +8,17 @@ Libraries are a lightweight way of reusing code without duplicating it into diff
 Calling a library function does not involve crossing a security boundary.
 Libraries contain code and read-only data but do not have mutable globals.
 It is possible for libraries to hold secrets but, unless library functions are written in very careful assembly, they should assume that any (immutable) globals in the library can leak to callers.
-Each library entry point is exposed as a sentry capability (see <<sealing_intro>>) to the callers, which means that the caller cannot directly read its code or (immutable) data.
+Each library entry point is exposed as a sentry capability (see \ref{sealing_intro}) to the callers, which means that the caller cannot directly read its code or (immutable) data.
 
-WARNING: If a library traps, the error handler for the caller compartment may see the register file for the middle of the library.
+\begin{warning}
+If a library traps, the error handler for the caller compartment may see the register file for the middle of the library.
 Similarly, the compiler may spill arbitrary values onto the stack or leave them in registers at the end of a library function.
 As such, you should assume that anything processed in a library written in a compiled language will leak to the caller and anything written in assembly must be *very* careful to avoid leaking secrets.
 This is not normally a problem because most libraries just exist as an alternative to compiling the same functions into multiple compartments.
-For example, the functions that implement locks on top of futexes (see <<futex>>) are in a library to reduce overall code size, but simply copying the implementations of these functions into each caller would have no security implications.
+For example, the functions that implement locks on top of futexes (see \ref{futex}) are in a library to reduce overall code size, but simply copying the implementations of these functions into each caller would have no security implications.
+\end{warning}
 
-== Compartments and libraries export functions
+\section{Compartments and libraries export functions}
 
 In a UNIX-like system, a shared library can export any kind of symbol.
 This includes functions and global variables.
@@ -27,11 +27,13 @@ Global variables are always private to a compartment or library, unless a pointe
 This design is intended to make it easier to reason about sharing between compartments.
 
 If you declare a global in a header and define it in a library or a compartment, you will see linker errors if you try to use it in other compartments or libraries.
-This hold even for `const` globals exported from libraries.
-You can place a `static const` global in a header for a library, but that will introduce tight coupling: the value in the header may be inlined at any use site.
+This hold even for \c{const} globals exported from libraries.
+You can place a \c{static const} global in a header for a library, but that will introduce tight coupling: the value in the header may be inlined at any use site.
 For very large globals, this may also increase code size significantly.
 
-NOTE: As mentioned previously, (read-only) globals in a library are hidden in a software-engineering sense, but may be leaked to callers and should not be considered private in a security sense.
+\begin{note}
+As mentioned previously, (read-only) globals in a library are hidden in a software-engineering sense, but may be leaked to callers and should not be considered private in a security sense.
+\end{note}
 
 You can still use globals to share data but you must explicitly expose them via an accessor.
 This makes CHERIoT compartments and libraries similar to Smalltalk-style objects, with public methods and private instance variables.
@@ -40,7 +42,7 @@ If you expose an interface that returns a pointer to a global, you can use CHERI
 Returning a read-only pointer to a global is a common idiom for building a lightweight broadcast communication channel.
 The owning compartment can write to the global and other compartments can read from via their copy of the pointer, with guarantees that only the owning compartment is making changes.
 
-== Understanding the structure of a compartment
+\section{Understanding the structure of a compartment}
 
 From a distance, a compartment is a very simple construct.
 The core of a compartment is made of just two capabilities.
@@ -48,7 +50,9 @@ The program counter capability (PCC) defines (and grants access to) the range of
 This has read and execute permissions.
 The capability global pointer (CGP) defines (and grants access to) the range of memory covering the compartment's mutable globals.
 
-NOTE: A future version of the ABI will move read-only globals out of the program counter capability region but this requires some ISA changes to be efficient and so will likely not happen before CHERIoT 2.0.
+\begin{note}
+A future version of the ABI may move read-only globals out of the program counter capability region but this requires some ISA changes to be efficient and so will likely not happen before CHERIoT 2.0.
+\end{note}
 
 If a compartment didn't need to interact with anything else, this would be sufficient.
 In practice, compartments are useful only because they interact with other compartments or the outside world.
@@ -68,33 +72,35 @@ Finally, import tables contain sealed capabilities referring to other compartmen
 If a compartment exports any entry points for other compartments to call, it has an export table.
 This contains the PCC and CGP for the compartment and a small amount of metadata for each exported function describing:
 
- - The location of the entry point.
- - Whether interrupts are enabled or disabled when invoking this function.
- - How many argument registers are used (conversely, how many are unused and should be zeroed).
+\begin{itemize}
+	\item{The location of the entry point.}
+	\item{Whether interrupts are enabled or disabled when invoking this function.}
+	\item{How many argument registers are used (conversely, how many are unused and should be zeroed).}
+\end{itemize}
 
 This is all of the information that the switcher needs to transition from one compartment to another.
 
 Extracting code and moving it to a new compartment adds a very small amount of memory overhead, on the order of a dozen words for a typical compartment.
 
-== Adding compartments to the build system
+\section{Adding compartments to the build system}
 
 
 
-== Choosing a trust model
+\section{Choosing a trust model}
 
 There are three trust models that are commonly applied to compartments:
 
-Sandbox::
-A sandbox is a compartment that is used to isolate untrusted code.
-This model is used to protect the rest of the system.
-Typically, a sandbox will trust values passed to it as arguments to exported functions or return values from functions that it calls in other compartments.
-Safebox::
-A safebox is a compartment that holds some secret or sensitive data that must be protected from the outside.
-For example, a safebox may be used to protect a key and perform encryption or signing on behalf of callers.
-A safebox does not trust any data provided from outside of the compartment, but callers may trust it to behave correctly.
-Mutual distrust::
-Mutual distrust is the strongest model.
-A compartment in a mutual-distrust relationship protects itself from attacks from the outside by careful handling of inputs and expects other compartments to protect themselves from it in the same way.
+\begin{description}
+	\item[tag=Sandbox:]{ A sandbox is a compartment that is used to isolate
+		untrusted code.
+		This model is used to protect the rest of the system.
+		Typically, a sandbox will trust values passed to it as arguments to exported functions or return values from functions that it calls in other compartments.}
+		\item[tag=Safebox:]{ A safebox is a compartment that holds some secret or sensitive data that must be protected from the outside.
+		For example, a safebox may be used to protect a key and perform encryption or signing on behalf of callers.
+		A safebox does not trust any data provided from outside of the compartment, but callers may trust it to behave correctly.}
+	\item[tag=Mutual distrust:]{ Mutual distrust is the strongest model.
+		A compartment in a mutual-distrust relationship protects itself from attacks from the outside by careful handling of inputs and expects other compartments to protect themselves from it in the same way.}
+\end{description}
 
 This is the start of defining a threat model for your code.
 A compartment may simply be used for fault isolation, to limit the damage that a bug can do.
@@ -105,28 +111,29 @@ It does not trust anything on the outside and assumes that everything else is tr
 The memory allocator is also written as a safebox, assuming that everything else is trying to either make it crash or leak powerful capabilities.
 For some operations, the scheduler invokes the allocator.
 The scheduler trusts the allocator to enforce heap memory safety.
-It does not, for example, try to check that the memory allocator is returning disjoint capabilities (it can't see every other caller of ${link("heap_allocate")}, and so couldn't validate this).
+It does not, for example, try to check that the memory allocator is returning disjoint capabilities (it can't see every other caller of \c{heap_allocate}, and so couldn't validate this).
 It is; however, written to assume that other compartments may try to maliciously call allocator APIs to cause it to crash.
 
 When thinking about trust, it's worth trying to articulate the properties that other code is trusted to enforce or preserve.
 For example, everything in the CHERIoT system trusts the scheduler for availability.
 Most things trust the allocator to enforce spatial and temporal memory safety for the heap.
 
-== Refining trust
+\section{Refining trust}
 
 It seems conceptually easy to say 'this code is trusted' and 'this code is untrusted', but that rarely tells the whole story.
 At a high level, components are typically trusted (or not) with respect to three properties:
 
-Confidentiality::
-How does information flow out of this component?
-Integrity::
-What how can information be modified by this component?
-Availability::
-What can this component prevent from working?
+\begin{description}
+	\item[tag=Confidentiality]{: How does information flow out of this component?}
+	\item[tag=Integrity]{: What how can information be modified by this component?}
+	\item[tag=Availability]{: What can this component prevent from working?}
+\end{description}
 
-NOTE: Compartments and threads are both units of isolation in a CHERIoT system.
+\begin{note}
+Compartments and threads are both units of isolation in a CHERIoT system.
 Threads are scheduled independently and provide a building block for availability guarantees.
 Only a higher-priority thread or code running with interrupts disabled can prevent an unrelated thread from making progress.
+\end{note}
 
 The relative importance of each of these varies a lot depending on context.
 For example, you often don't care at all about confidentiality for encrypted data, but you would not want the plain text form to leak and you definitely wouldn't want the encryption key to leak.
@@ -151,8 +158,10 @@ This driver routine needs to run with interrupts disabled (context switching in 
 Running with interrupts disabled has availability implications on the rest of the system because nothing else can run while this is happening.
 If you put the driver in a separate compartment then you are protected in both directions:
 
- - The driver is the only thing that can touch the relevant GPIO pin and so, if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.
- - The driver runs with interrupts disabled but the rest of the application does and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.
+\begin{itemize}
+	\item{The driver is the only thing that can touch the relevant GPIO pin and so, if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.}
+	\item{The driver runs with interrupts disabled but the rest of the application does and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
+\end{itemize}
 
 This then gives you something to build on if you decide, for example, that you want to be able to update the lighting patterns from the Internet.
 Now you want to add a network stack to be able to fetch the new patterns and an interpreter to run them.
@@ -166,23 +175,22 @@ You will want narrow interfaces between the network stack and the TLS stack, so 
 The TLS stack will decode complete messages and forward them to the interpreter compartment.
 TLS packets have cryptographic integrity protection and so anything that comes through this path is probably safe, unless the TLS compartment is compromised, but putting the interpreter in a separate compartment ensures that invalid interpreter code can provide different colours to the LEDs but can't damage the LEDs and can't launch attacks over the network.
 
-[#exporting_functions]
-== Exporting functions from libraries and compartments
+\section[label=exporting_functions]{Exporting functions from libraries and compartments}
 
-Functions are exported using the attributes described in <<language_extensions>>.
-Functions exported from a library are annotated with `__cheri_libcall`, those from a compartment with `__cheri_compartment()`, with the latter providing the name of the compartment.
+Functions are exported using the attributes described in \ref{language_extensions}.
+Functions exported from a library are annotated with \c{__cheri_libcall}, those from a compartment with \c{__cheri_compartment()}, with the latter providing the name of the compartment.
 
 If you've written shared libraries on Windows, you may have had to add DLL export and import directives on function prototypes in headers.
 These are usually wrapped in a macro that allows you to define the export attribute when compiling the library and import when compiling anything else.
 
-The CHERIoT attributes are designed to avoid the need for this by operating in concert with the `-cheri-compartment=` compiler flag.
-When you compile a C/{cpp} source file that will end up in a compartment, the compiler knows the compartment that it is being built for.
+The CHERIoT attributes are designed to avoid the need for this by operating in concert with the \flag{-cheri-compartment=} compiler flag.
+When you compile a C/C++ source file that will end up in a compartment, the compiler knows the compartment that it is being built for.
 It can therefore generate cross-compartment calls for functions that are in other compartments and direct calls for functions in the same compartment.
 It can also do some additional error checking and will refuse to compile functions in one compilation unit if they are defined in another.
 
-== Validating arguments
+\section{Validating arguments}
 
-${insert("CHERI::check_pointer")}
+\functiondoc{check_pointer}
 
 If a function that is exported from a compartment takes primitive values as arguments, there's little that an attacker can do other than provide invalid values.
 For things like integers, this doesn't matter, for enumerations it's important to ensure that they are valid values.
@@ -190,36 +198,40 @@ For things like integers, this doesn't matter, for enumerations it's important t
 Pointers are more complicated.
 There are a few things that an attacker can do with pointer arguments to invoke a crash:
 
- - Provide a pointer without write permission for an output operand.
- - Provide a pointer without read permission for an input operand.
- - Provide a pointer without global permission that must be captured and held across calls.
- - Provide a pointer with a length that is too small.
- - Provide something that isn't a valid pointer at all.
- - Provide a pointer that overlaps your stack as an output argument.
+\begin{itemize}
+	\item{Provide a pointer without write permission for an output operand.}
+	\item{Provide a pointer without read permission for an input operand.}
+	\item{Provide a pointer without global permission that must be captured and held across calls.}
+	\item{Provide a pointer with a length that is too small.}
+	\item{Provide something that isn't a valid pointer at all.}
+	\item{Provide a pointer that overlaps your stack as an output argument.}
+\end{itemize}
 
 Any of these (or similar attacks) will allow an attacker to cause your compartment to encounter a fault when it tries to use the pointer.
 
 In general, you will want to check permissions and bounds on any pointer argument that you're passed.
-The ${link("CHERI::check_pointer")} function helps here.
+The \c{CHERI::check_pointer"} function helps here.
 It checks that a pointer has (at least) the bounds and permissions that you expect and that it isn't in your current stack region.
 If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
-NOTE: Checking the pointer is not the only option.
-A CHERI fault will invoke the compartment's error handler (see <<handling_errors>>) and so it may be possible to recover.
+\begin{note}
+Checking the pointer is not the only option.
+A CHERI fault will invoke the compartment's error handler (see \ref{handling_errors}) and so it may be possible to recover.
 Some compartments chose to assume that their arguments are valid and just gracefully clean up if they aren't.
+\end{note}
 
 If a pointer refers to a heap location, there is one additional attack possible.
 In general, a pointer cannot be modified after it's been checked, but the memory that a pointer refers to may be freed.
 When this happens, the pointer is implicitly invalidated.
 In some cases, you may simply wish to disallow pointers that point to the heap.
 
-You can check whether a pointer refers to heap memory by calling ${link("heap_address_is_valid")}.
-If this returns true, you can prevent deallocation by using the _claim_ mechanism, described in <<heap_claim>>.
+You can check whether a pointer refers to heap memory by calling \c{heap_address_is_valid}.
+If this returns true, you can prevent deallocation by using the \keyword{claim} mechanism, described in \ref{heap_claim}.
 
-${insert("heap_address_is_valid")}
+\functiondoc{heap_address_is_valid}
 
-== Ensuring adequate stack space
+\section{Ensuring adequate stack space}
 
 The stack is shared between compartments invoked on the same thread.
 The callee has access to the portion of the stack that its callers have not used.
@@ -229,121 +241,128 @@ Before entering a compartment, the switcher will check the amount of stack space
 By default, the compiler will fill this value with the amount that is required by the function that serves as an entry point.
 This is sufficient for leaf functions, but if your function calls others (and they are not inlined) then this will be insufficient.
 
-You can specify the stack space required by a function by using the `__cheriot_minimum_stack` attribute.
+You can specify the stack space required by a function by using the \c{__cheriot_minimum_stack} attribute.
 This is a function attribute that takes a single argument, the number of bytes of stack space that the function requires.
 Using this attribute requires you to know how much stack space the function will use.
 
 CHERIoT CPUs include a feature called a stack high-water mark that tracks the amount of stack that is used so that the switcher can avoid zeroing unused portions of the stack.
-The switcher provides a function, ${link("stack_lowest_used_address")}, that you can call to find the lowest address.
-You can then use the difference between the top of the stack capability (accessed via the `__builtin_cheri_stack_get` built-in function) to determine how much stack space has been used in a particular invocation of a compartment entry point.
+The switcher provides a function, \c{stack_lowest_used_address}, that you can call to find the lowest address.
+You can then use the difference between the top of the stack capability (accessed via the \c{__builtin_cheri_stack_get} built-in function) to determine how much stack space has been used in a particular invocation of a compartment entry point.
 
-${insert("stack_lowest_used_address")}
+\functiondoc{stack_lowest_used_address}
 
-NOTE: This helper checks the amount of stack usage *of the current compartment*.
+\begin{note}
+This helper checks the amount of stack usage *of the current compartment*.
 The switcher check is not intended to ensure that the invocation of the current compartment can succeed, only that failures are detectable and recoverable.
 If you want to ensure that a called compartment *also* has enough stack then you will need to add its stack requirements to those of your compartment.
+\end{note}
 
-The `debug.hh` header includes a {cpp} helper class, `StackUsageCheck`.
+The \file{debug.hh} header includes a C++ helper class, \cxx{StackUsageCheck}.
 This takes a template argument allowing it to be disabled, enabled and just log if you use more than the expected amount of stack, or enabled and trap if you use more than the expected amount of stack.
 This is most commonly used with a macro like this:
 
-[,cpp]
-----
+\begin{cxxsnippet}
 #define STACK_CHECK(expected) \ 
        StackUsageCheck<StackMode, expected, __PRETTY_FUNCTION__> stackCheck
-----
+\end{cxxsnippet}
 
-The `StackMode` template argument is one of `StackCheckMode::Asserting`, `StackCheckMode::Logging`, or `StackCheckMode::Disabled`.
+The \cxx{StackMode} template argument is one of \cxx{StackCheckMode::Asserting}, \cxx{StackCheckMode::Logging}, or \cxx{StackCheckMode::Disabled}.
 Typically, you will use it in logging mode initially, then disabled mode in production.
 Use it in asserting mode when running representative tests in CI so that it fails if you have increased your stack requirements and not updated the caller.
 
 It's important that the tests that you run in asserting mode have good coverage.
 It's typically fine for this to be function-granularity coverage: with the exception of variable-length arrays, functions stack usage does not depend on control flow within the function.
 
-CAUTION: It's tempting to enable the stack checks in debug builds.
+\begin{caution}
+It's tempting to enable the stack checks in debug builds.
 This is usually a bad idea because debug builds include extra checks that increase stack usage.
 Enabling the stack checks in debug builds will cause you to demand more stack space than a release build actually needs, increasing overall memory pressure.
+\end{caution}
 
-[#handling_errors]
-== Handling errors
+\section[label=handling_errors]{Handling errors}
 
 Asynchronous interrupts are all routed to the scheduler to wake up the relevant threads and schedule the correct thread.
 Synchronous faults are (optionally) delivered to the compartment that caused them.
 These include CHERI exceptions, invalid instruction traps, and so on: anything that can be directly attributed to the current instruction.
 
-To handle these, implement ${link("compartment_error_handler")} in your compartment.
+To handle these, implement \c{compartment_error_handler} in your compartment.
 
-${insert("compartment_error_handler")}
+\functiondoc{compartment_error_handler}
 
 This function is passed a copy of the register file and the exception cause registers when a fault occurs.
-The `mcause` value will be one of the standard RISC-V exception causes, or 0x1c for CHERI faults.
-CHERI faults will encode the CHERI-specific fault code and the faulting register in `mtval`.
-You can decompose this into its component parts by calling ${link("CHERI::extract_cheri_mtval")}.
+The \c{mcause} value will be one of the standard RISC-V exception causes, or 0x1c for CHERI faults.
+CHERI faults will encode the CHERI-specific fault code and the faulting register in \c{mtval}.
+You can decompose this into its component parts by calling \cxx{CHERI::extract_cheri_mtval}.
 
-${insert("CHERI::extract_cheri_mtval")}
+\functiondoc{extract_cheri_mtval}
 
-WARNING: The error handler is called with interrupts enabled, even if interrupts were disabled in the faulting code.
+\begin{warning}
+The error handler is called with interrupts enabled, even if interrupts were disabled in the faulting code.
 Latency-critical code should never depend on the error handler for meeting its timing.
+\end{warning}
 
-If a called compartment faults and forcibly unwinds then this will be reported as a CHERI fault with no cause (zero) in `mtval`.
+If a called compartment faults and forcibly unwinds then this will be reported as a CHERI fault with no cause (zero) in \c{mtval}.
 You can use this to propagate faults up to callers, to track the number of times a cross-compartment call has failed, and so on.
 
 The spilled register file does not contain a tagged value for the program counter capability.
 This is to prevent library functions that run with interrupts disabled or with access to secrets from accidentally leaking on faults.
 All other registers will be preserved exactly as they are in the register file.
 
-NOTE: Error handlers are somewhat similar to UNIX signal handlers, but with some important differences.
+\begin{note}
+Error handlers are somewhat similar to UNIX signal handlers, but with some important differences.
 They are invoked for synchronous faults, not arbitrary event notification.
 Importantly, they are required only to handle the current compartment's errors.
-You cannot, for example, call `malloc` in a signal handler because it would deadlock (or corrupt state) if the signal arrives during a call to `malloc` or `free`.
-In contrast, if a call to `heap_allocate` fails then that error will be handled in the allocator compartment.
+You cannot, for example, call \c{malloc} in a signal handler because it would deadlock (or corrupt state) if the signal arrives during a call to \c{malloc} or \c{free}.
+In contrast, if a call to \c{heap_allocate} fails then that error will be handled in the allocator compartment.
 Your error handler will never be invoked in the middle of a call to the allocator and so it is fine to use error handlers to release locks and free memory.
+\end{note}
 
 At the end of your error handler, you have two choices.
 You can either ask the switcher to resume, installing your modified register file (rederiving the PCC from the compartment's code capability), or you can ask it to continue unwinding.
 
 Error handling functions are used for resource cleanup.
 For example, you may wish to drop locks when an error occurs, or you may wish to reset the compartment entirely.
-The ${link("heap_free_all")} function, discussed in <<shared_heap>> helps with the latter.
+The \c{heap_free_all} function, discussed in \ref{shared_heap} helps with the latter.
 
-== Conventions for cross-compartment calls
+\section{Conventions for cross-compartment calls}
 
-If a compartment faults and force unwinds to the caller then the return registers will be set to `-1`.
+If a compartment faults and force unwinds to the caller then the return registers will be set to \c{-1}.
 This makes it easy to use the UNIX convention of returning negative numbers to indicate error codes.
-The value `-1` is `-ECOMPARTMENTFAIL` and other numbers from `errno.h` can be used to indicate other failures.
+The value \c{-1} is \c{-ECOMPARTMENTFAIL} and other numbers from \file{errno.h} can be used to indicate other failures.
 
 A CHERIoT capability is effectively a tagged union of a pointer and 64 bits of data.
 You can take advantage of this in functions that return pointers to return either an integer or, if the result is not tagged, an error code.
 
 
-[#software_capabilities]
-== Building software capabilities with sealing
+\section[label=software_capabilities]{Building software capabilities with sealing}
 
 The CHERI capability mechanism can be used to express arbitrary software-defined capabilities.
 Recall that a capability, in the abstract, is an unforgeable token of authority that can be presented to allow some action.
 In UNIX systems, for example, file descriptors are capabilities.
-A userspace process cannot directly talk to the disk or the network, but if it presents a valid file descriptor to system calls such as `read` and `write` then the kernel will perform those operations on its behalf.
+A userspace process cannot directly talk to the disk or the network, but if it presents a valid file descriptor to system calls such as \c{read} and \c{write} then the kernel will perform those operations on its behalf.
 
-CHERIoT provides a mechanism to create arbitrary software-defined capabilities using the _sealing_ mechanism (see <<sealing_intro>>).
+CHERIoT provides a mechanism to create arbitrary software-defined capabilities using the \keyword{sealing} mechanism (see \ref{sealing_intro}).
 CHERIoT provides almost a few billion sealing types for use with software-defined capabilities.
-You can allocate one of these dynamically by calling ${link("token_key_new")}.
+You can allocate one of these dynamically by calling \c{token_key_new}.
 
-CAUTION: There is no mechanism to reuse sealing capabilities.
+\begin{caution}
+There is no mechanism to reuse sealing capabilities.
 As such, once you have allocated 4,278,190,079, you will be unable to create new ones.
 A 20 MHz core doing nothing other than allocating new sealing capabilities could exhaust this space in around a day.
 If untrusted code is allowed to allocate dynamic sealing capabilities then you may wish to restrict its access to this API and instead give it access to a wrapper that limits the number that it may allocate.
+\end{caution}
 
-${insert("token_key_new")}
+\functiondoc{token_key_new}
 
-You can also statically register a sealing type with the `STATIC_SEALING_TYPE()` macro.
+You can also statically register a sealing type with the \c{STATIC_SEALING_TYPE()} macro.
 This takes a single argument, the name that you wish to give the type.
 This name is used both to refer to the static sealing capability is the name that will show up in auditing reports.
 
-You can access the sealing capability within the compartment that exported it using the `STATIC_SEALING_VALUE()` macro.
-You can also refer to it in other compartments, but _only_ when constructing _static sealed objects_.
+You can access the sealing capability within the compartment that exported it using the \c{STATIC_SEALING_VALUE()} macro.
+You can also refer to it in other compartments, but \textem{only} when constructing \keyword{static sealed objects}.
 A static sealed object is like a global defined in a compartment, but that compartment can access it only via a sealed capability.
 
-Static sealed objects are declared with `DECLARE_STATIC_SEALED_VALUE` and defined with `DEFINE_STATIC_SEALED_VALUE`.
+Static sealed objects are declared with \c{DECLARE_STATIC_SEALED_VALUE} and defined with \c{DEFINE_STATIC_SEALED_VALUE}.
 These macros take both the name of the sealing type and the compartment that exposes it as arguments.
 This ensures that there is no ambiguity and that accidental name collisions don't lead to security vulnerabilities.
 // FIXME: We should include the docs for these macros, but currently asciidoxy fails on macros.
@@ -351,19 +370,17 @@ This ensures that there is no ambiguity and that accidental name collisions don'
 Any object created in this way shows up in the audit log.
 The exports section for the compartment that exposes the sealing key will will contain an entry like this:
 
-[,json]
-----
+\begin{jsonsnippet}
 {
   "export_symbol": "__export.sealing_type.alloc.MallocKey",
   "exported": true,
   "kind": "SealingKey"
-},
-----
+\},
+\end{jsonsnippet}
 
 This is cross-referenced with a section like this:
 
-[,json]
-----
+\begin{jsonsnippet}
 { 
   "contents": "00100000 00000000 00000000 00000000 00000000 00000000",
   "kind": "SealedObject",
@@ -372,22 +389,25 @@ This is cross-referenced with a section like this:
     "key": "MallocKey",
     "provided_by": "build/cheriot/cheriot/release/cheriot.allocator.compartment",
     "symbol": "__export.sealing_type.alloc.MallocKey"
-  }
-},
-----
+  \}
+\},
+\end{jsonsnippet}
 
 This contains the full contents of the sealed object.
 You can audit these in a firmware image to ensure that they are valid.
 
-NOTE: Auditing a hex string is not easy.
+\begin{note}
+Auditing a hex string is not easy.
 A future version of CHERIoT RTOS will include tools to map these back to useful types.
+FIXME: Reference cheriot-audit docs.
+\end{note}
 
 This gives a building block that can be used to define arbitrary software-defined capabilities at system start.
 A compartment that performs some action exposes a sealing type and a structure layout that it expects.
 Static instances of this structure can be baked into the firmware image and then passed as sealed capabilities into the compartment that wishes to use them as capabilities.
-They can be unsealed using the token APIs described in <<token_apis>>.
+They can be unsealed using the token APIs described in \ref{token_apis}.
 
-The token APIs look as if they're provided by the allocator, but `token_obj_unseal` is a fast path implemented as a library.
+The token APIs look as if they're provided by the allocator, but \c{token_obj_unseal} is a fast path implemented as a library.
 This makes it fast to unseal objects (no cross-compartment call).
 It also removes any dependency on the allocator from things that rely on static sealing.
 
@@ -395,7 +415,7 @@ The allocator uses the static sealing mechanism to define allocation capabilitie
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
 
-== Sharing globals between compartments
+\section{Sharing globals between compartments}
 
 CHERIoT supports a notion of pre-shared objects.
 Each pre-shared object is allocated in a dedicated region of memory and can be imported into one or more compartments.
@@ -403,35 +423,36 @@ Each import can have a different set of permissions.
 
 This model lets you define a global that is, for example, writeable by one compartment but readable from many, with no control flow between the communicating compartments.
 
-Currently, the syntax for importing a pre-shared object is more verbose, a future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on `extern` declarations.
+Currently, the syntax for importing a pre-shared object is more verbose, a future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on \c{extern} declarations.
 
-You can import a pre-shared object with the `SHARED_OBJECT(type, name)` macro.
+You can import a pre-shared object with the \c{SHARED_OBJECT(type, name)} macro.
 This takes the type of the object and its name (which must be globally unique across the firmware image) as arguments.
 This evaluates to a pointer to the object.
 Objects imported with this macro have the full set of permissions for imported objects.
 
-You can also disable individual permissions using the `SHARED_OBJECT_WITH_PERMISSIONS` macros.
+You can also disable individual permissions using the \c{SHARED_OBJECT_WITH_PERMISSIONS} macros.
 This takes an additional four additional boolean arguments that define the following set of permissions:
 
- - Load
- - Store
- - Load or store capabilities
- - Load mutable
+\begin{itemize}
+	\item{Load}
+	\item{Store}
+	\item{Load or store capabilities}
+	\item{Load mutable}
+\end{itemize}
 
 Note that load-mutable depends on both load and load/store capability permissions.
 You cannot load a capability that has store permission if you cannot load a capability.
 
-Shared objects are defined in the build system, by setting the `shared_objects` value on a target (typically a compartment).
+Shared objects are defined in the build system, by setting the \lua{shared_objects} value on a target (typically a compartment).
 For example:
 
-[,lua]
-----
+\begin{luasnippet}
     on_load(function(target)
-        target:values_set("shared_objects", { exampleK = 1024, test_word = 4 }, {expand = false})
+        target:values_set("shared_objects", { exampleK = 1024, test_word = 4 \}, {expand = false\})
     end)
-----
+\end{luasnippet}
 
-This is from the test suite and defines a `test_word` object that is a single 32-bit value and an `exampleK` object that is 1024 bytes.
+This is from the test suite and defines a \c{test_word} object that is a single 32-bit value and an \c{exampleK} object that is 1024 bytes.
 Note that the objects are defined as sizes, not as types.
 The type cannot be enforced by CHERI and depends on the compartment that imports the object.
 If a single compartment has write access to an object then that compartment forms the TCB for type safety of that object.
