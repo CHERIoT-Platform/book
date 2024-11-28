@@ -19,6 +19,8 @@ function visit(textTree)
 		makeMonospace(textTree)
 	elseif textTree.kind == "flag" then
 		makeMonospace(textTree)
+	elseif textTree.kind == "json" then
+		makeMonospace(textTree)
 	elseif textTree.kind == "file" then
 		makeMonospace(textTree)
 		-- TODO: Keyword matching
