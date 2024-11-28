@@ -1,98 +1,99 @@
-= Writing a device driver
-${include("_header.adoc", always_embed=True, leveloffset=None)}
+\chapter{Writing a device driver}
 
 CHERIoT aims to be small and easy to customize.
 It does not have a generic device driver interface but it does have a number of tools that make it possible to write modular device drivers.
 
-== What is a device?
+\section{What is a device?}
 
 From the perspective of the CPU, a device is something that you communicate with via a memory-mapped I/O interface, which may (optionally) generate interrupts.
 There are several devices that the core parts of the RTOS interact with:
 
- - The UART, which is used for writing debug output during development.
- - The core-local interrupt controller, which is used for managing timer interrupts.
- - The platform interrupt controller, which is used for managing external interrupts.
- - The revoker, which scans memory for dangling capabilities (pointers) and invalidates them.
+\begin{itemize}
+	\item{The UART, which is used for writing debug output during development.}
+	\item{The core-local interrupt controller, which is used for managing timer interrupts.}
+	\item{The platform interrupt controller, which is used for managing external interrupts.}
+	\item{The revoker, which scans memory for dangling capabilities (pointers) and invalidates them.}
+\end{itemize}
 
 Most embedded systems on chip will include additional devices.
 These range from very simple interfaces, such as general-purpose I/O (GPIO) pins that are mapped to a bit in a register, up to entire wireless network interfaces with rich sets of functionality.
 
-== Specifying a device's locations
+\section{Specifying a device's locations}
 
 Devices are specified in the board description file.
 // FIXME: Cross reference
 The two relevant parts are the `devices` node, which specifies the memory-mapped I/O devices and the `interrupts` section that describes how external interrupts should be configured.
 For example, our initial FPGA prototyping platform had sections like this describing its Ethernet device:
 
-[,json]
-----
+\begin{jsonsnippet}
     "devices" : {
         "ethernet" : {
             "start" : 0x98000000,
             "length": 0x204
-        },
+        \},
         ...
-    },
+    \},
     "interrupts": [
         {
             "name": "Ethernet",
             "number": 16,
             "priority": 3
-        }
+        \}
     ],
-----
+\end{jsonsnippet}
 
 The first part says that the ethernet device's MMIO space is 0x204 bytes long and starts at address 0x98000000.
 The second says that interrupt number 16 is used for the ethernet device.
 
-[#mmio_capabilities]
-== Accessing the memory-mapped I/O region
+\section[label=mmio_capabilities]{Accessing the memory-mapped I/O region}
 
-The `MMIO_CAPABILITY` macro is used to get a pointer to memory-mapped I/O devices.
+The \c{MMIO_CAPABILITY} macro is used to get a pointer to memory-mapped I/O devices.
 This takes two arguments.
 The first is the C/C++ type of the pointer, the second is the name from the board configuration file.
 For example, to get a pointer to the memory-mapped I/O space for the ethernet device above, we might do something like:
 
-[,cpp]
-----
+\begin{cxxsnippet}
 struct EthernetMMIO
 {
     // Control register layout here:
     ...
-};
+\};
 
 __always_inline volatile struct EthernetMMIO *ethernet_device()
 {
     return MMIO_CAPABILITY(struct EthernetMMIO, ethernet);
-}
-----
+\}
+\end{cxxsnippet}
 
-NOTE: This macro must be used in code, it cannot be used for static initialisation.
+\begin{note}
+This macro must be used in code, it cannot be used for static initialisation.
 The macro expands to a load from the compartment's import table.
 Assigning the result of it to a global is an antipattern: you will get smaller code using it directly.
 The helper shown here will be inlined and expand to a single load capability load.
+\end{note}
 
 
-Now that you have a pointer to a `volatile` object representing the device's MMIO region, you can access its control registers directly.
+Now that you have a pointer to a \c{volatile} object representing the device's MMIO region, you can access its control registers directly.
 Any device can be accessed from any compartment in this way, but that access will appear in the linker audit report.
 
 
 Any compartment that accesses this device will have an entry in the audit report that looks like this:
 // FIXME: Cross reference
 
-[,json]
-----
+\begin{jsonsnippet}
         {
           "kind": "MMIO",
           "length": 516,
           "start": 2550136832
-        },
-----
+        \},
+\end{jsonsnippet}
 
-NOTE: There is no generic policy for device access because the right policy depends on device and the SoC.
+\begin{note}
+There is no generic policy for device access because the right policy depends on device and the SoC.
 Consider a device has two GPIO pins, one connected to an LED used to indicate a fault in the device and the other to trigger the sprinkler system for the building.
 You would probably write a policy that allows most compartments to indicate a fault, but restricts access to the sprinkler control to a single compartment.
 From the perspective of both the SoC and the RTOS, the two devices are identical.
+\end{note}
 
 You can then audit whether a firmware image enforces whatever policy you want (for example, no compartment other than a device driver may access the device directly).
 Note that the linker reports will always provide the addresses and lengths in decimal, because they are standard JSON.
@@ -103,34 +104,34 @@ You may wish to define multiple regions, which can be as small as a single byte,
 
 Some devices have a very large control structure.
 For example, the platform-local interrupt controller is many KiBs.
-We don't define a C structure that covers every single field for this and instead just use `uint32_t` as the type for `MMIO_CAPABILITY`, which lets us treat the space as an array of 32-bit control registers.
+We don't define a C structure that covers every single field for this and instead just use \c{uint32_t} as the type for \c{MMIO_CAPABILITY}, which lets us treat the space as an array of 32-bit control registers.
 
-== Handling interrupts
+\section{Handling interrupts}
 
-To be able to handle interrupts, you must have a software capability (see <<software_capabilities>>) that authorises access to the interrupt.
+To be able to handle interrupts, you must have a software capability (see \ref{software_capabilities}) that authorises access to the interrupt.
 // FIXME: Add description of how interrupts work.
 For the ethernet device that we've been using as an example, you would typically request one with this macro invocation:
 
-[,cpp]
-----
+\begin{cxxsnippet}
 DECLARE_AND_DEFINE_INTERRUPT_CAPABILITY(ethernetInterruptCapability, Ethernet, true, true);
-----
+\end{cxxsnippet}
 
 If you wish to share this between multiple compilation units, you can use the separate `DECLARE_` and `DEFINE_` forms (see `interrupt.h`) but the combined form is normally most convenient.
 This macro takes four arguments:
 
- 1. The name that we're going to use to refer to this capability.
-    The name `ethernetInterruptCapability` is arbitrary, you can use whatever makes sense to you.
- 2. The name of the interrupt, from the board description file (`Ethernet`, in this case).
- 3. Whether this capability authorises waiting for this interrupt (this will almost always be `true`).
- 4. Whether this capability authorises acknowledging the interrupt so that it can fire again.
-    This will almost always be true in device drivers but should generally be true for only one compartment (for each interrupt), whereas multiple compartments may wish to observe interrupts for monitoring.
+\begin{enumerate}
+	\item{The name that we're going to use to refer to this capability.
+		The name \c{ethernetInterruptCapability} is arbitrary, you can use whatever makes sense to you.}
+	\item{The name of the interrupt, from the board description file (\c{Ethernet}, in this case).}
+	\item{Whether this capability authorises waiting for this interrupt (this will almost always be \c{true}).}
+\item{Whether this capability authorises acknowledging the interrupt so that it can fire again.
+	This will almost always be true in device drivers but should generally be true for only one compartment (for each interrupt), whereas multiple compartments may wish to observe interrupts for monitoring.}
+\end{enumerate}
 
 As with the MMIO capabilities, sealed objects appear in compartment reports.
 For example, the above macro expands to this in the final report:
 
-[,json]
-----
+\begin{cxxsnippet}
         {
           "contents": "10000101",
           "kind": "SealedObject",
@@ -139,8 +140,8 @@ For example, the above macro expands to this in the final report:
             "key": "InterruptKey",
             "provided_by": "build/cheriot/cheriot/release/example-firmware.scheduler.compartment",
             "symbol": "__export.sealing_type.sched.InterruptKey"
-          }
-----
+          \}
+\end{cxxsnippet}
 
 The sealing type tells you that this is an interrupt capability (it's sealed with the `InterruptKey` type, provided by the scheduler).
 The contents lets you audit what this authorises.
@@ -148,8 +149,7 @@ The first two bytes are a 16-bit (little-endian on all currently supported targe
 The next two bytes are boolean values reflecting the last two arguments to the macro, so this authorises both waiting and clearing the macro.
 Again, this can form part of your firmware auditing.
 
-[#interrupt_waiting]
-== Waiting for an interrupt
+\section[label=interrupt_waiting]{Waiting for an interrupt}
 
 Now that you're authorised to handle interrupts, you will need something that you can wait on.
 Most real-time operating systems allow you to register interrupt-service routines (ISRs) directly.
@@ -163,57 +163,57 @@ A single thread with the highest priority that blocks waiting on an interrupt wi
 The switcher will spill the interrupted thread's state, the scheduler will wake the sleeping thread and note that it is now the highest-priority runnable thread, and then the switcher will resume from that thread.
 This sequence takes around 1,000 cycles on Ibex, giving an interrupt latency of 50 µS at 20 MHz or 10 µS at 100 MHz.
 
-NOTE: A future version of the CHERIoT architecture is expected to include extensions to the interrupt controller to allow direct context switch to a high-priority thread.
+\begin{note}
+A future version of the CHERIoT architecture is expected to include extensions to the interrupt controller to allow direct context switch to a high-priority thread.
+\end{note}
 
 Each interrupt is mapped to a futex word, which can be used with scheduler waiting primitives.
-Futexes are discussed in detail in <<futex>> but, for the purpose of interrupt handling you can think of them as counters with a compare-and-wait operation.
-You can get the word associated with an interrupt by passing the authorising capability to the `interrupt_futex_get` function exported by the scheduler:
+Futexes are discussed in detail in \ref{futex} but, for the purpose of interrupt handling you can think of them as counters with a compare-and-wait operation.
+You can get the word associated with an interrupt by passing the authorising capability to the \c{interrupt_futex_get} function exported by the scheduler:
 
-[,cpp]
-----
+\begin{cxxsnippet}
 const uint32_t *ethernetFutex = ethernetFutex =
 	interrupt_futex_get(STATIC_SEALED_VALUE(ethernetInterruptCapability));
-----
+\end{cxxsnippet}
 
-The `ethernetFutex` pointer is now a read-only capability (attempting to store through it will trap) that contains a number that is incremented every time the ethernet interrupt fires.
-You can now query whether any interrupts have fired since you last checked by comparing it against a previous value and you can wait for an interrupt with `futex_wait`, for example:
+The \c{ethernetFutex} pointer is now a read-only capability (attempting to store through it will trap) that contains a number that is incremented every time the ethernet interrupt fires.
+You can now query whether any interrupts have fired since you last checked by comparing it against a previous value and you can wait for an interrupt with \c{futex_wait}, for example:
 
+\begin{cxxsnippet}
 [,cpp]
-----
 do
 {
     uint32_t last = *ethernetFutex;
     // Handle interrupt here
-} while (futex_wait(ethernetFutex, last) == 0);
-----
+\} while (futex_wait(ethernetFutex, last) == 0);
+\end{cxxsnippet}
 
-If you want to wait for multiple event sources, you can use the multiwaiter (see <<multiwaiter>>) API.
+If you want to wait for multiple event sources, you can use the multiwaiter (see \ref{multiwaiter}) API.
 This allows sleeping on multiple kinds of event source so you can, for example, have a single thread that blocks waiting for a message to send from another thread or a message to receive from the device.
 
-== Acknowledging interrupts
+\section{Acknowledging interrupts}
 
 If you copy the last example into a real device driver then you might be surprised that the loop runs twice and then stops.
 It will run once on start, once when the first interrupt is delivered, and then never again.
 This is because external interrupts are not delivered on a particular channel unless the preceding one has been acknowledged.
 A more complete version of the loop above looks like this:
 
-[,cpp]
-----
+\begin{cxxsnippet}
 do
 {
     uint32_t last = *ethernetFutex;
     // Handle interrupt here
     interrupt_complete(STATIC_SEALED_VALUE(ethernetInterruptCapability));
-} while ((last != *ethernetFutex) || futex_wait(ethernetFutex, last) == 0);
-----
+\} while ((last != *ethernetFutex) || futex_wait(ethernetFutex, last) == 0);
+\end{cxxsnippet}
 
 This includes two changes.
-The first is the call to `interrupt_complete` once the interrupt has been handled.
+The first is the call to \c{interrupt_complete} once the interrupt has been handled.
 This tells the scheduler to mark the interrupt as completed in the interrupt handler.
 It is possible that the interrupt will then fire immediately, in which case there's no point trying to sleep.
-The second change checks whether the value of the futex word has changed - if it has, then we skip the `futex_wait` call and handle the next interrupt immediately.
+The second change checks whether the value of the futex word has changed - if it has, then we skip the \c{futex_wait} call and handle the next interrupt immediately.
 
-== Exposing device interfaces
+\section{Exposing device interfaces}
 
 CHERIoT device drivers often have two levels of abstraction.
 The lower level provides an abstraction across different devices that offer similar functionality.
@@ -228,40 +228,40 @@ If a device has multiple consumers then it may need a compartment to handle mult
 For example, our debug APIs use the UART directly, but safe use of the UART would involve locking to avoid interleaved messages.
 Implementing this model would use the header-only UART driver from a compartment and writing a simple interface for reading and writing (possibly with an authorising capability).
 
-== Using layered platform includes
+\section{Using layered platform includes}
 
 Each board description contains a set of include paths.
 For example, our Ibex simulator has this:
 
-[,json]
-----
+\begin{jsonsnippet}
     "driver_includes" : [
         "../include/platform/ibex",
         "../include/platform/generic-riscv"
     ],
-----
+\end{jsonsnippet}
 
-These are added *in this order*, which makes it possible for code in the more specialised directories to `#include_next` versions of the files in the more generic versions or to add files that are found in preference to the generic versions.
+These are added *in this order*, which makes it possible for code in the more specialised directories to \c{#include_next} versions of the files in the more generic versions or to add files that are found in preference to the generic versions.
 
-For example, the UART device in the `generic-riscv` directory defines a basic 16550 interface.
+For example, the UART device in the \file{generic-riscv} directory defines a basic 16550 interface.
 This is templated with the size of the register because the original 16550 used 8-bit registers, whereas newer versions typically use the low 8 bits of a 32-bit register.
 This implementation is sufficient for simulated environments but real UARTs with higher-speed cores often require more control over their frequency to get the right baud rate.
-We can support the Synopsis extended 16550 by creating a `platform/synopsis` directory containing a `platform-uart.hh` that uses `#include_next <platform-uart.hh>` to get the generic version.
-This can be inserted in the include path before `platform/generic-riscv`.
-A specific configuration can use this by not providing anything at a higher level, replace it entirely by providing a custom `platform-uart.hh`, or provide a modified version of it by using `#include_next`.
+We can support the Synopsis extended 16550 by creating a \file{platform/synopsis} directory containing a \file{platform-uart.hh} that uses \c{#include_next <platform-uart.hh>} to get the generic version.
+This can be inserted in the include path before \file{platform/generic-riscv}.
+A specific configuration can use this by not providing anything at a higher level, replace it entirely by providing a custom \file{platform-uart.hh}, or provide a modified version of it by using \c{#include_next}.
 
-== Conditionally compiling driver code
+\section{Conditionally compiling driver code}
 
-The `DEVICE_EXISTS` macro can be used with `#if` to conditionally compile code depending on whether the current board provides a definition of the device.
+The \c{DEVICE_EXISTS} macro can be used with \c{#if} to conditionally compile code depending on whether the current board provides a definition of the device.
 This is keyed on the existence of an MMIO region in the board description file with the specified name.
 For example, the ethernet device that we've been using as an example could be protected with:
 
-[,cpp]
-----
+\begin{cxxsnippet}
 #if DEVICE_EXISTS(ethernet)
 // Driver for the ethernet device here.
 #endif
-----
+\end{cxxsnippet}
 
-Note: This highlights why "ethernet" is not a great name for the device: ideally the name should be specific to the hardware interface, not the high-level functionality, so that you can conditionally compile specific drivers.
+\begin{note}
+This highlights why "ethernet" is not a great name for the device: ideally the name should be specific to the hardware interface, not the high-level functionality, so that you can conditionally compile specific drivers.
 We have used a generic name in this tutorial to avoid introducing device-specific complications.
+\end{note}
