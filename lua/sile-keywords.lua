@@ -15,6 +15,8 @@ function visit(textTree)
 	elseif textTree.kind == "textem" then
 		textTree.kind = "font"
 		textTree:attribute_set("style", "italic")
+	elseif textTree.kind == "command" then
+		makeMonospace(textTree)
 	elseif textTree.kind == "flag" then
 		makeMonospace(textTree)
 	elseif textTree.kind == "file" then
