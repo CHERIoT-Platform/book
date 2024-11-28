@@ -1,0 +1,137 @@
+\chapter{Adding a new board}
+
+CHERIoT RTOS uses a JSON file to describe the target.
+At a first glance, this looks similar to a flattened device tree (FDT) source file.
+Both contain a layout of memory and locations of devices but the CHERIoT RTOS board description file also contains a lot of information that is useful only at build time, such as the locations of header files and preprocessor defines for the platform.
+
+When you want to create a board support package (BSP) for a new CHERIoT configuration, this is the first place to start.
+The CHERIoT RTOS build system allows board description files to be specified either as names in the \file{sdk/boards} directory or as file paths.
+Anything that has been contributed to the CHERIoT RTOS repository will use the former mechanism, anything distributed separately will use the latter.
+
+\section{Specifying memory layout}
+
+CHERIoT RTOS has to differentiate three kinds of memory in the configuration
+
+\begin{itemize}
+	\item{Code and read-only global data, which cannot contain pointers to revokable heap memory.}
+	\item{Globals and stacks, which may contain pointers to revokable heap memory.}
+	\item{The heap, which may contain pointers to revokable heap memory and may itself be revoked.}
+\end{itemize}
+
+The allocator is given a capability to the revocation bitmap covering the last range.
+The revoker must be configured to include (at least) the latter two in its scans.
+The first category is safe to ignore.
+
+\begin{note}
+A future version of CHERIoT RTOS may differentiate between code (and non-capability read-only data) and read-only data so that the former can be run from memory that does not support tags and the latter from tag-carrying memory.
+\end{note}
+
+The memory layout will put code then globals into memory and then the heap afterwards.
+In most systems, there is more code than heap and so, to reduce costs, not all memory needs to support tags.
+
+Our security guarantees for the shared heap depend on the mechanism that allows the allocator to mark memory as quarantined.
+Any pointer to memory in this region is subject to a check (by the hardware) on load: if it points to deallocated memory then it will be invalidated on load.
+This mechanism is necessary only for memory that can be reused by different trust domains during a single boot.
+Memory used to hold globals and code does not require it and so an implementation may save some hardware and power costs by supporting these temporal safety features for only a subset of memory.
+As such, we require a range of memory that is used for static code and data ('instruction memory') that is not required to support this mechanism and an additional range that *must* support this for use as the shared heap ('heap memory').
+Implementations may choose not to make this separation and provide a single memory region.
+At some point, we expect to further separate the mutable and immutable portions of instruction memory so that we can support execute in place.
+
+Instruction memory is described by the \json{instruction_memory} property.
+This must be an object with a \json{start} and \json{end} property, each of which is an address.
+
+The region available for the heap is described in the \json{heap} property.
+This must describe the region over which the load filter is defined.
+If its \json{start} property is omitted, then it is assumed to start in the same place as instruction memory.
+
+The Sail board description has a simple layout:
+
+\begin{jsonsnippet}
+    "instruction_memory": {
+        "start": 0x80000000,
+        "end": 0x80040000
+    \},
+    "heap": {
+        "end": 0x80040000
+    \},
+\end{jsonsnippet}
+
+This starts instruction memory at the default RISC-V memory address and has a single 256 KiB region that is used for both kinds of memory.
+
+\section{Exposing MMIO Devices}
+
+Each memory-mapped I/O device is listed as an object within the \json{devices} field.
+The name of the field is the name of the device and must be an object that contains a \json{start} and either a \json{length} or \json{end} property that, between them, describe the memory range for the device.
+Software can then use the \c{MMIO_CAPABILITY} macro with the name of the device to get a capability to that device's MMIO range and can use \c{#if DEVICE_EXISTS(device_name)} to conditionally compile code if that device exists.
+
+The Sail model is very simple and so provides only three devices:
+
+\begin{jsonsnippet}
+    "devices": {
+        "clint": {
+            "start": 0x2000000,
+            "length": 0x10000
+        \},
+        "uart": {
+            "start": 0x10000000,
+            "end":   0x10000100
+        \},
+        "shadow" : {
+            "start" : 0x83000000,
+            "end"   : 0x83001000
+        \}
+    \},
+\end{jsonsnippet}
+
+This describes the core-local interrupt controller (\json{clint}), a UART, and the shadow memory used for the temporal safety mechanism (\json{shadow}).
+The UART, for example, is referred to in source using \c{MMIO_CAPABILITY(struct Uart, uart)}, which evaluates to a \c{volatile struct Uart *}, giving a capability to this device.
+
+\section{Defining interrupts}
+
+External interrupts should be defined in an array in the \json{interrupts} property.
+Each element has a \json{name}, a \json{number} and a \json{priority}.
+The name is used to refer to this in software and must be a valid C identifier.
+The number is the interrupt number.
+The priority is the priority with which this interrupt will be configured in the interrupt controller.
+
+Interrupts may optionally have an \json{edge_triggered} property (if this is omitted, it is assumed to be false).
+If this exists and is set to true then the interrupt is assumed to fire when a condition first holds, rather than to remain raised as long as a condition holds.
+Interrupts that are edge triggered are automatically completed by the scheduler; they do not require a call to \c{interrupt_complete}.
+
+\section{Controlling hardware features}
+
+Some properties define base parts of hardware support.
+The \json{revoker} property is either absent (no temporal safety support), \json{"software"} (revocation is implemented via a software sweep) or \json{"hardware"} (there is a hardware revoker).
+We expect this to be \json{"hardware"} on all real implementations, the software revoker exists primarily for the Sail model and the no temporal safety mode only for benchmarking the overhead of revocation.
+
+If the \json{stack_high_water_mark} property is set to true, then we assume the CPU provides CSRs for tracking stack usage.
+This property is primarily present for benchmarking as all of our targets currently implement this feature.
+
+\section{Specifying clock speeds}
+
+The clock rate is configured by two properties.
+The \json{timer_hz} field is the number of timer increments per second, typically the clock speed of the chip (the RISC-V timer is defined in terms of cycles).
+The \json{tickrate_hz} specifies how many scheduler ticks should happen per second.
+FIXME: Link to tick descriptions
+
+\section{Supporting conditional compilation}
+
+The \json{defines} property specifies any pre-defined macros that should be set when building for this board.
+The \json{driver_includes} property contains an array (in priority order) of include directories that should be added for this target.
+Each of the paths in \file{driver_includes} is, by default, relative to the location of the board file (which allows the board file and drivers to be distributed together).
+Optionally, it may include the string \json{$(sdk)}, which will be replaced by the full path of the SDK directory.
+For example, \json{"$(sdk)/include/platform/generic-riscv"} will expand to the generic RISC-V directory in the SDK.
+
+The driver headers use \c{#include_next} to include more generic files and so it is important to list the directories containing your overrides first.
+
+\section{Simulation support}
+
+There are two properties for defining simulation platforms.
+If \json{simulation} is set to \json{true} then this board is assumed to be a simulation platform.
+This will make the \c{simulation_exit} function attempt to exit the simulator in case of catastrophic failures.
+
+In addition, the \json{simulator} property can be the name of a program (or script) that can simulate images compiled for this board.
+This will be run from the build directory and will be passed the absolute path of the firmware image when \command{xmake run} is used.
+The build system will look for the simulator in the SDK directory and, failing that, in the path.
+Exact paths can be provided by using \json{$\{sdk}} or \json{$\{board}} in the name of the simulator.
+These will be expanded to the full path of the SDK or the directory containing the board description file, respectively.
