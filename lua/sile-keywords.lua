@@ -1,7 +1,7 @@
 function makeMonospace(textTree)
 	textTree.kind = "font"
 	textTree:attribute_set("family", "Hack")
-	--textTree:attribute_set("size", "1.2ex")
+	textTree:attribute_set("size", "0.8em")
 	return textTree
 end
 
