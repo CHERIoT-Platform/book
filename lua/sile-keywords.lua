@@ -1,41 +1,31 @@
-function makeMonospace(textTree)
-	textTree.kind = "font"
-	textTree:attribute_set("family", "Hack")
-	textTree:attribute_set("size", "0.8em")
-	return textTree
-end
+local italic = {
+	"keyword",
+	"textem",
+}
 
-function visit(textTree)
-	if type(textTree) == "string" then
-		return { textTree }
-	end
-	if textTree.kind == "keyword" then
-		textTree.kind = "font"
-		textTree:attribute_set("style", "italic")
-	elseif textTree.kind == "textem" then
-		textTree.kind = "font"
-		textTree:attribute_set("style", "italic")
-	elseif textTree.kind == "command" then
-		makeMonospace(textTree)
-	elseif textTree.kind == "flag" then
-		makeMonospace(textTree)
-	elseif textTree.kind == "json" then
-		makeMonospace(textTree)
-	elseif textTree.kind == "file" then
-		makeMonospace(textTree)
-		-- TODO: Keyword matching
-	elseif textTree.kind == "c" then
-		makeMonospace(textTree)
-	elseif textTree.kind == "cxx" then
-		makeMonospace(textTree)
-	elseif textTree.kind == "lua" then
-		makeMonospace(textTree)
-	end
-	textTree:visit(visit)
-	return { textTree }
-end
+local monospace = {
+	"command",
+	"flag",
+	"json",
+	"file",
+	"c",
+	"cxx",
+	"lua",
+}
 
 function process(textTree)
-	textTree:visit(visit)
+	--textTree:visit(visit)
+	textTree:match_any(italic, function(textTree)
+		textTree.kind = "font"
+		textTree:attribute_set("style", "italic")
+		return { textTree }
+	end)
+	textTree:match_any(monospace, function(textTree)
+		textTree.kind = "font"
+		textTree:attribute_set("family", "Hack")
+		textTree:attribute_set("size", "0.8em")
+		return { textTree }
+	end)
+
 	return textTree
 end
