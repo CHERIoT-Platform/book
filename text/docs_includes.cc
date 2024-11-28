@@ -2,3 +2,8 @@
 #include <switcher.h>
 #include <compartment.h>
 #include <token.h>
+#include <thread.h>
+#include <queue.h>
+#include <multiwaiter.h>
+#include <switcher.h>
+#include <event.h>
