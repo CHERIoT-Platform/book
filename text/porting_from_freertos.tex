@@ -1,5 +1,4 @@
-= Porting from FreeRTOS
-${include("_header.adoc", always_embed=True, leveloffset=None)}
+\chapter{Porting from FreeRTOS}
 
 FreeRTOS is an established real-time operating system with a large deployed base.
 It runs on tiny microcontrollers up to large systems with MMU-based isolation.
@@ -7,11 +6,11 @@ The CHERIoT platform aims to provide, on small microcontrollers, stronger securi
 
 This chapter describes how several concepts in FreeRTOS map to equivalents in CHERIoT RTOS.
 
-The `FreeRTOS-Compat` directory in `include` contains a set of headers (including `FreeRTOS.h`) that expose FreeRTOS-compatible wrappers around various CHERIoT RTOS services.
+The \file{FreeRTOS-Compat} directory in \file{include} contains a set of headers (including \file{FreeRTOS.h}) that expose FreeRTOS-compatible wrappers around various CHERIoT RTOS services.
 These allow you to port existing FreeRTOS code to CHERIoT RTOS with minimal changes.
 These are not complete, but are expected to evolve over time.
 
-== Contrasting design philosophies
+\section{Contrasting design philosophies}
 
 FreeRTOS is primarily designed around a model with a single trust domain.
 The initial targets did not provide any memory protection.
@@ -47,7 +46,7 @@ User code chooses when the scheduler starts and may choose to stop it for arbitr
 In contrast, CHERIoT RTOS provides a model mode familiar to users of desktop or server systems.
 The core parts of the RTOS are always available and provide strong isolation guarantees.
 
-== Replacing tasks with threads and compartments
+\section{Replacing tasks with threads and compartments}
 
 The FreeRTOS task abstraction is similar to the traditional UNIX process abstraction.
 A task owns a thread and is independently scheduled.
@@ -63,30 +62,29 @@ The security model requires a static guarantee that no memory moves between bein
 The trusted stack memory and save area memory should never be visible outside of the switcher.
 Without these static properties, the allocator would be in the TCB for thread and compartment isolation.
 
-As such, there is no equivalent of the FreeRTOS `xTaskCreate` function.
-Threads (and their associated stacks and trusted stacks) must be described up front in the build system (see <<_defining_threads>>).
+As such, there is no equivalent of the FreeRTOS \c{xTaskCreate} function.
+Threads (and their associated stacks and trusted stacks) must be described up front in the build system (see \ref{_defining_threads}).
 In some cases, dynamically created threads can be replaced with thread pools, in the same way that coroutines can.
 
-The compatibility later exposes `xTaskCreate` and `xTaskCreateStatic` as macros that generate a warning and evaluate to an invalid thread handle.
+The compatibility later exposes \c{xTaskCreate} and \c{xTaskCreateStatic} as macros that generate a warning and evaluate to an invalid thread handle.
 This is intended to ease porting of code that conditionally uses these APIs.
 
 The best way to replace dynamic thread creation is usually to create the threads declaratively in the build system.
-If they need to be started only after a certain event, then you can wait on a futex (see <<futex>>) and notify that futex at the point where the original code called `xTaskCreate`.
+If they need to be started only after a certain event, then you can wait on a futex (see \ref{futex}) and notify that futex at the point where the original code called `xTaskCreate`.
 
-== Using thread pools to replace coroutines
+\section{Using thread pools to replace coroutines}
 
-The CHERIoT RTOS thread pool (see `lib/thread_pool`) allows a small number of threads to be reused.
+The CHERIoT RTOS thread pool (see \file{lib/thread_pool}) allows a small number of threads to be reused.
 This provides a compartment that has two entry points.
 One is a thread entry point that sits and waits for messages from other threads, the other is exposed for calls by other compartments and sends a message to one of the threads in the pool.
 
-This is most commonly used with {cpp} lambdas via the `async` wrapper in `thread_pool.h`:
+This is most commonly used with C++ lambdas via the \cxx{async} wrapper in \file{thread_pool.h}:
 
-[,cpp]
-----
+\begin{cxxsnippet}
 async([]() {
 	// This runs in the caller's compartment but in another thread.
-})
-----
+\})
+\end{cxxsnippet}
 
 This can be used for cooperatively-scheduled work in a similar manner to stackless coroutines.
 Each task dispatched to a thread pool will run until completion on one of the threads allocated to the thread pool.
@@ -96,68 +94,71 @@ Some of the use cases for dynamic FreeRTOS task creation can be implemented the 
 On memory-constrained systems, dynamic thread creation can easily exhaust memory for stacks and so most systems that depend on dynamic thread creation do so at different phases of computation to allow the stack space to be reused.
 Pushing these as thread-pool tasks provides similar behaviour, with each task taking ownership of the (safely zeroed) stack after the previous one has finished.
 
-NOTE: The RTOS-provided thread pool is very simple.
+\begin{note}
+The RTOS-provided thread pool is very simple.
 You may wish to implement something similar using it as an example, rather than using it as an off-the-shelf component.
+\end{note}
 
-== Porting code that uses message buffers
+\section{Porting code that uses message buffers}
 
-The CHERIoT RTOS message queue APIs (see <<message_queue>>) are modelled after the FreeRTOS message queue.
-In most cases, there is a direct mapping between the FreeRTOS APIs and the CHERIoT RTOS ones, as shown in <<freertos_queue_ops>>
+The CHERIoT RTOS message queue APIs (see \ref{message_queue}) are modelled after the FreeRTOS message queue.
+In most cases, there is a direct mapping between the FreeRTOS APIs and the CHERIoT RTOS ones, as shown in \ref{tbl:freertos_queue_ops}
 
-.CHERIoT equivalents of FreeRTOS queue operations
-[cols="1,1",frame=none,grid=all,stripes=even,options="unbreakable"]
-[#freertos_queue_ops]
-|===
-|FreeRTOS API          | CHERIoT RTOS API
-|xQueueCreate          | queue_create
-|vQueueDelete          | free
-|xQueueReceive         | queue_receive
-|xQueueSendToBack      | queue_send
-|uxQueueMessagesWaiting| queue_items_remaining
-|===
+\begin{table}
+	\begin[cols="40%fw 40%fw"]{tabular}
+		\tr{\th{FreeRTOS API} \th{CHERIoT RTOS API}}
+		\tr{\td{\c{xQueueCreate}}          \td{\c{queue_create}}}
+		\tr{\td{\c{vQueueDelete}}          \td{\c{free}}}
+		\tr{\td{\c{xQueueReceive}}         \td{\c{queue_receive}}}
+		\tr{\td{\c{xQueueSendToBack}}      \td{\c{queue_send}}}
+		\tr{\td{\c{uxQueueMessagesWaiting}}\td{\c{queue_items_remaining}}}
+	\end{tabular}
+	\caption[label=tbl:freertos_queue_ops]{CHERIoT equivalents of FreeRTOS queue operations}
+\end{table}
 
-The `FreeRTOS-Compat/queue.h` header provides wrappers that respect this mapping.
+
+The \file{FreeRTOS-Compat/queue.h} header provides wrappers that respect this mapping.
 The CHERIoT RTOS APIs provide some additional functionality that is not present in FreeRTOS and so code that does not need to be maintained working in both environments may benefit from being moved to the native APIs.
 
-This mapping uses the queue _library_, which is intended for communication between threads in the same compartment.
+This mapping uses the \keyword{queue library}, which is intended for communication between threads in the same compartment.
 FreeRTOS code typically assumes a single trust domain and so this is usually what you want when porting.
 In some cases, you will split multiple FreeRTOS components into separate compartments.
-In this case, you will most likely want to use the queue _compartment_ (see <<message_queue>>), which isolates the queue state from callers.
+In this case, you will most likely want to use the \keyword{queue compartment} (see \ref{message_queue}), which isolates the queue state from callers.
 
-For {cpp} code, the ring buffer in `ring_buffer.hh` may be more interesting.
+For C++ code, the ring buffer in \file{ring_buffer.hh} may be more interesting.
 This provides a generic ring buffer that can be specialised with different locks on the producer and consumer end.
 
-== Porting code that uses event groups
+\section{Porting code that uses event groups}
 
 As with message queues, the CHERIoT RTOS event queue API was modelled on that of FreeRTOS.
-As such, there is direct correspondence between the FreeRTOS APIs and the equivalent CHERIoT RTOS versions, shown in <<freertos_event_ops>>.
+As such, there is direct correspondence between the FreeRTOS APIs and the equivalent CHERIoT RTOS versions, shown in \ref{tbl:freertos_event_ops}.
 
-.CHERIoT equivalents of FreeRTOS event group operations
-[cols="1,1",frame=none,grid=all,stripes=even,options="unbreakable"]
-[#freertos_event_ops]
-|===
-|FreeRTOS API          | CHERIoT RTOS API
-|xEventGroupCreate     | eventgroup_create
-|vEventGroupDelete     | eventgroup_destroy
-|xEventGroupWaitBits   | eventgroup_wait
-|xEventGroupClearBits  | eventgroup_clear
-|xEventGroupSetBits    | eventgroup_set
-|===
+\begin{table}
+	\begin[cols="40%fw 40%fw"]{tabular}
+		\tr{\th{FreeRTOS API} \th{CHERIoT RTOS API}}
+		\tr{\td{\c{xEventGroupCreate}}     \td{\c{eventgroup_create}}}
+		\tr{\td{\c{vEventGroupDelete}}     \td{\c{eventgroup_destroy}}}
+		\tr{\td{\c{xEventGroupWaitBits}}   \td{\c{eventgroup_wait}}}
+		\tr{\td{\c{xEventGroupClearBits}}  \td{\c{eventgroup_clear}}}
+		\tr{\td{\c{xEventGroupSetBits}}    \td{\c{eventgroup_set}}}
+	\end{tabular}
+	\caption[label=tbl:freertos_event_ops]{CHERIoT equivalents of FreeRTOS event group operations}
+\end{table}
 
-The `FreeRTOS-Compat/event_groups.h` header performs this translation.
+The \file{FreeRTOS-Compat/event_groups.h} header performs this translation.
 
 The FreeRTOS event queue structure provides a rich set of operations.
 In contrast, CHERIoT RTOS aims to provide a small set of core abstractions that can be assembled into complex systems.
 A lot of users of the event groups API could use simpler wrappers around a futex, rather than an event group.
 
-== Adopting CHERIoT RTOS locks
+\section{Adopting CHERIoT RTOS locks}
 
 CHERIoT RTOS provides futexes as the building block for most locks.
 This can be used to build counting semaphores, ticket locks, mutexes, priority-inheriting mutexes, and so on.
-Several of these are implemented in the locks library and exposed via `locks.h` (and `locks.hh` for {cpp} wrappers).
+Several of these are implemented in the locks library and exposed via \file{locks.h} (and \file{locks.hh} for C++ wrappers).
 
 
-The `FreeRTOS-Compat/semphr.h` exposes FreeRTOS-compatible wrappers for counting semaphores.
+The \file{FreeRTOS-Compat/semphr.h} exposes FreeRTOS-compatible wrappers for counting semaphores.
 In FreeRTOS, these are implemented as message queues with zero-sized messages.
 In CHERIoT RTOS, they are simply futexes that store a count.
 This means semaphore get and put operations are usually simple atomic operations.
@@ -165,48 +166,50 @@ The scheduler is not involved unless a thread needs to block (the semaphore coun
 
 Unlike FreeRTOS, CHERIoT RTOS exposes different types for different locking primitives if they are incompatible.
 This catches some API misuse errors at compile time.
-For example, FreeRTOS uses `SemaphoreHandle_t` to represent semaphores and recursive mutexes.
+For example, FreeRTOS uses \c{SemaphoreHandle_t} to represent semaphores and recursive mutexes.
 These must be created with different functions and then locked and unlocked with different functions, but creating something as a semaphore and then trying to lock it as a recursive mutex will compile.
-In contrast, CHERIoT RTOS exposes these as distinct types and will fail to compile if you try to pass a semaphore to, for example, ${link("recursivemutex_trylock")}.
+In contrast, CHERIoT RTOS exposes these as distinct types and will fail to compile if you try to pass a semaphore to, for example, \c{recursivemutex_trylock}.
 
-The `FreeRTOS-Compat/semphr.h` header provides wrappers that for the various types.
+The \file{FreeRTOS-Compat/semphr.h} header provides wrappers that for the various types.
 These expose the FreeRTOS APIs and wrap all of the relevant CHERIoT RTOS types in a union with a discriminator.
 This adds a small amount of overhead for dynamic dispatch and so code that uses only one type of semaphore can avoid this.
-Each of the underlying types can be exposed by defining one of the following macros before including `FreeRTOS-Compat/semphr.h` (directly, or indirectly via `FreeRTOS.h`):
+Each of the underlying types can be exposed by defining one of the following macros before including \file{FreeRTOS-Compat/semphr.h} (directly, or indirectly via \file{FreeRTOS.h}):
 
-`CHERIOT_FREERTOS_SEMAPHORE`:: Expose counting and binary semaphores.
-`CHERIOT_FREERTOS_MUTEX`:: Expose non-recursive (priority-inheriting) mutexes.
-`CHERIOT_FREERTOS_RECURSIVE_MUTEX`:: Expose recursive mutexes.
+\begin{description}
+	\item[tag=CHERIOT_FREERTOS_SEMAPHORE]{ Expose counting and binary semaphores.}
+	\item[tag=CHERIOT_FREERTOS_MUTEX]{ Expose non-recursive (priority-inheriting) mutexes.}
+	\item[tag=CHERIOT_FREERTOS_RECURSIVE_MUTEX]{ Expose recursive mutexes.}
+\end{description}
 
 Enabling only the subset that you use (which can be done on a per-file basis) will reduce code size and improve performance.
 
-== Building software timers
+\section{Building software timers}
 
 FreeRTOS provides a timer callback API.
 This is implemented on top of existing functionality in the FreeRTOS kernel.
 CHERIoT RTOS does not yet provide such an API, but building one is fairly simple.
 
-The structure of such a service is similar to that of the thread pool in `lib/thread_pool`, except that each callback has an associated timer.
+The structure of such a service is similar to that of the thread pool in \file{lib/thread_pool}, except that each callback has an associated timer.
 These should be added to a data structure that keeps them sorted.
 The thread that runs the callbacks should wait on a message queue, with the timeout set to the shortest time timer.
-If this wakes with timeout, it should invoke the first (`$$__cheri_callback$$`, see <<cheri_callback>>) callback function in its queue.
+If this wakes with timeout, it should invoke the first (`$$__cheri_callback$$`, see \ref{cheri_callback}) callback function in its queue.
 If it wakes receiving a message, it should add the new callback into the set that it has ready.
 
 There is no generic version of this in CHERIoT RTOS because it is impossible to implement securely in the general case for a system with mutual distrust.
 Callbacks may run for an unbounded amount of time (preventing others from firing) or untrusted code may allocate unbounded numbers of timers and exhaust memory.
 As such, it is generally better to build a bespoke mechanism for the specific requirements of a given workload.
 
-== Timing out blocking operations
+\section{Timing out blocking operations}
 
-FreeRTOS uses the combination of `vTaskSetTimeOutState` and `xTaskCheckForTimeOut` to implement timeouts.
+FreeRTOS uses the combination of \c{vTaskSetTimeOutState} and \c{xTaskCheckForTimeOut} to implement timeouts.
 These are implemented in the FreeRTOS compatibility layer.
-In CHERIoT RTOS, these are subsumed in the `Timeout` structure, which contains both the elapsed and remaining number of ticks for a timeout.
+In CHERIoT RTOS, these are subsumed in the \c{Timeout} structure, which contains both the elapsed and remaining number of ticks for a timeout.
 
 The CHERIoT RTOS design is intended to be trivially composed.
 Most operations simply forward the timeout structure to a blocking operation in the scheduler (a sleep of a futex wait).
-They can query whether the timeout has expired without needing to query the scheduler, simply by checking whether the `remaining` field of the structure is zero.
+They can query whether the timeout has expired without needing to query the scheduler, simply by checking whether the \c{remaining} field of the structure is zero.
 
-== Dynamically allocating memory
+\section{Dynamically allocating memory}
 
 FreeRTOS provides a number of different heap implementations, not all of which are thread safe.
 In contrast, CHERIoT RTOS design assumes a safe, secure, shared heap.
@@ -216,33 +219,34 @@ FreeRTOS prior to 9.0 allocated kernel objects from a private heap.
 Later versions allow the user to provide memory.
 The latter approach has the benefit of accounting these objects to the caller, but the disadvantage of breaking encapsulation.
 
-CHERIoT RTOS has an approach (described in <<shared_heap>>) that combines the advantages of both.
+CHERIoT RTOS has an approach (described in \ref{shared_heap}) that combines the advantages of both.
 Rather than providing memory for creating objects such as message queues, multiwaiters, semaphores, and so on, the caller provides an _allocation capability_.
 This is a token that permits the callee to allocate memory on behalf of the callee.
 The scheduler is not able to allocate memory on its own behalf, it can allocate memory only when explicitly passed an allocation capability.
 It then uses the sealing mechanism to ensure that the caller cannot break encapsulation for scheduler-owned objects.
 
-== Disabling interrupts
+\section{Disabling interrupts}
 
 FreeRTOS code often uses critical sections to disable interrupts.
 This may require some source-code modifications.
 Critical sections in FreeRTOS are used for two things:
 
- - Atomicity
- - Mutual exclusion
+\begin{itemize}
+	\item{Atomicity}
+	\item{Mutual exclusion}
+\end{itemize}
 
 Disabling interrupts is the simplest way of guaranteeing both on a single-core system.
-FreeRTOS provides two APIs for critical sections: `taskENTER_CRITICAL` and `taskEXIT_CRITICAL`, which disable interrupts, and `vTaskSuspendAll` and `xTaskResumeAll`, which disable the scheduler.
+FreeRTOS provides two APIs for critical sections: \c{taskENTER_CRITICAL} and \c{taskEXIT_CRITICAL}, which disable interrupts, and \c{vTaskSuspendAll} and \c{xTaskResumeAll}, which disable the scheduler.
 CHERIoT RTOS is designed to provide availability guarantees across mutually distrusting components and so does not permit either unbounded disabling of interrupts or turning the scheduler off.
 If mutual exclusion is the only requirement then you can implement these function as acquiring and releasing a lock that is private to your component.
 This is how that are implemented in the compatibility layer.
 They use distinct locks and these must be defined in your compartment, as shown below:
 
-[,c]
-----
+\begin{cxxsnippet}
 struct RecursiveMutexState __CriticalSectionFlagLock;
 struct RecursiveMutexState __SuspendFlagLock;
-----
+\end{cxxsnippet}
 
 A futex-based lock is very cheap to acquire in the uncontended case, it requires a single atomic compare-and-swap instruction (this may be a function call to a library routine that runs with interrupts disabled if the hardware does not support atomics).
 If possible, this approach is preferred for two reasons.
@@ -253,13 +257,13 @@ The second use case, atomicity with respect to the rest of the system, requires 
 The CHERIoT platform requires a structured-programming model for disabling interrupts.
 Interrupt control can be done only at a function granularity.
 Hopefully, the code that runs with interrupts disabled is already a lexically scoped block.
-In {cpp}, you can simply wrap this in a lambda and pass it to `CHERI::with_interrupts_disabled`.
+In C++, you can simply wrap this in a lambda and pass it to \cxx{CHERI::with_interrupts_disabled}.
 In C, you will need to factor it into a separate function.
 
 For auditing, you may prefer to move the code that runs with interrupts disabled into a separate library.
 This lets you separately audit the precise code that is allowed to run with interrupts disabled, but modify the rest of your component without constraints.
 
-== Strengthening compartment boundaries for FreeRTOS components 
+\section{Strengthening compartment boundaries for FreeRTOS components }
 
 Microsoft did an internal port of the FreeRTOS network stack and MQTT library.
 This was not part of the open-source release, but involved very little code change.
@@ -269,11 +273,13 @@ FreeRTOS assumes, by default, that all code and globals are shared unless explic
 When porting FreeRTOS components, this assumption is broken unless they are in the same compartment.
 This is not normally a problem for an initial port, because components are cleanly encapsulated and do not directly modify the state of other components.
 
-NOTE: This property does not hold on all RTOS implementations.
+\begin{note}
+This property does not hold on all RTOS implementations.
 For example, several ThreadX components directly manipulate the internal state of the scheduler, rather than acting via well-defined APIs.
+\end{note}
 
 Using compartments give some defence in depth against accidental errors, but may not provide strong security guarantees.
-For example, the FreeRTOS TCP/IP stack provides a `FreeRTOS_socket` call that returns a pointer to a heap-allocated socket structure that encapsulates connection state.
+For example, the FreeRTOS TCP/IP stack provides a \c{FreeRTOS_socket} call that returns a pointer to a heap-allocated socket structure that encapsulates connection state.
 Simply compiling this in a CHERIoT compartment has a few limitations.
 
 First, the structure is allocated out of the network stack's quota.

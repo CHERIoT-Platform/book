@@ -119,7 +119,7 @@ The access-system-registers permission controls access to a small number of priv
 Memory safety is a property of a source-level abstract machine.
 Memory safety for C, Java, or Rust mean different things.
 At the hardware level, CHERIoT is designed to enable implementations of languages to enforce memory safety, in the presence of untrusted code such as inline assembly or code written in a different language.
-Most importantly, it provides the tools that allow code in a compartment (see \ref{isolating_components_with_threads_and_compartments}) to protect itself from arbitrary code in a different compartment.
+Most importantly, it provides the tools that allow code in a compartment (see \ref{_isolating_components_with_threads_and_compartments}) to protect itself from arbitrary code in a different compartment.
 This means protecting objects such that code from a different security context cannot:
 
 \begin{itemize}
