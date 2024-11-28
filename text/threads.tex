@@ -1,6 +1,4 @@
-[#threads]
-= Communicating between threads
-${include("_header.adoc", always_embed=True, leveloffset=None)}
+\chapter[label=threads]{Communicating between threads}
 
 CHERIoT RTOS provides threads as a core abstraction.
 Threads run until they either yield or are preempted via an interrupt, and then later resume from the same point.
@@ -9,7 +7,7 @@ There are a small number of scheduler APIs that allow threads to block; higher-l
 Remember that, in most respects, the scheduler is just another compartment.
 It doesn't run with elevated privileges, it makes a decision about which thread to run next but it is not able to see the stacks or register states associated with threads.
 
-== Defining threads
+\section{Defining threads}
 
 Threads in CHERIoT RTOS cannot be dynamically created.
 Creating threads at run time would require allocating stacks at run time.
@@ -17,22 +15,26 @@ The no-capture guarantees that CHERIoT RTOS enforces are based on the guarantee 
 The only store-local capabilities that a thread ever has access to are derived from its current stack.
 Allowing stack creation would violate that: at least the memory allocator would have access to multiple stacks at once.
 It would be possible to allocate stacks from a separate pool, but that's not really different from allocating stacks up front and having a small compartment that switches them from one use to another or implements a thread pool.
-There is an example thread pool in `lib/thread_pool` and `thread_pool.h` that you can either use directly or use as inspiration for your own design, if you want to create new thread-like contexts.
+There is an example thread pool in \file{lib/thread_pool} and \file{thread_pool.h} that you can either use directly or use as inspiration for your own design, if you want to create new thread-like contexts.
 
 Threads in CHERIoT RTOS are constructed with four properties:
 
- - The size of their stack.
- - The size of their _trusted stack_.
- - Their priority.
- - The entry point where they start executing.
+\begin{itemize}
+	\item{The size of their stack.}
+	\item{The size of their \keyword{trusted stack}.}
+	\item{Their priority.}
+	\item{The entry point where they start executing.}
+\end{itemize}
 
 The stack size means the same as on any other platform.
 Specifically on CHEIRoT, the stack-pointer capability will be bounded to this size (rounded up if necessary for alignment) and any overflow of the stack, even by a single byte, will trap.
 The trusted stack size is the maximum number of cross-compartment calls that this thread can do.
 Each cross-compartment call invokes the switcher, which pushes a new frame on the trusted stack describing where to return.
 
-NOTE: In the current version, each trusted stack frame is three capabilities (24 bytes).
+\begin{note}
+In the current version, each trusted stack frame is three capabilities (24 bytes).
 A larger trusted stack does not make much difference to total memory consumption.
+\end{note}
 
 The priority of threads matters only in relative terms.
 Like FreeRTOS (and unlike UNIX), higher numbers mean higher priorities.
@@ -45,30 +47,32 @@ Thread entry points take no arguments and return no arguments.
 On most other systems, thread creation functions take a pointer.
 This does not make sense for threads that are not dynamically created because there is no context for their creation.
 
-== Identifying the current thread
+\section{Identifying the current thread}
 
 You will sometimes need to know which thread is currently running.
 This can be for something as simple as debugging but may also be needed for maintaining per-thread data structures.
-The ID of each thread is stored in the register save area for that thread and the switcher exposes a library call (${link("thread_id_get")}) to read it.
+The ID of each thread is stored in the register save area for that thread and the switcher exposes a library call (\c{thread_id_get}) to read it.
 
-${insert("thread_id_get")}
+\functiondoc{thread_id_get}
 
 Thread IDs start at one (not zero!) because zero is used to indicate the idle thread and so is never visible.
-The ${link("thread_count")} function returns the number of threads that have been created in the system.
+The \c{thread_count} function returns the number of threads that have been created in the system.
 This is not decremented when threads exit and so provides the upper bound on the number of threads that may exist.
 This can be used to size data structures that are indexed by thread ID.
 
-${insert("thread_count")}
+\functiondoc{thread_count}
 
-== Using the `Timeout` structure
+\section{Using the \c{Timeout} structure}
 
 Several RTOS APIs have timeouts.
-These are expressed as a pointer to a `Timeout` structure.
+These are expressed as a pointer to a \c{Timeout} structure.
 This design is intended to allow a single timeout to be passed down a chain of operations.
 
-NOTE: Timeouts represent time spent blocking (yielding waiting to be runnable), not time spent running (doing useful work).
+\begin{note}
+Timeouts represent time spent blocking (yielding waiting to be runnable), not time spent running (doing useful work).
+\end{note}
 
-Timeouts measure time in scheduler `Ticks`.
+Timeouts measure time in \keyword{scheduler ticks}.
 A tick is a single scheduling quantum, which depends on the board configuration.
 This is the minimum amount of time for which it is plausible for a thread to sleep.
 If a thread sleeps then another thread becomes runnable and is then allowed to run (unless it also yields) for one tick.
@@ -80,31 +84,37 @@ Threads at the same priority level are round-robin scheduled.
 The timeout structure captures the amount of time that is allowed to block and the number of ticks for which it has blocked.
 Each subsequent call that is passed the same timeout structure may increase the amount of slept time and decrease the remaining time.
 
-NOTE: A thread may block for more than the permitted limit if it is sleeping while a higher-priority thread runs.
+\begin{note}
+A thread may block for more than the permitted limit if it is sleeping while a higher-priority thread runs.
 Only the highest-priority thread can make strong realtime guarantees in the presence of other runnable threads.
+\end{note}
 
 Functions that take a timeout should always expect it as the first argument.
 This allows it to be forwarded to subsequent calls trivially.
 
-WARNING: Timeouts may not be stored on the heap.
+\begin{warning}
+Timeouts may not be stored on the heap.
 Any function checking timeouts may refuse to accept a heap-allocated timeout.
 It is difficult to work with heap-allocated timeouts because they may be deallocated while the thread is sleeping, which would then cause it to crash on updating the timeout structure.
+\end{warning}
 
-== Sleeping
+\section{Sleeping}
 
 Sleeping for a bounded number of ticks is the simplest form of blocking available.
-The ${link("thread_sleep")} call causes the caller to yield until a certain number of ticks have run.
+The \c{thread_sleep} call causes the caller to yield until a certain number of ticks have run.
 
-${insert("thread_sleep")}
+\functiondoc{thread_sleep}
 
-As with other calls that take a `Timeout`, the number of ticks that have elapsed during the call can be checked by reading the `elapsed` field of the timeout structure.
+As with other calls that take a \c{Timeout}, the number of ticks that have elapsed during the call can be checked by reading the \c{elapsed} field of the timeout structure.
 
 Sleeping in a system with an RTOS scheduler conflates two concepts:
 
- - Waiting for some time to elapse.
- - Allowing lower-priority threads to run.
+\begin{itemize}
+	\item{Waiting for some time to elapse.}
+	\item{Allowing lower-priority threads to run.}
+\end{itemize}
 
-The ${link("thread_sleep")} call supports both of these but understanding how they differ requires understanding a little of the scheduler's behaviour.
+The \c{thread_sleep} call supports both of these but understanding how they differ requires understanding a little of the scheduler's behaviour.
 
 Traditional OS schedulers from the earlies preemptive multitasking systems used a fixed scheduling quantum.
 The scheduler would configure a periodic timer interrupt and would make a new scheduling decision at each interrupt or at explicit yields.
@@ -116,7 +126,7 @@ When two threads at the same priority level are runnable, the scheduler will req
 If the running thread has no peers, the scheduler will allow it to run until either it yields or another higher or equal-priority thread's timeout expires.
 The tick abstraction remains as a convenient way of expressing time to the scheduler, but internally the scheduler tracks only elapsed cycles.
 
-By default, if `0` is passed as the `flags` argument to `thread_sleep`, the sleep operation is treated as a *yield*.
+By default, if \c{0} is passed as the \c{flags} argument to \c{thread_sleep}, the sleep operation is treated as a \keyword{yield}.
 This is a way for the running thread to communicate to the scheduler that it is happy for other (lower or equal-priority) threads to run for up to the specified number of ticks.
 The scheduler may wake the yielding thread if no other thread is going to be runnable within that number of ticks.
 This allows a high-priority threads to allow other threads to run, but continue using the CPU is no other thread is runnable.
@@ -125,22 +135,24 @@ In some cases, you really want to sleep.
 For example, if you're updating a clock display, you will want to run once a second or once a minute to update a display.
 The same applies if you're sending keep-alive packets or periodically monitoring some other component.
 Even if no other threads are runnable, you have no useful work to do for a bit.
-You can pass `ThreadSleepNoEarlyWake` as the `flags` argument to `thread_sleep` to indicate that you really want to sleep.
+You can pass \c{ThreadSleepNoEarlyWake} as the \c{flags} argument to \c{thread_sleep} to indicate that you really want to sleep.
 
-[#futex]
-== Building locks with futexes
+\section[label=futex]{Building locks with futexes}
 
 The scheduler exposes a set of futex APIs as a building block for various notification and locking mechanisms.
 Futex is a contraction of 'fast userspace mutex'.
 This does not quite apply on a CHERIoT system, where there is no userspace, but the core concept of avoiding a privilege transition on fast paths still applies.
 
-A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-sleep (${link("futex_timed_wait")}) and notify (${link("futex_wake")}) operations.
+A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-sleep (\c{futex_timed_wait}) and notify (\c{futex_wake}) operations.
 
-${insert("futex_timed_wait")}
-${insert("futex_wake")}
+\functiondoc{futex_timed_wait}
 
-NOTE: In {cpp}, `std::atomic<uint32_t>` provides `wait`, `notify_all`, and `notify_one` methods that expose futex functionality and may be more convenient to call than the raw futex APIs.
-These include some additional (non-standard) overloads that expose more of the underlying futex functionality.
+\functiondoc{futex_wake}
+
+\begin{note}
+	In C++, \cxx{std::atomic<uint32_t>} provides \cxx{wait}, \cxx{notify_all}, and \cxx{notify_one} methods that expose futex functionality and may be more convenient to call than the raw futex APIs.
+	These include some additional (non-standard) overloads that expose more of the underlying futex functionality.
+\end{note}
 
 A futex allows you to use atomic operations on a 32-bit word for fast paths but then sleep and wake threads when they are blocked, rather than spinning.
 Anything that can be implemented with a spin-wait loop can usually be made more efficient with a futex.
@@ -157,31 +169,32 @@ This will allow other threads to run but the waiting thread remains runnable and
 With an RTOS priority scheduler, if the thread that's waiting is a higher priority than thread that owns the lock then the thread that owns the lock may never be scheduled.
 
 A futex lets the waiting thread sleep.
-The `futex_timed_wait` call will compare the value in the futex word to the expected value (one, indicating locked, in this case) and, if they match, will send the thread to sleep and remain asleep until the thread owning the lock will then do a `futex_wake` call when unlocking.
+The \c{futex_timed_wait} call will compare the value in the futex word to the expected value (one, indicating locked, in this case) and, if they match, will send the thread to sleep and remain asleep until the thread owning the lock will then do a \c{futex_wake} call when unlocking.
 
 A more complete futex-based lock uses three values in the lock word to differentiate between locked states with and without waiters.
 This allows the uncontended case to avoid any cross-compartment calls.
 
-The `locks` library provides a set of futex-based locks.
-The `locks.h` header exposes the interface to this library.
+The \file{locks} library provides a set of futex-based locks.
+The \file{locks.h} header exposes the interface to this library.
 
-Ticket locks:: provide guaranteed FIFO semantics for waiters.
-Flag locks::  are simple locks that wake waiters in the order of their thread priorities.
-These can optionally provide priority inheritance (see <<priority_inheritance>>).
-Recursive mutexes:: wrap a priority-inheriting flag lock and allow the same thread to acquire a lock multiple times.
-Semaphores:: provide a counting semaphore abstraction.
+\begin{description}
+	\item[tag=Ticket locks]{ provide guaranteed FIFO semantics for waiters.}
+	\item[tag=Flag locks]{  are simple locks that wake waiters in the order of their thread priorities.}
+	\item[tag=These can optionally provide priority inheritance (see \ref{priority_inheritance}).}
+	\item[tag=Recursive mutexes]{ wrap a priority-inheriting flag lock and allow the same thread to acquire a lock multiple times.}
+	\item[tag=Semaphores]{ provide a counting semaphore abstraction.}
+\end{description}
 
-{cpp} users may prefer to use the wrappers provided in `locks.hh`, which implement a uniform interface for different lock types.
+C++ users may prefer to use the wrappers provided in `locks.hh`, which implement a uniform interface for different lock types.
 This header also defines a `NoLock` class that provides the same interface but does not do any locking so generic data structures can be implemented with and without locking.
 
 Futexes can be used to build other waiting mechanisms beyond locks.
 For example, a ring buffer with producer and consumer counters can have the sender wait while the ring is full by using a futex wait on the consumer counter and the receiver can do likewise with the producer counter.
 This allows a ring buffer design that is mostly lockless, yet allows the producer to sleep when the ring is full or the consumer to sleep when it is empty.
 
-[#priority_inheritance]
-== Inheriting priorities
+\section[label=priority_inheritance]{Inheriting priorities}
 
-Simple futex-based locks are vulnerable to _priority inversion_.
+Simple futex-based locks are vulnerable to \keyword{priority inversion}.
 Consider a case with three threads.
 The first is a low-priority thread that acquires a lock.
 The second is a medium-priority thread that preempts the first.
@@ -191,10 +204,10 @@ The high-priority thread in this example cannot make progress until the low-prio
 The low-priority thread cannot make progress until the medium-priority thread blocks.
 This means that the medium-priority thread is preventing the high-priority thread from making progress, which is the opposite of the desired situation.
 
-_Priority inheritance_ is the solution to this kind of problem.
+\keyword{Priority inheritance} is the solution to this kind of problem.
 The blocking high-priority thread loans its priority to the low-priority thread, allowing it to (temporarily) be scheduled in preference to the medium-priority thread.
 
-The futex APIs implement this by storing the thread ID of the owning thread in the bottom 16 bits of the futex word and passing `FutexPriorityInheritance` to the `flags` argument in the wait call.
+The futex APIs implement this by storing the thread ID of the owning thread in the bottom 16 bits of the futex word and passing \c{FutexPriorityInheritance} to the \c{flags} argument in the wait call.
 The specified thread will have its priority set to the highest priority of any of the waiting threads.
 The priority boost lasts until the waiters time out or the boosted thread releases the lock, whichever happens first.
 
@@ -208,10 +221,10 @@ Before reading the list, the allocator increments the top 16 bits of the futex w
 Threads updating the hazard set check the futex word before and after updating the list.
 If the top 16 bits have changed, they know that the allocator has scanned the list and they must retry.
 If the top 16 bits contain an odd value, the allocator is currently scanning the list and they must wait.
-They can do a priority-inheriting wait with a one-tick timeout _even though the allocator will not ever call `futex_wake`_.
+They can do a priority-inheriting wait with a one-tick timeout \textem{even though the allocator will not ever call \c{futex_wake}}.
 They will yield for one tick, boosting the priority of the thread that's currently in the allocator, but then resume at the end of the tick.
 
-== Securing futexes
+\section{Securing futexes}
 
 Most of the time you will want to use futexes (and the locks that wrap them) to synchronise operations within a single compartment.
 Futex-based locks rely on the contents of the lock word to be valid.
@@ -222,109 +235,110 @@ Providing mutable views of such a structure to multiple compartments is almost c
 
 There is one situation where futexes are safe to share across compartment boundaries.
 If you have a component that others trust for availability, it can share read-only views of a futex to allow waiting for an out-of-band event.
-The scheduler does this for interrupts (see <<drivers>>), allowing threads to use the futex wait operation to block until an interrupt is ready.
+The scheduler does this for interrupts (see \ref{drivers}), allowing threads to use the futex wait operation to block until an interrupt is ready.
 
-== Using event groups
+\section{Using event groups}
 
-The `event_group` library provides an event group API that is primarily intended for porting code written against FreeRTOS's event groups APIs.
-The `event.h` header exposes the interface to this library.
+The \c{event_group} library provides an event group API that is primarily intended for porting code written against FreeRTOS's event groups APIs.
+The \file{event.h} header exposes the interface to this library.
 These APIs do not have a clear trust model and so should be avoided in new code that is not ported from FreeRTOS.
 You can build more convenient interfaces atop futexes for most synchronisation operations.
-You may also simply use multiple futexes and the `multiwaiter` API (see <<multiwaiter>>) to wait for multiple events.
+You may also simply use multiple futexes and the \c{multiwaiter} API (see \ref{multiwaiter}) to wait for multiple events.
 
 An event group is a set of up to 24 values that can be set or cleared independently.
 Waiters can wait for any or all of an arbitrary subset of these.
 
-Event groups are created with the ${link("eventgroup_create")} function.
+Event groups are created with the \c{eventgroup_create} function.
 This returns an opaque handle to the event group, which can be used for setting, clearing, or waiting on events.
 
-${insert("eventgroup_create")}
+\functiondoc{eventgroup_create}
 
-Note that, because this allocates memory, it requires an _allocation capability_.
-See <<shared_heap>> for more information about what this means.
+Note that, because this allocates memory, it requires an \keyword{allocation capability}.
+See \ref{shared_heap} for more information about what this means.
 
-You can then use ${link("eventgroup_set")} and ${link("eventgroup_clear")} to set and clear some or all of the event flags in this group.
+You can then use \c{eventgroup_set} and \c{eventgroup_clear} to set and clear some or all of the event flags in this group.
 Both of these calls return the old values of the bits.
 
-${insert("eventgroup_set")}
-${insert("eventgroup_clear")}
+\functiondoc{eventgroup_set}
 
-You can then subsequently wait for some of the events to be set with the ${link("eventgroup_wait")} function.
+\functiondoc{eventgroup_clear}
+
+You can then subsequently wait for some of the events to be set with the \c{eventgroup_wait} function.
 This takes a set of events to wait for and can wait until either any or all of them are set.
 
-${insert("eventgroup_wait")}
+\functiondoc{eventgroup_wait}
 
 This call can also atomically clear the bits that you've waited on, giving them edge-triggered behaviour.
 
-[#message_queue]
-== Sending messages
+\section[label=message_queue]{Sending messages}
 
 A message queue is a FIFO capable of storing a fixed number of fixed-sized entries.
 There are two distinct use cases for message queues:
 
- - Communicating between two threads in the same compartment.
- - Communicating between different compartments.
+\begin{itemize}
+	\item{Communicating between two threads in the same compartment.}
+	\item{Communicating between different compartments.}
+\end{itemize}
 
 In the first case, the endpoints are in the same trust domain.
-The `message_queue_library` library provides a simple message queue API that is intended for this use case.
+The \c{message_queue_library} library provides a simple message queue API that is intended for this use case.
 When the endpoints are in different trust domains, the endpoints must be protected from tampering.
-The `message_queue` compartment wraps the library in a compartment that exposes an almost identical interface to the library but with the endpoints exposed as (tamper-proof) sealed capabilities.
+The \c{message_queue} compartment wraps the library in a compartment that exposes an almost identical interface to the library but with the endpoints exposed as (tamper-proof) sealed capabilities.
 
-Queues for use within a single compartment are created with ${link("queue_create")}, which allocates the buffer and returns a handle that can be used for sending and receiving messages.
-There is no explicit `queue_destroy` function.
+Queues for use within a single compartment are created with \c{queue_create}, which allocates the buffer and returns a handle that can be used for sending and receiving messages.
+FIXME: This needs updating for the new APIs:
+There is no explicit \c{queue_destroy} function.
 The memory allocated can simply be freed when the queue is no longer needed.
-The pointer returned via the `outAllocation` parameter refers to the entire allocation used for the queue and so can be passed to `heap_free`, along with the heap capability used to allocate the queue.
+The pointer returned via the \c{outAllocation} parameter refers to the entire allocation used for the queue and so can be passed to \c{heap_free}, along with the heap capability used to allocate the queue.
 
-${insert("queue_create")}
+\functiondoc{queue_create}
 
-Messages are then sent with ${link("queue_send")} and received with ${link("queue_receive")}.
+Messages are then sent with \c{queue_send} and received with \c{queue_receive}.
 These are blocking (if allowed to by with a non-zero timeout) calls that send or receive a single message.
 
-${insert("queue_send")}
-${insert("queue_receive")}
+\functiondoc{queue_send}
 
-For defence in depth, you can use ${link("queue_make_receive_handle")} or ${link("queue_make_send_handle")} to create a handle that can only be used for receiving or sending messages, respectively.
+\functiondoc{queue_receive}
 
-${insert("queue_make_receive_handle")}
-${insert("queue_make_send_handle")}
-
-CAUTION: The library interfaces to queues are not intended to be robust in the presence of malicious callers.
+\begin{caution}
+The library interfaces to queues are not intended to be robust in the presence of malicious callers.
 They run in the same security context as the caller and so a caller may abuse them to corrupt its own state.
 They do aim to be robust with respect to the source or destination buffer for sending and receiving messages being invalid or concurrently deallocated.
+\end{caution}
 
-You can probe the number of messages in a queue with ${link("queue_items_remaining")}.
+You can probe the number of messages in a queue with \c{queue_items_remaining}.
 
-${insert("queue_items_remaining")}
+\functiondoc{queue_items_remaining}
 
-If you are passing messages between compartments, you should use the versions of these functions with the `_sealed` suffix.
-The ${link("queue_create_sealed")} function creates a queue and returns separate send and receive handles, which can be passed to separate compartments.
-This queue can be destroyed by calling ${link("queue_destroy_sealed")} with the send and receive handles.
+If you are passing messages between compartments, you should use the versions of these functions with the \c{_sealed} suffix.
+The \c{queue_create_sealed} function creates a queue and returns separate send and receive handles, which can be passed to separate compartments.
+This queue can be destroyed by calling \c{queue_destroy_sealed} with the send and receive handles.
 The queue is not destroyed until both handles have been passed to this function.
 
-${insert("queue_create_sealed")}
-${insert("queue_destroy_sealed")}
+\functiondoc{queue_create_sealed}
 
-The corresponding send and receive functions are identical to their library counterparts, but take one of the queue handles returned from ${link("queue_destroy_sealed")}.
+\functiondoc{queue_destroy_sealed}
 
-[#multiwaiter]
-== Waiting for multiple events
+The corresponding send and receive functions are identical to their library counterparts, but take one of the queue handles returned from \c{queue_destroy_sealed}.
+
+\section[label=multiwaiter]{Waiting for multiple events}
 
 The multiwaiter API allows waiting for any of a set of independent events.
-It is conceptually similar to `select`, `poll`, `epoll`, and `kqueue` in *NIX operating systems or `WaitForMultipleObjects` in Windows.
+It is conceptually similar to \c{select}, \c{poll}, \c{epoll}, and \c{kqueue} in *NIX operating systems or \c{WaitForMultipleObjects} in Windows.
 It is designed to bound the amount of time that the scheduler must spend checking multiwaiters and to minimise the amount of memory that multiwaiters consume.
-Memory is allocated only when a multiwaiter is created, with ${link("multiwaiter_create")}.
+Memory is allocated only when a multiwaiter is created, with \c{multiwaiter_create}.
 This creates a multiwaiter with space for a fixed number of events.
 
-${insert("multiwaiter_create")}
+\functiondoc{multiwaiter_create}
 
-Each ${link("multiwaiter_wait")} call is a one-shot operation.
+Each \c{multiwaiter_wait} call is a one-shot operation.
 The call is passed a set of things to wait for and the associated condition via the `events` array and returns the waited status via the same array.
 This is typically an on-stack array.
 
-${insert("multiwaiter_wait")}
+\functiondoc{multiwaiter_wait}
 
 The multiwaiter can natively wait only for futex notifications but higher-level mechanisms are built out of futexes.
-For example, if you wish to wait for a message queue (see <<message_queue>>) to be ready to send, you can call ${link("multiwaiter_queue_receive_init")} to initialise a multiwaiter event with the queue's receive counter and expected value.
+For example, if you wish to wait for a message queue (see \ref{message_queue}) to be ready to send, you can call \c{multiwaiter_queue_receive_init} to initialise a multiwaiter event with the queue's receive counter and expected value.
 This event will then fire if the queue becomes non-full.
 The normal caveats about race conditions apply: the queue may become full again if another thread sends messages in between your receiving the notification and sending a message.
 
