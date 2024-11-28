@@ -13,7 +13,6 @@ function visit(textTree)
 						return {row}
 					end
 					if type(row) ~= "string" then
-						print("Row kind:", row.kind)
 						if row.kind == "tr" then
 							row:visit(function(cell)
 								if type(cell) ~= "string" then
@@ -60,7 +59,6 @@ function visit(textTree)
 				end
 				return {row}
 			end)
-			print("Columns: " .. columns)
 			textTree:attribute_set("cols", tostring(columns))
 		else
 			textTree:visit(visit)
