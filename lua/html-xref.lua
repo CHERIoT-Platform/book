@@ -1,5 +1,3 @@
-
-
 local xrefTargets = {}
 
 function findLabels(textTree)
