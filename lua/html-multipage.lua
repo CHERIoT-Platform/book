@@ -6,6 +6,7 @@ function newChapter(name, file)
 		name = name,
 		file = file,
 		root = TextTree.new(),
+		number = "",
 		sections = TextTree.new("ul"),
 	}
 end
@@ -22,7 +23,7 @@ end
 
 function pushNode(node)
 	if currentChapter == nil then
-		currentChapter = newChapter("Frontmatter", "frontmatter.html")
+		currentChapter = newChapter("Frontmatter", "index.html")
 	end
 	currentChapter.root:append_child(node)
 end
@@ -48,10 +49,16 @@ function collectChapters(textTree)
 			-- Remove path
 			chapterFile = string.gsub(chapterFile, ".*/", "")
 			pushChapter(textTree:text(), chapterFile)
+			if textTree:has_attribute("number") then
+				currentChapter.number = textTree:attribute("number")
+			end
 		elseif textTree.kind == "section" then
 			local li = currentChapter.sections:new_child("li")
 			local a = li:new_child("a")
 			a:attribute_set("href", "#" .. textTree:attribute("label"))
+			if textTree:has_attribute("number") then
+				a:append_text(textTree:attribute("number") .. ". ")
+			end
 			a:take_children(textTree:deep_clone())
 		end
 		collectLabels(textTree)
@@ -87,7 +94,11 @@ function process(textTree)
 			local li = tinyTOC:new_child("li")
 			local a = li:new_child("a")
 			a:attribute_set("href", chapterForToC.file)
-			a:append_text(chapterForToC.name)
+			if chapterForToC.number == "" then
+				a:append_text(chapterForToC.name)
+			else
+				a:append_text(chapterForToC.number .. ". " .. chapterForToC.name)
+			end
 			if chapter == chapterForToC then
 				li:append_child(chapter.sections)
 			end
@@ -103,7 +114,16 @@ function process(textTree)
 					attributes = {
 						class = "minitoc",
 					},
-					children = { tinyTOC },
+					children = {
+						{
+							kind = "h1",
+							attributes = {
+								class = "minitoc",
+							},
+							children = { "Table of contents" },
+						},
+						tinyTOC,
+					},
 				},
 				{
 					kind = "div",
@@ -123,7 +143,8 @@ function process(textTree)
 		local out = create_pass("HTMLOutputPass"):as_output_pass()
 		if root then
 			print("Writing " .. chapter.file)
-			out:output_file(chapter.file)
+			local directory = config.output_directory or "."
+			out:output_file(directory .. "/" .. chapter.file)
 			out:process(root)
 		end
 	end

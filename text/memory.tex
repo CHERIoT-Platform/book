@@ -103,7 +103,7 @@ Defining \c{CHERIOT_NO_NEW_DELETE} will disable the global C++ operator \c{new} 
 
 Defining these does not prevent memory allocation, you can still define non-default allocator capabilities and use them directly, but it prevents accidental allocation.
 
-== Defining custom allocation capabilities for \c{malloc} and \c{free}
+\section{Defining custom allocation capabilities for \c{malloc} and \c{free}}
 
 If you simply wish to change the quota that is available to \c{malloc} and \c{free} then you can define \c{MALLOC_QUOTA} when compiling your compartment.
 If you require more control, such as controlling the compilation unit that contains the definition of the allocator capability, then you can define \c{CHERIOT_CUSTOM_DEFAULT_MALLOC_CAPABILITY}.

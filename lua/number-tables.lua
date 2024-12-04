@@ -1,6 +1,6 @@
 
 local tableNumber = 1
-local sectionNumbers = {1, 1, 1, 1}
+local sectionNumbers = {0, 0, 0, 0}
 local depths = {
 	chapter = 1,
 	section = 2,
@@ -19,7 +19,7 @@ function visit(textTree)
 			local number = sectionNumbers[depth];
 			sectionNumbers[depth] = number + 1 
 			for i = depth + 1, #sectionNumbers do
-				sectionNumbers[i] = 1
+				sectionNumbers[i] = 0
 			end
 			local numberString =  ""
 			for i = 1, depth do
