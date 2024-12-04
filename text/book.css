@@ -1,18 +1,185 @@
+@font-face {
+	font-face: "Noto Color Emoji";
+	src:
+		local("Noto Color Emoji"),
+		url("./NotoColorEmoji-Regular.ttf"), format("TrueType")
+}
+
+body
+{
+	font-family: "Noto Serif", "DejaVu Serif", serif;
+	font-size: 17px;
+}
+
+h1.booktitle
+{
+	font-family: "Helvetica", sans-serif;
+	font-weight: 300;
+	padding-left: 15px;
+	margin-bottom: 5px;
+	margin-left: 5px;
+}
+
+*, ::before, ::after
+{
+	box-sizing: border-box;
+}
+
+span.command,
+span.flag,
+span.json,
+span.file,
+span.c,
+span.cxx,
+span.lua
+{
+	font-family: "Source Code Pro", monospace;
+}
+div.note > p
+{
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+div.note, div.warning, div.caution
+{
+	align: right;
+	margin: 1em;
+	padding-top: 0.5em;
+	padding-bottom: 0.5em;
+	display: flex;
+	box-sizing: border-box;
+	font-family: "Noto Color Emoji";
+	border-color: #aaaaaa;
+	border-top: solid 0.5px;
+	border-bottom: solid 0.5px;
+}
+div.note::before, div.warning::before, div.caution::before
+{
+	display: flex;
+	align-items: center;
+	padding-right:0.5em;
+	padding-left:0.5em;
+	font-size: 2em;
+	font-family: "Noto Color Emoji";
+}
+div.note::before
+{
+	content: "ℹ️ ";
+}
+div.caution::before
+{
+	content: "⚠️ ";
+}
+div.warning::before
+{
+	content: "⚠";
+	color: red;
+}
+
+div.note
+{
+	align: right;
+	margin-left: 1em;
+	display: flex;
+	box-sizing: border-box;
+	font-family: "Noto Color Emoji";
+	border-color: #aaaaaa;
+	border-top: solid 0.5px;
+	border-bottom: solid 0.5px;
+}
+div.note::before
+{
+	display: flex;
+	align-items: center;
+	padding-right:0.5em;
+	padding-left:0.5em;
+	content: "ℹ️ ";
+	font-size: 2em;
+	font-family: "Noto Color Emoji";
+
+}
+
+p, pre, ul, ol
+{
+	margin-block-start: 0px;
+}
+
+div.details
+{
+	border-bottom: 1px, solid, lightgray;
+	color: gray;
+	padding-left: 15px;
+	margin-left: 5px;
+}
+
+a
+{
+	text-decoration: none;
+}
+
+@media screen and (min-width: 768px)
+{
+body
+{
+	padding-right: 15em;
+}
+div.minitoc
+{
+	margin-top: 0 !important;
+	z-index: 10;
+	left: auto;
+	right: 0;
+	position: fixed;
+	height: 100%;
+	width: 20em;
+	padding: 1.25em 1em;
+	height: 100% !important;
+	overflow: auto;
+	display: flex;
+	top: 0;
+}
+}
+div.minitoc
+{
+	background: #f8f8f7;
+	display: flex;
+	flex-direction: column;
+}
+div.minitoc::before
+{
+	content: "Table of Contents";
+	font-weight: bold;
+	display: flex;
+	flex-direction: column;
+}
+
+div.minitoc ul
+{
+	list-style-type: none;
+}
+
+::before, ::after
+{
+	box-sizing: border-box
+}
+
+div.content
+{
+	box-sizing: border-box
+	width: 100%;
+	max-width: 80ch;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	padding: 20px;
+}
 
 dt {
-	text-indent: 2em;
-	margin-inline-start: 2em;
+  font-weight: bold;
 }
 
-dd {
-	display: inline;
-	text-indent: 0pt;
-	margin-inline-start: 0pt;
-}
-dd::after {
-	content: '\A';
-	white-space: pre;
-}
 
 pre.listing-code-numbered > code.listing-line:before {
 	content: counter(listing-line, decimal) " ";
@@ -27,6 +194,8 @@ pre.listing-code-numbered > code.listing-line:before {
 }
 
 pre.listing-code {
+	word-wrap: break-word;
+	white-space: pre-wrap;
 	background-color: #f0f0f0;
 }
 
@@ -74,8 +243,8 @@ span.code-Comment { color: #008000; }
 div.code-documentation {
   margin-top: 1em;
   margin-bottom: 1em;
-  border: 2px solid black;
-  border-top: 3px solid black;
+  border: 2px solid lightgrey;
+  border-top: 3px solid lightgrey;
 }
 
 
@@ -86,20 +255,28 @@ div.code-documentation-inner {
 
 div.code-documentation-inner > span.code-documentation-heading {
   background: white none repeat scroll 0 0;
+  color: #555;
   padding: 0 2px;
-  margin-left: 2em;
+  margin-left: 1em;
   font-weight: 700;
   font-size: 18px;
 }
 
-dt, dl {
-  text-indent: 5em;
-  display: inline;
+div.code-documentation-inner > div.listing {
+  margin-top: 0.75em;
 }
-dt {
-  font-weight: bold;
+
+
+
+
+
+table
+{
+	border-collapse: collapse;
+	width: 100%;
 }
-dl:after {
-  content: "\A";
-  white-space: pre;
+
+tr:nth-child(even) {
+	background-color: #e8e8e7;
 }
+
