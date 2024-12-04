@@ -14,7 +14,6 @@ local monospace = {
 }
 
 function process(textTree)
-	--textTree:visit(visit)
 	textTree:match_any(italic, function(textTree)
 		textTree.kind = "font"
 		textTree:attribute_set("style", "italic")
