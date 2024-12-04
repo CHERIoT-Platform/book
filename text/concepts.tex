@@ -32,10 +32,10 @@ CHERI says more concretely that it will trap: you are not authorised to access t
 If you hold two pointers to objects that are adjacent in memory, then you may be authorised to access the memory, but not with the pointer that you are using.
 This highlights the two key security principles that capability systems are able to enforce:
 
-\begin{description}
-	\item[tag="The principle of least privilege"]{, which states that a piece of running code should have the rights to do what it needs to do and no more.}
-	\item[tag=The principle of intentional use]{, which states that any privileged operation must be performed by intentionally exercising the specific right that is needed.}
-\end{description}
+\begin{itemize}
+	\item{\keyword{The principle of least privilege}, which states that a piece of running code should have the rights to do what it needs to do and no more.}
+	\item{\keyword{The principle of intentional use}, which states that any privileged operation must be performed by intentionally exercising the specific right that is needed.}
+\end{itemize}
 
 Capability systems make it easy to implement least privilege by providing running code only with the minimal set of capabilities (with the limited set of rights) that they need.
 They make it easy to implement intentionality by requiring the specific capability to be presented along with each operation.
