@@ -9,6 +9,8 @@ function visit(tree)
 		elseif tree.kind == "luasnippet" then
 			tree:attribute_set("class", "listing-code")
 			tree.kind = "pre"
+		elseif tree.kind == "verbatim" then
+			tree.kind = "pre"
 		elseif tree.kind == "lualisting" then
 			tree.kind = "pre"
 			tree:attribute_set("class", "listing-code")
