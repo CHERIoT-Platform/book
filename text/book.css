@@ -13,6 +13,7 @@ h1.booktitle
 	margin-left: 5px;
 }
 
+
 *, ::before, ::after
 {
 	box-sizing: border-box;
@@ -108,7 +109,7 @@ a
 	text-decoration: none;
 }
 
-@media screen and (min-width: 768px)
+@media screen and (min-width: calc(80ch + 20em + 40px))
 {
 body
 {
@@ -136,14 +137,18 @@ div.minitoc
 	display: flex;
 	flex-direction: column;
 }
-div.minitoc::before
+h1.minitoc
 {
-	content: "Table of Contents";
+	font-size: 24px;
 	font-weight: bold;
 	display: flex;
 	flex-direction: column;
 }
 
+div.minitoc > ul
+{
+	padding-left: 0;
+}
 div.minitoc ul
 {
 	list-style-type: none;
