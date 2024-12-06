@@ -4,6 +4,11 @@ function findLabels(textTree)
 	if type(textTree) ~= "string" then
 		if textTree:has_attribute("label") then
 			local label = textTree:attribute("label")
+			if label == "" then
+				textTree:error("Empty label")
+				textTree:dump()
+				return {textTree}
+			end
 			if xrefTargets[label] then
 				textTree:error("Duplicate label: " .. label)
 				xrefTargets[label].node:error("Previous occurrence was: ")
@@ -16,9 +21,17 @@ function findLabels(textTree)
 			if textTree.kind == "caption" then
 				objectNode = textTree:parent()
 			end
-			captionPrefix = objectNode.kind:gsub("^%l", string.upper);
+			if textTree.kind == "p" and textTree:has_attribute("class") and (textTree:attribute("class") == "listing-caption") then
+				captionPrefix = "Listing"
+				captionNode = TextTree.new()
+			else
+				captionPrefix = objectNode.kind:gsub("^%l", string.upper);
+			end
 			if objectNode:has_attribute("number") then
-				captionPrefix = captionPrefix .. " " .. objectNode:attribute("number") .. ". "
+				captionPrefix = captionPrefix .. " " .. objectNode:attribute("number")
+				if #captionNode.children > 0 then
+					captionPrefix = captionPrefix .. ". "
+				end
 			end
 			xrefTargets[label] = {node = captionNode, captionPrefix = captionPrefix}
 		end
@@ -34,6 +47,7 @@ function resolveXrefs(textTree)
 			local target = xrefTargets[targetName]
 			if not target then
 				textTree:error("Unknown label: " .. targetName)
+				textTree:dump()
 				return {textTree}
 			end
 			local linkNode = TextTree.new("a")
@@ -52,10 +66,9 @@ end
 
 
 function process(textTree)
-	print("Collecting link targets")
 	textTree:visit(findLabels)
-	print("Resolving cross references")
 	textTree:visit(resolveXrefs)
 	return textTree
 end
+
 

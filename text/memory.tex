@@ -77,10 +77,12 @@ The \c{heap_allocate} and \c{heap_free} functions take a capability, as describe
 When an object is allocated with an explicit capability, it may be freed only by presenting the same capability.
 This means that, if you pass a heap-allocated buffer to another compartment, that compartment cannot free it unless you also pass the authorising capability.
 
-NOTE: The allocation uses a timeout because the allocation API is able to block if insufficient memory is available.
-In contrast the deallocation API will always make progress.
-The allocator uses a priority-inheriting lock, which is dropped while blocking.
-If a high-priority thread frees memory while a lower-priority thread owns the lock then the lower-priority thread will wake up, complete its allocation or deallocation, release the lock, and allow the higher-priority thread to resume.
+\begin{note}
+	The allocation uses a timeout because the allocation API is able to block if insufficient memory is available.
+	In contrast the deallocation API will always make progress.
+	The allocator uses a priority-inheriting lock, which is dropped while blocking.
+	If a high-priority thread frees memory while a lower-priority thread owns the lock then the lower-priority thread will wake up, complete its allocation or deallocation, release the lock, and allow the higher-priority thread to resume.
+\end{note}
 
 If you need to clean up all memory allocated by a particular capability, \c{heap_free_all} will walk the heap and deallocate everything owned by that capability.
 This is useful when a compartment has crashed, to reclaim all of its heap memory.
@@ -93,8 +95,10 @@ If you are porting existing C/C++ code then it is likely that it uses \c{malloc}
 These are implemented as wrappers around \c{heap_allocate} and \c{heap_free} that pass \c{MALLOC_CAPABILITY} as the authorising capability.
 You can also pass this capability explicitly to allocate things from the same quota as the standard allocation routines.
 
-NOTE: \c{MALLOC_CAPABILITY} is a macro referring to the default allocation capability _in the current compartment_.
-It refers to a different capability in every compartment.
+\begin{note}
+	\c{MALLOC_CAPABILITY} is a macro referring to the default allocation capability _in the current compartment_.
+	It refers to a different capability in every compartment.
+\end{note}
 
 You can control the amount of memory provided by this capability by defining the \c{MALLOC_QUOTA} for your compartment.
 If a compartment is not supposed to allocate memory on its own behalf, you can define \c{CHERIOT_NO_AMBIENT_MALLOC}.
@@ -179,3 +183,31 @@ You can pass a capability with bounds that do not cover an entire object to \c{h
 \end{note}
 
 \functiondoc{heap_claim}
+
+If you need to ensure that an allocation remains valid for a brief, scoped, period then \c{heap_claim_fast} may be more useful.
+This function places an ephemeral claim on one or two objects.
+
+\begin{warning}
+	The \c{heap_claim_fast} function is poorly named (and will probably be renamed something like \c{heap_claim_ephemeral} in a future version).
+	It is not just a fast version of \c{heap_claim}, it is a different function with different guarantees.
+\end{warning}
+
+\functiondoc{heap_claim_fast}
+
+Every thread has two \keyword{hazard slots} that can hold pointers.
+The \c{heap_claim_fast} function manages these two slots.
+These are cleared on every cross-compartment call and can be cleared explicitly by passing \c{NULL} to \c{heap_claim_fast}.
+
+If a pointer passed to \c{heap_free} is present in the allocator, the allocator will defer freeing the object.
+Writing to the hazard slots is very fast.
+Unlike \c{heap_claim}, this does not require a cross-compartment call.
+
+\begin{caution}
+	Any claim applied with \c{heap_claim_fast} is lost on \textem{any} cross-compartment call.
+	This includes any blocking operation, which will invoke the scheduler.
+	In general, do not use \c{heap_claim_fast} for anything other than a local read or write of a single object.
+\end{caution}
+
+The \c{heap_claim_fast} API is intended for very brief accesses to objects.
+You can claim two pointers to support the common pattern of \c{memcpy} between two caller-provided (i.e. untrusted) buffers.
+You can claim both and then copy between them.
