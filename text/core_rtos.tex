@@ -123,7 +123,9 @@ Next, compartments and libraries are linked.
 This requires a special invocation of the linker that produces a relocatable object file with the correct structure.
 At this point, the only exported symbols are those for exported functions and the only undefined symbols should be those for MMIO regions or exports from other compartments (see \ref{compartments} for more information).
 
-NOTE: The build system produces a \file{.library} or \file{.compartment} file for each shared library and each compartment.
+\begin{note}
+	The build system produces a \file{.library} or \file{.compartment} file for each shared library and each compartment.
+\end{note}
 In theory, these can be distributed as binaries and linked into a firmware image but this is not yet handled automatically by the build system.
 
 The final link step produces a firmware image.
