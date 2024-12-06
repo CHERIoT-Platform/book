@@ -286,7 +286,7 @@ When the endpoints are in different trust domains, the endpoints must be protect
 The \c{message_queue} compartment wraps the library in a compartment that exposes an almost identical interface to the library but with the endpoints exposed as (tamper-proof) sealed capabilities.
 
 Queues for use within a single compartment are created with \c{queue_create}, which allocates the buffer and returns a handle that can be used for sending and receiving messages.
-FIXME: This needs updating for the new APIs:
+\fixme{This needs updating for the new APIs:}
 There is no explicit \c{queue_destroy} function.
 The memory allocated can simply be freed when the queue is no longer needed.
 The pointer returned via the \c{outAllocation} parameter refers to the entire allocation used for the queue and so can be passed to \c{heap_free}, along with the heap capability used to allocate the queue.
