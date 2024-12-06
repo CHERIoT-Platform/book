@@ -21,7 +21,7 @@ These range from very simple interfaces, such as general-purpose I/O (GPIO) pins
 \section{Specifying a device's locations}
 
 Devices are specified in the board description file.
-// FIXME: Cross reference
+\fixme{Cross reference}
 The two relevant parts are the `devices` node, which specifies the memory-mapped I/O devices and the `interrupts` section that describes how external interrupts should be configured.
 For example, our initial FPGA prototyping platform had sections like this describing its Ethernet device:
 
@@ -78,7 +78,7 @@ Any device can be accessed from any compartment in this way, but that access wil
 
 
 Any compartment that accesses this device will have an entry in the audit report that looks like this:
-// FIXME: Cross reference
+\fixme{Cross reference}
 
 \begin{jsonsnippet}
         {
@@ -109,7 +109,7 @@ We don't define a C structure that covers every single field for this and instea
 \section{Handling interrupts}
 
 To be able to handle interrupts, you must have a software capability (see \ref{software_capabilities}) that authorises access to the interrupt.
-// FIXME: Add description of how interrupts work.
+\fixme{Add description of how interrupts work.}
 For the ethernet device that we've been using as an example, you would typically request one with this macro invocation:
 
 \begin{cxxsnippet}
