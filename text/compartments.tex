@@ -285,7 +285,23 @@ Asynchronous interrupts are all routed to the scheduler to wake up the relevant 
 Synchronous faults are (optionally) delivered to the compartment that caused them.
 These include CHERI exceptions, invalid instruction traps, and so on: anything that can be directly attributed to the current instruction.
 
-To handle these, implement \c{compartment_error_handler} in your compartment.
+Compartments have two opportunities to handle these, by implementing at least one of two kinds of error handlers.
+
+\begin{description}
+	\item[tag=Rich]{Rich error handlers that have access to the full state at the point the error occurred.
+		These can be written in C/C++ and can do things like step over faulting instructions and resume, or provide rich diagnostic information about the interrupted context.}
+	\item[tag=Stackless]{Lightweight error handlers that must be written in assembly.}
+\end{description}
+
+When a hardware exception occurs, the switcher will first look for a \keyword{rich error handler} and prepare a call frame for it.
+If there is not sufficient stack space to invoke a rich error handler, or if one is not provided by the current compartment, the switcher will then look for a \keyword{stackless error handler}.
+
+The stackless variant will be passed the stack capability as it was on entry to the compartment and the exception cause, but no other information.
+Most users will not write these but will instead use one that the platform provides.
+
+\section{Writing rich error handlers}
+
+You can provide a rich error handler by implementing \c{compartment_error_handler} in your compartment.
 
 \functiondoc{compartment_error_handler}
 
@@ -323,6 +339,47 @@ You can either ask the switcher to resume, installing your modified register fil
 Error handling functions are used for resource cleanup.
 For example, you may wish to drop locks when an error occurs, or you may wish to reset the compartment entirely.
 The \c{heap_free_all} function, discussed in \ref{shared_heap} helps with the latter.
+
+\section{Using scoped error handling}
+
+You are unlikely to ever write a stackless error handler.
+Most of the time, you will want to link the one provided by the \file{unwind_error_handler} target.
+This can be adopted by adding \lua{add_deps("unwind_error_handler")} to your compartment's target in xmake.
+
+This implementation is intended to be used with a set of macros that provide exception-like error handling.
+These maintain a stack of \c{jmp_buf} structures, as defined by \c{setjmp}.
+The head of the linked list is stored at the top of the region of the stack that is visible to the current compartment invocation, in a gap left by the switcher.
+Each \c{CHERIOT_DURING} macro invocation pushes an entry onto a stack that allows returning and each \c{CHERIOT_END_HANDLER} macro pops the top entry.
+
+Between these two, a \c{CHERIOT_HANDLER} is the equivalent of the start of a catch block.
+This defines the start of a region where code will run if an error is triggered.
+You can see this in action in \ref{lst:errorhandling}.
+This uses \c{__builtin_trap}, which the compiler will transform into an invalid instruction, to force a trap.
+This is a placeholder for anything that might (including in nested function calls) raise an error, such as a bounds violation, a use-after-free bug, a null-pointer dereference, and so on.
+
+\macrodoc{CHERIOT_DURING}
+
+\codelisting[marker=error,caption=Example of using scoped error handling,label=lst:errorhandling, filename=examples/error_handling/errors.cc]{}
+
+If you run this example with \cxx{shouldTrap} set to \cxx{false} then it will generate the following output:
+
+\begin{console}
+Error handling example: About to try something unsafe.
+Error handling example: In during block
+Error handling example: Finished unsafe block.
+\end{console}
+
+The code in the \c{CHERIOT_DURING} block runs, the code in the \c{CHERIOT_HANDLER} block is omitted, and control-flow resumes after \c{CHERIOT_END_HANDLER}.
+In contrast, if \cxx{shouldTrap} is \cxx{true} then the trap will transition into the switcher, which will then invoke the compartment's stackless error handler, which will then transfer control into the \c{CHERIOT_HANDLER} block and you'll see output like this:
+
+\begin{console}
+Error handling example: About to try something unsafe.
+Error handling example: In during block
+Error handling example: Something bad happened!
+Error handling example: Finished unsafe block.
+\end{console}
+
+This lets you do things like release locks or clean up per-call state in case of failure.
 
 \section{Conventions for cross-compartment calls}
 
