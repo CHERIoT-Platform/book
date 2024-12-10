@@ -1,6 +1,0 @@
-[package]
-name = "cheriot-rtos-doxygen"
-
-[reference]
-type = "doxygen"
-dir = "xml"
