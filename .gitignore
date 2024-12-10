@@ -1,3 +1,6 @@
-build
-doxygen/xml
 _site
+.xmake
+.DS_Store
+build
+lua_modules
+cheriot-programmers-guide*
