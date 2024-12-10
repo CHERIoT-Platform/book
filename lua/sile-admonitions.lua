@@ -16,7 +16,7 @@ local glyphs = {
 	},
 	caution = {
 		kind = "font",
-		attributes = { size = "3em", filename = "fonts/Twemoji.Mozilla.ttf" },
+		attributes = { size = "3em", filename = "fonts/NotoEmoji-VariableFont_wght.ttf" },
 		children = {
 			{
 				kind = "color",
