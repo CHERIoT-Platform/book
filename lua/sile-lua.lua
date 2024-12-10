@@ -7,6 +7,8 @@ function visit(tree)
 			tree.kind = 'verbatim'
 		elseif tree.kind == 'console' then
 			tree.kind = 'verbatim'
+		elseif tree.kind == 'regosnippet' then
+			tree.kind = 'verbatim'
 		elseif tree.kind == 'jsonsnippet' then
 			tree.kind = 'verbatim'
 		elseif tree.kind == 'lualisting' then

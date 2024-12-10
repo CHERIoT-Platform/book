@@ -8,6 +8,7 @@ local monospace = {
 	"flag",
 	"json",
 	"file",
+	"rego",
 	"c",
 	"cxx",
 	"lua",
@@ -23,6 +24,13 @@ function process(textTree)
 		textTree.kind = "font"
 		textTree:attribute_set("family", "Hack")
 		textTree:attribute_set("size", "0.8em")
+		return { textTree }
+	end)
+	textTree:match("reg", function(textTree)
+		textTree.kind = "font"
+		textTree:attribute_set("family", "Hack")
+		textTree:attribute_set("size", "0.8em")
+		textTree:attribute_set("variant", "smallcaps")
 		return { textTree }
 	end)
 

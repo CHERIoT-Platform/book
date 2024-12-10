@@ -3,6 +3,9 @@ function visit(tree)
 		if tree.kind == "cxxsnippet" then
 			tree:attribute_set("class", "listing-code")
 			tree.kind = "pre"
+		elseif tree.kind == "regosnippet" then
+			tree:attribute_set("class", "listing-code")
+			tree.kind = "pre"
 		elseif tree.kind == "jsonsnippet" then
 			tree:attribute_set("class", "listing-code")
 			tree.kind = "pre"
