@@ -320,8 +320,8 @@ This uses a helper that looks similar to some of the introspection code that we'
 		every c in allocatorCapabilities
 		{
 			decode_allocator_capability(c)
-		}
-	}
+		\}
+	\}
 \end{regosnippet}
 
 This uses a list comprehneison to collect everything that claims to be an allocator capability (i.e. everything sealed with the correct type).
@@ -332,10 +332,10 @@ Next, the policy uses some allow lists to make sure that certain devices are res
 
 \begin{regosnippet}
 # Only the allocator may access the revoker.
-data.compartment.mmio_allow_list("revoker", {"allocator"})
+data.compartment.mmio_allow_list("revoker", {"allocator"\})
 # Only the scheduler may access the interrupt controllers.
-data.compartment.mmio_allow_list("clint", {"scheduler"})
-data.compartment.mmio_allow_list("plic", {"scheduler"})
+data.compartment.mmio_allow_list("clint", {"scheduler"\})
+data.compartment.mmio_allow_list("plic", {"scheduler"\})
 \end{regosnippet}
 
 The interface to the revoker (the hardware component that invalidates capabilities to freed memory, allowing reuse) is reserved for the allocator.
@@ -346,11 +346,11 @@ Finally, it checks the access to some pre-shared objects:
 \begin{regosnippet}
 # Only the allocator may access the hazard list (the switcher can
 # as well via another mechanism)
-data.compartment.shared_object_allow_list("allocator_hazard_pointers", {"allocator"})
+data.compartment.shared_object_allow_list("allocator_hazard_pointers", {"allocator"\})
 # Only the allocator may write to the epoch.
 # Currently, only the compartment-helpers library reads the epoch,
 # but it isn't a security problem if anything else does.
-data.compartment.shared_object_writeable_allow_list("allocator_epoch", {"allocator"})
+data.compartment.shared_object_writeable_allow_list("allocator_epoch", {"allocator"\})
 # Size of hazard list and allocator epoch.
 some hazardList
 hazardList = data.compartment.shared_object("allocator_hazard_pointers")
