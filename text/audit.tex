@@ -1,0 +1,377 @@
+\chapter[label="cheriot-audit"]{Auditing firmware images}
+
+As mentioned in \ref{software_capabilities}, the CHERIoT link phase emits a linker report at the same time as the final image.
+This is a JSON document that contains a record of the code identity for every compartment (hashes of every section before and after linking) and every way that a compartment can interact with the world outside of its private state.
+
+\begin{note}
+	If you're linking with your own build system, rather than CHERIoT RTOS's xmake-based system, you will need to pass \flag{--compartment-report=} to the linker invocation to tell it where to emit the linker report.
+\end{note}
+
+The CHERIoT ABI is designed to make this all explicit.
+A trivial compartment has a code region that is reachable from its \reg{pcc} and a globals region reachable from its \reg{cgp}.
+Any code running in the compartment (unless explicitly constrained) has read-execute access to the former and read-write access to the latter.
+Any access outside of this region requires an explicit capability to be provided to the compartment's \keyword{import table} by the loader.
+The loader, in turn, will provide such a capability if, and only if, the linker has created metadata instructing it to.
+This means that the system \textem{fails closed}.
+The linker creates the audit report and also creates the instructions for the loader.
+If these instructions are omitted, the loader will not provide the compartment with a capability and so, even if the compartment gains knowledge of some address, it does not gain rights to access any memory.
+
+There are a lot of different kinds of capabilities that can end up in a compartment's import table.
+These include:
+
+\begin{itemize}
+	\item{Memory-mapped I/O regions, for direct device access.}
+	\item{Pre-shared objects.}
+	\item{Static sealed objects implementing software-defined capabilities (see \ref{software_capabilities})}
+	\item{Local function pointers that change interrupt state.}
+	\item{Imported functions from other compartments.}
+	\item{Imported functions from shared libraries.}
+\end{itemize}
+
+The audit report contains all of this, along with metadata such as whether functions run with interrupts disabled, whether capabilities to pre-shared objects or memory-mapped I/O regions have write access, and so on.
+
+When you are building a compartmentalised firmware image, you can use this report in two different ways.
+First, you can introspect over the shape of the compartment to explore what can happen, for example determining which compartments call a specific entry point or have direct access to a device.
+Second, you can write policies that make sure that you have respected the \keyword{principle of least privilege}.
+
+The \command{cheriot-audit} tool is intended to work with both of these approaches.
+It runs a \keyword{Rego} program over the input.
+Rego is \href[src=https://www.openpolicyagent.org/docs/latest/policy-language/]{a language from the OpenPolicyAgent} project that is designed for writing policies over JSON documents.
+It inherits some ideas from JavaScript, Python, and Prolog, but broadly is intended to be a modular language for writing mostly-declarative policies that run over one or more JSON documents.
+Most commonly, a Rego policy is a program that evaluates to true if the policy holds.
+
+\begin{note}
+	In Prolog, predicates are true if they are satisfied (i.e. there is a logical derivation chain that can be used to prove that they are true) or fail if they cannot be proven.
+	Fail does not necessarily mean that a predicate is false, it means that there is insufficient evidence to prove that it is true.
+	Rego inherits this distinction, which can be confusing in some cases.
+	A policy may report \json{true} as a JSON value if it passes, but no output (failure) if it does not.
+\end{note}
+
+Rego programs run by \command{cheriot-audit} can also produce longer output.
+Rather than simply telling you that a policy has been matched, they can create a JSON output that describes some properties of a firmware image.
+
+\section{Running \command{cheriot-audit}}
+
+The \command{cheriot-audit} command takes three mandatory inputs, provided as command-line arguments:
+
+\begin{description}
+	\item[tag=The audit report.]{ This is provided with the \flag{--firmware-report} (or \flag{-j}) flag.
+		You will find it in the build directory, with the same name as the firmware image but a \file{.json} extension.
+		This provides all of the information about the linked image.}
+	\item[tag=The board description file.]{ This is provided with the \flag{--board} (or \flag{-b}) flag and normally in found the \file{boards} directory in the SDK, but may alternatively be provided by some other board support package.
+		This describes the memory layout and allows policies to map from the numerical addresses in the audit report to device names.}
+	\item[tag=The query to run.]{ This is the Rego query to run.}
+\end{description}
+
+Rego is modular and you can also provide additional modules with \flag{--module} (or \flag{-m}).
+
+To make sure that everything is working, try running a trivial query (\rego{true}) against the RTOS repository's hello-world example:
+
+\begin{console}
+$ cheriot-audit \
+	--board ../../sdk/boards/sail.json \
+	--firmware-report build/cheriot/cheriot/release/hello_world.json \
+	-q 'true'
+true
+\end{console}
+
+The query \rego{true} simply evaluates to \json{true} as a JSON expression.
+This is not very interesting, but it checks that the command is working and can find all of the relevant files.
+You can now try running more complex examples.
+
+\begin{note}
+	It's often convenient to pipe the output of a \command{cheriot-audit} to \command{jq}, which will pretty-print the resulting JSON.
+\end{note}
+
+Most policies will refer to one or more of the inputs, though often indirectly.
+You can try writing these directly as queries.
+If the query is \rego{input} then you should see the entire audit report.
+If the query is \rego{data.board} then you should see the board-description file.
+
+In the rest of this chapter, we'll explore how to write more interesting queries.
+
+\section{Using the default \command{cheriot-audit} modules}
+
+The \command{cheriot-audit} tool has two built-in modules.
+The \rego{compartment} module contains helper rules that are common to the compartment model.
+The \rego{rtos} module contains helpers that specific to the CHERIoT RTOS.
+
+Rego modules all show up in the \rego{data.} namespace, like the board-description file.
+If you want to invoke a rule from the \rego{compartment} module, it will be written as \rego{data.compartment.{rule name\}}.
+
+\section{Exploring a firmware image}
+
+Now that we can run \command{cheriot-audit} on the hello-world example, let's try to learn a bit about it.
+This example has no compartmentalisation and so the UART device is directly accessible in the single user-provided compartment in the example.
+Try this query, to see what compartments or libraries have access to the UART:
+
+\begin{regosnippet}
+data.compartment.compartments_with_mmio_import(data.board.devices.uart)
+\end{regosnippet}
+
+This uses a rule from the compartments package to find any import that matches the address range provided by the board description file's uart device.
+If everything is built correctly (and, in particular, if you're using the \textem{correct} board description file) then you should see output like this:
+
+\begin{jsonsnippet}
+[
+  "debug"
+]
+\end{jsonsnippet}
+
+This tells us that the debug library is directly accessing the UART.
+Remember that CHERIoT shared libraries do not (unless they are carefully written assembly) protect their state against callers and so this means that any compartment that calls any of the entry points in that library should be assumed to be able to access the UART.
+Ask \command{cheriot-audit} which compartments call functions in the debug library with this query:
+
+\begin{regosnippet}
+data.compartment.compartments_calling("debug")
+\end{regosnippet}
+
+This should, hopefully, tell you that only the 'hello' compartment can:
+
+\begin{jsonsnippet}
+[
+  "hello"
+]
+\end{jsonsnippet}
+
+If you've built the firmware image with allocator or scheduler debugging enabled, the answer will be different.
+This is the kind of thing that's useful to capture in a policy.
+You might want to build firmware images where the scheduler has access to a debugging feature for testing, but you wouldn't want to sign those images for widespread deployment.
+
+Now try running the same query against the third example from the RTOS, \file{03.hello_safe_compartment}.
+This example moves UART access out to a 'uart' compartment so that the 'hello' compartment can be untrusted and just provide strings to print.
+You might therefore be surprised that the result of the query looks like this:
+
+\begin{jsonsnippet}
+[
+  "hello",
+  "uart"
+]
+\end{jsonsnippet}
+
+This tells you that the compartmentalisation objective—removing UART access from the hello compartment—has not been met.
+The hello compartment still has access to the UART via the debug library.
+
+This is because the example prefers to give useful error messages in case of failure and includes the \file{fail-simulator-on-error.h} header.
+This header provides an error handler (see \ref{_writing_rich_error_handlers}) that logs a message to the UART and exits the simulator if a CHERI exception occurs.
+If you comment out that header, the example will meet its compartmentalisation objective.
+Again, this is the kind of thing that's useful to have in a policy.
+It's useful to includes this kind of feature in debug builds, but you want to make sure that you don't leave them enabled in builds that you deploy to end users.
+
+\section{Decoding software-defined capabilities}
+
+CHERIoT builds a software capability model on top of the hardware capability model provided by CHERI.
+Software capabilities are implemented as objects that are passed around as \keyword{sealed capabilities}.
+Some of these are dynamically allocated, others are baked into the firmware image.
+Unless you have the sealing capability that permits unsealing a given type, these are just opaque pointers.
+
+Sealed objects that are baked into the firmware are accessible to one compartment as an opque pointer but can be unsealed by another compartment to access their contents.
+The compartment that unseals them will trust their contents.
+You can make them \textem{trustworthy} by auditing their contents at link time.
+
+The RTOS uses software-defined capabilities to authorise memory allocation (which, in turn, is required for creating dynamically allocated sealed objects, among other things).
+These will show up in the audit report looking something like this:
+
+\begin{jsonsnippet}
+{
+  "contents": "00040000 00000000 00000000 00000000 00000000 00000000",
+  "kind": "SealedObject",
+  "sealing_type": {
+    "compartment": "alloc",
+    "key": "MallocKey",
+    "provided_by": "build/cheriot/cheriot/release/cheriot.allocator.compartment",
+    "symbol": "__export.sealing_type.alloc.MallocKey"
+  \}
+\}
+\end{jsonsnippet}
+
+The contents is a hex string with one block per 32-bit word.
+The kind identifies them as sealed objects.
+The sealing type tells you the compartment and the sealing key that are used to seal the object (i.e. the compartment that can unseal them and the name it gives to the key that it uses).
+
+In the \rego{rtos} package, there is a Rego rule that matches imports that are sealed with the correct value:
+
+\begin{regosnippet}
+is_allocator_capability(capability) {
+	capability.kind == "SealedObject"
+	capability.sealing_type.compartment == "alloc"
+	capability.sealing_type.key == "MallocKey"
+\}
+\end{regosnippet}
+
+\fixme{Rename alloc to allocator before we release RTOS v1.0!}
+
+This matches every import that refers to a sealed object that is sealed with the correct key, independent of its contents.
+The contents remains an opaque blob.
+These capabilities are 24-byte objects, where the first four bytes represent the quota and the remainder is reserved for future use (including internal use by the allocator) and must be initialised to zero.
+The \rego{rtos} package uses the following rule to decode them:
+
+\begin{regosnippet}
+decode_allocator_capability(capability) = decoded {
+	is_allocator_capability(capability)
+	some quota
+	quota = integer_from_hex_string(capability.contents, 0, 4)
+	# Remaining words are all zero
+	integer_from_hex_string(capability.contents, 4, 4) == 0
+	integer_from_hex_string(capability.contents, 8, 4) == 0
+	integer_from_hex_string(capability.contents, 12, 4) == 0
+	integer_from_hex_string(capability.contents, 16, 4) == 0
+	integer_from_hex_string(capability.contents, 20, 4) == 0
+	decoded := { "quota": quota \}
+\}
+\end{regosnippet}
+
+This uses the earlier rule to check the sealing kind.
+If the argument is not a sealed object of the correct kind, this fails and so will any rule that tries to use the result.
+The quota is decoded with a built-in function provided by \command{cheriot-audit} called \rego{integer_from_hex_string}.
+This takes the contents string, a start offset, and a width as arguments.
+The rule uses this to get the first word and assign it to the \rego{quota} variable and then make sure that all of the others are zero.
+
+Rego rules written like this are \textem{conjunctions}.
+Every statement in the rule must be true.
+If any of the statements is not true, the rule fails.
+This means that, by the time we reach the end where \rego{decoded} is set, the rule has checked that this is a valid allocator capability and returns a JSON object with a single field called \json{quota} containing the extracted quota.
+If any of the rules is false, this is not a valid allocator capability.
+You can use this later in policies to make sure that everything that is a sealed allocator capability is a \textem{valid} allocator capability.
+
+Most of the time, you'll use this kind of rule with a \keyword{Rego comprehension}.
+Comprehensions take some input array, filter it based on a predicate, and then use the filtered versions to construct a new array or set.
+For example, the following comprehension starts with every import for every compartment.
+For each import, the import is assigned to \rego{c} and the owner of the import to \rego{owner}.
+It then uses the \rego{is_allocator_capability} predicate to filter out imports that are not allocator capabilities.
+Finally, for each entry that is valid it will construct a new JSON object capturing the name of the compartment that owns this capability and the decoded capability.
+
+\begin{regosnippet}
+[
+	{
+		"owner": owner, 
+		"capability": data.rtos.decode_allocator_capability(c)
+	\} |
+	c = input.compartments[owner].imports[_] ;
+	data.rtos.is_allocator_capability(c)
+]
+\end{regosnippet}
+
+Try running this query (on the command line, you will need to remove line breaks) on a firmware image.
+Here's the output of running it on one of the network stack examples:
+
+\begin{jsonsnippet}
+[
+  {
+    "capability": {
+      "quota": 4096
+    \},
+    "owner": "Firewall"
+  \},
+  {
+    "capability": {
+      "quota": 16384
+    \},
+    "owner": "SNTP"
+  \},
+  {
+    "capability": {
+      "quota": 65536
+    \},
+    "owner": "TCPIP"
+  \}
+]
+\end{jsonsnippet}
+
+This shows that (in this specific build) the TCP/IP compartment can allocate 64 KiB of heap memory, the Firewall compartment 4 KiB and the SNTP compartment 16 KiB.
+Importantly, nothing else can allocate memory.
+You might care about what the maximum amount of heap space that all compartments are able to allocate is.
+A similar comprehnesion can extract the \json{quota} field from the decoded capabilities and then the built-in \rego{sum} function can add all of these together:
+
+\begin{regosnippet}
+sum([ data.rtos.decode_allocator_capability(c).quota |
+    c = input.compartments[_].imports[_] ;
+    data.rtos.is_allocator_capability(c) ])
+\end{regosnippet}
+
+In many cases, you'll be happy with quotas adding up to more than 100% of heap space.
+In other cases, you may want to make sure that a particular set of compartments can't allocate more than a fixed amount of heap space, to ensure that a certain amount is available for other uses.
+
+\section{Writing a policy}
+
+Rego policies for \command{cheriot-audit} will combine a lot of the building blocks that we've seen so far, as well as some helpers.
+The compartment module includes some helpers for defining allow lists.
+These are built using comprehensions similar to the ones that we looked at earlier to collect the set of compartments that can do something and then ensure that this is a subset of a provided set.
+
+The rtos module exposes a rule called \rego{valid} that performs a set of integrity checks on the RTOS.
+This can be used in a firmware-specific image, or parts of it can reused.
+It's also a good reference for the kinds of things that may appear in policies.
+
+The RTOS policy starts with a check that all of the allocator capabilities are valid:
+
+\begin{regosnippet}
+all_sealed_allocator_capabilities_are_valid
+\end{regosnippet}
+
+This uses a helper that looks similar to some of the introspection code that we've already looked at:
+
+\begin{regosnippet}
+	all_sealed_allocator_capabilities_are_valid
+	{
+		some allocatorCapabilities
+		allocatorCapabilities = [ c |
+			c = input.compartments[_].imports[_] ;
+			is_allocator_capability(c) ]
+		every c in allocatorCapabilities
+		{
+			decode_allocator_capability(c)
+		}
+	}
+\end{regosnippet}
+
+This uses a list comprehneison to collect everything that claims to be an allocator capability (i.e. everything sealed with the correct type).
+It then asserts that everything in this list must be a valid allocator capability by using the fact that the \rego{decode_allocator_capability} rule fails if given an invalid allocator capability.
+If anything is sealed as an allocator capability but is not a 24-byte object where the last 20 bytes are zero, this will fail.
+
+Next, the policy uses some allow lists to make sure that certain devices are reserved for core components:
+
+\begin{regosnippet}
+# Only the allocator may access the revoker.
+data.compartment.mmio_allow_list("revoker", {"allocator"})
+# Only the scheduler may access the interrupt controllers.
+data.compartment.mmio_allow_list("clint", {"scheduler"})
+data.compartment.mmio_allow_list("plic", {"scheduler"})
+\end{regosnippet}
+
+The interface to the revoker (the hardware component that invalidates capabilities to freed memory, allowing reuse) is reserved for the allocator.
+The core-local and platform-level interrupt controllers (CLIC and PLIC) are both reserved for the scheduler: nothing else should directly handle interrupts, the scheduler exposes APIs for other compartments to wait for or acknowledge interrupts.
+
+Finally, it checks the access to some pre-shared objects:
+
+\begin{regosnippet}
+# Only the allocator may access the hazard list (the switcher can
+# as well via another mechanism)
+data.compartment.shared_object_allow_list("allocator_hazard_pointers", {"allocator"})
+# Only the allocator may write to the epoch.
+# Currently, only the compartment-helpers library reads the epoch,
+# but it isn't a security problem if anything else does.
+data.compartment.shared_object_writeable_allow_list("allocator_epoch", {"allocator"})
+# Size of hazard list and allocator epoch.
+some hazardList
+hazardList = data.compartment.shared_object("allocator_hazard_pointers")
+# Two hazard pointers per thread.
+hazardList.end - hazardList.start = count(input.threads) * 2 * 8
+some epoch
+epoch = data.compartment.shared_object("allocator_epoch")
+# 32-bit epoch
+epoch.end - epoch.start = 4
+\end{regosnippet}
+
+The hazard-pointer list is used to implement the ephemeral claims mechanism described in \ref{heap_claim}.
+The allocator is the only thing that should have access to it (the switcher also exposes a write-only view of a part of it for the current thread).
+
+Concurrent access to this is mediated via a 32-bit epoch variable that is incremented when the allocator starts and finishes reading the list.
+This means that it is safe to write to if the value is even, and that value is safely stored if the epoch is unchanged before and after writing.
+This is safe for anything to read, but only the allocator should access it.
+
+Finally, the rule checks that these are the expected size.
+
+Together, this provides a policy that checks that the properties that the core RTOS expects hold.
+There are some omissions here.
+For example, in a release version, this policy may add checks the core RTOS components are the code expected as part of a reproducible build chain.
+This is not part of the core policy because it would be violated every time the toolchain changed.
