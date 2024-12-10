@@ -1,5 +1,5 @@
-FROM ubuntu:22.04 as doxygen-build
-RUN apt update && apt install -y git cmake ninja-build g++ flex bison python3
+FROM ubuntu:24.04 as igk-build
+RUN apt update && apt install -y git cmake ninja-build g++ flex bison python3 liblua5.4-dev libicu-dev
 RUN git clone --depth 1 https://github.com/CHERIoT-Platform/llvm-project
 RUN mkdir llvm-project/build
 WORKDIR llvm-project/build
@@ -16,7 +16,7 @@ RUN cmake \
 	-DCLANG_ENABLE_STATIC_ANALYZER=OFF \
 	-DLIBCLANG_BUILD_STATIC=ON \
 	-DBUILD_SHARED_LIBS=OFF \
-	-DLLVM_ENABLE_PIC=OFF \
+	-DLLVM_ENABLE_PIC=ON \
 	-DLLVM_BUILD_LLVM_DYLIB=OFF \
 	-DLLVM_BUILD_LLVM_C_DYLIB=OFF \
 	-DLLVM_TARGETS_TO_BUILD=RISCV \
@@ -26,31 +26,23 @@ RUN cmake \
 	-DCMAKE_INSTALL_PREFIX=/llvm \
 	-G Ninja
 # Install libclang and any headers and CMake bits that we've built.
-RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja install-distribution install-cmake-exports install-clang-cmake-exports install-llvm-headers install-clang-headers
+RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja install-distribution install-cmake-exports install-clang-cmake-exports install-llvm-headers install-clang-headers lib/libclang.a
+RUN rm /llvm/lib/libclang.so*
+RUN cp lib/libclang.a /llvm/lib/
+RUN apt update && apt install -y liblua5.4-dev libicu-dev
 WORKDIR /
-# Clone doxygen and build it using the libclang that we've just built.
-RUN git clone https://github.com/doxygen/doxygen.git && cd doxygen && git checkout Release_1_9_8
-RUN mkdir -p doxygen/build
-WORKDIR /doxygen/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release \
-	-DCMAKE_FIND_ROOT_PATH=/llvm/lib/cmake \
-	-DCMAKE_INSTALL_PREFIX=/doxygen \
-	"-DCMAKE_FIND_LIBRARY_SUFFIXES=.a" \
-	-DLLVM_ROOT=/llvm-project/build \
-	-Duse_libclang=YES \
-	-Dstatic_libclang=YES \
-	-G Ninja \
-	..
-RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja install
+# Clone igk and build it using the libclang that we've just built.
+RUN git clone https://github.com/davidchisnall/igk.git && cd igk
+RUN mkdir -p igk/build
+WORKDIR /igk/build
+RUN cmake .. -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/llvm/lib/cmake/llvm -DLLVM_SOURCE_DIR=/llvm-project -G Ninja -DCMAKE_MODULE_LINKER_FLAGS=-Wl,-rpath,/igk/lib/lib
+RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja
 
 # Now assemble the clean container.
-FROM ubuntu:22.04
-# AsciiDoxy depends on Python and Ruby, so install both
-RUN apt update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y pip rubygems
-# Install the Ruby bits
-RUN gem install asciidoctor asciidoctor-rouge asciidoctor-pdf asciidoctor-diagram asciidoctor-multipage
-# Install the Python bits
-RUN pip3 install asciidoxy
-# Copy the doxygen version that we've just built
-COPY --from=doxygen-build /doxygen /doxygen
+FROM ubuntu:24.04
+RUN apt update && apt install -y liblua5.4-dev libicu-dev
+# Copy the igk version that we've just built.
+COPY --from=igk-build /igk/build/igk /igk/bin/
+COPY --from=igk-build /igk/build/libigk-clang.so /igk/lib/
+COPY --from=igk-build /igk/lua /igk/share/igk-lua
 
