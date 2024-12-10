@@ -218,12 +218,12 @@ The \lua{threads} key is set to an array of thread descriptions.
 Each thread must set five properties:
 
 \begin{description}
-	\item[tag=compartment]{The compartment in which this thread starts.}
-	\item[tag=entry_point]{The name of the function for this thread's entry point.
+	\item[tag=compartment]{ The compartment in which this thread starts.}
+	\item[tag=entry_point]{ The name of the function for this thread's entry point.
 		This must be a function that takes and returns \c{void}, exported from the compartment specified by the \lua{compartment} key.}
-	\item[tag=priority]{The priority of this thread.
+	\item[tag=priority]{ The priority of this thread.
 		Higher numbers indicate higher priorities.}
-	\item[tag=stack_size]{The number of bytes of stack space that this thread has allocated.}
-	\item[tag=trusted_stack_frames]{The number of trusted stack frames.
+	\item[tag=stack_size]{ The number of bytes of stack space that this thread has allocated.}
+	\item[tag=trusted_stack_frames]{ The number of trusted stack frames.
 		Each cross-compartment call pushes a new frame onto this stack and so this defines the maximum number of compartments call depth (including the entry point) for this thread.}
 \end{description}
