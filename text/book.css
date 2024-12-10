@@ -25,9 +25,14 @@ span.json,
 span.file,
 span.c,
 span.cxx,
+span.reg,
 span.lua
 {
 	font-family: "Source Code Pro", monospace;
+}
+span.reg
+{
+	font-variant-caps: small-caps;
 }
 div.note > p
 {
