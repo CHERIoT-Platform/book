@@ -68,9 +68,9 @@ Rego is modular and you can also provide additional modules with \flag{--module}
 To make sure that everything is working, try running a trivial query (\rego{true}) against the RTOS repository's hello-world example:
 
 \begin{console}
-$ cheriot-audit \
-	--board ../../sdk/boards/sail.json \
-	--firmware-report build/cheriot/cheriot/release/hello_world.json \
+$ cheriot-audit \\
+	--board ../../sdk/boards/sail.json \\
+	--firmware-report build/cheriot/cheriot/release/hello_world.json \\
 	-q 'true'
 true
 \end{console}
