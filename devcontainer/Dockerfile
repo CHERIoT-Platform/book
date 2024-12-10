@@ -14,7 +14,7 @@ RUN cmake \
 	-DLLVM_PARALLEL_LINK_JOBS=1 \
 	-DCLANG_ENABLE_ARCMT=OFF \
 	-DCLANG_ENABLE_STATIC_ANALYZER=OFF \
-	-DLIBCLANG_BUILD_STATIC=ON \
+	-DLIBCLANG_BUILD_STATIC=OFF \
 	-DBUILD_SHARED_LIBS=OFF \
 	-DLLVM_ENABLE_PIC=ON \
 	-DLLVM_BUILD_LLVM_DYLIB=OFF \
@@ -26,9 +26,7 @@ RUN cmake \
 	-DCMAKE_INSTALL_PREFIX=/llvm \
 	-G Ninja
 # Install libclang and any headers and CMake bits that we've built.
-RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja install-distribution install-cmake-exports install-clang-cmake-exports install-llvm-headers install-clang-headers lib/libclang.a
-RUN rm /llvm/lib/libclang.so*
-RUN cp lib/libclang.a /llvm/lib/
+RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja install-distribution install-cmake-exports install-clang-cmake-exports install-llvm-headers install-clang-headers
 RUN apt update && apt install -y liblua5.4-dev libicu-dev
 WORKDIR /
 # Clone igk and build it using the libclang that we've just built.
@@ -42,6 +40,7 @@ RUN NINJA_STATUS='%p [%f:%s/%t] %o/s, %es ' ninja
 FROM ubuntu:24.04
 RUN apt update && apt install -y liblua5.4-dev libicu-dev
 # Copy the igk version that we've just built.
+COPY --from=igk-build /llvm/lib /llvm/lib
 COPY --from=igk-build /igk/build/igk /igk/bin/
 COPY --from=igk-build /igk/build/libigk-clang.so /igk/lib/
 COPY --from=igk-build /igk/lua /igk/share/igk-lua
