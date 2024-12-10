@@ -415,6 +415,8 @@ You can also statically register a sealing type with the \c{STATIC_SEALING_TYPE(
 This takes a single argument, the name that you wish to give the type.
 This name is used both to refer to the static sealing capability is the name that will show up in auditing reports.
 
+\macrodoc{STATIC_SEALING_TYPE}
+
 You can access the sealing capability within the compartment that exported it using the \c{STATIC_SEALING_VALUE()} macro.
 You can also refer to it in other compartments, but \textem{only} when constructing \keyword{static sealed objects}.
 A static sealed object is like a global defined in a compartment, but that compartment can access it only via a sealed capability.
@@ -422,7 +424,8 @@ A static sealed object is like a global defined in a compartment, but that compa
 Static sealed objects are declared with \c{DECLARE_STATIC_SEALED_VALUE} and defined with \c{DEFINE_STATIC_SEALED_VALUE}.
 These macros take both the name of the sealing type and the compartment that exposes it as arguments.
 This ensures that there is no ambiguity and that accidental name collisions don't lead to security vulnerabilities.
-\fixme{We should include the docs for these macros, but currently asciidoxy fails on macros.}
+
+\macrodoc{DECLARE_STATIC_SEALED_VALUE}
 
 Any object created in this way shows up in the audit log.
 The exports section for the compartment that exposes the sealing key will will contain an entry like this:
@@ -456,7 +459,7 @@ You can audit these in a firmware image to ensure that they are valid.
 \begin{note}
 Auditing a hex string is not easy.
 A future version of CHERIoT RTOS will include tools to map these back to useful types.
-	\fixme{Reference cheriot-audit docs.}
+See \ref{cheriot-audit} for more information about the CHERIoT Audit tool, which is designed for expressing policies over these properties.
 \end{note}
 
 This gives a building block that can be used to define arbitrary software-defined capabilities at system start.
