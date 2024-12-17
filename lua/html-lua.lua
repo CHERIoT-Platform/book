@@ -9,6 +9,9 @@ function visit(tree)
 		elseif tree.kind == "jsonsnippet" then
 			tree:attribute_set("class", "listing-code")
 			tree.kind = "pre"
+		elseif tree.kind == "asmsnippet" then
+			tree:attribute_set("class", "listing-code")
+			tree.kind = "pre"
 		elseif tree.kind == "luasnippet" then
 			tree:attribute_set("class", "listing-code")
 			tree.kind = "pre"

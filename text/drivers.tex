@@ -5,7 +5,7 @@ It does not have a generic device driver interface but it does have a number of 
 
 \section{What is a device?}
 
-From the perspective of the CPU, a device is something that you communicate with via a memory-mapped I/O interface, which may (optionally) generate interrupts.
+From the perspective of the CPU, a device is something that you communicate with via a memory-mapped I/O (MMIO) interface, which may (optionally) generate interrupts.
 There are several devices that the core parts of the RTOS interact with:
 
 \begin{itemize}
@@ -18,11 +18,73 @@ There are several devices that the core parts of the RTOS interact with:
 Most embedded systems on chip will include additional devices.
 These range from very simple interfaces, such as general-purpose I/O (GPIO) pins that are mapped to a bit in a register, up to entire wireless network interfaces with rich sets of functionality.
 
+CHERIoT, like most modern systems, makes heavy use of MMIO.
+Device registers are exposed as if they are memory locations.
+To read from a device register, you simply execute a load instruction on the CPU.
+Similarly, to write to a device register, you execute a store instruction.
+
+This model is very convenient for CHERI systems because CHERI capabilities already allow you to restrict access to ranges of memory.
+This means that we don't need to define a new protection model for device access on CHERIoT.
+Capabilities can grant access to MMIO ranges just as they do to real memory.
+You can provide a read-only to a device range, or even to a single register.
+
+\begin{caution}
+A read-only capability to a device's MMIO region may convey more rights than you expect.
+For example, a device register may be the end of a memory-mapped FIFO, in which case reading it would remove the front entry.
+More generally, reads of device memory might have side effects.
+You will generally know this per device, but don't assume that read-only means may-not-affect-device-state when providing capabilities to device memory.
+\end{caution}
+
+This abstraction also works at the C level or higher.
+A device's MMIO region is referred to by a \c{volatile} pointer to a structure representing the device's registers.
+Reading or writing the device's registers then becomes simple field access in C (or C++, or some higher-level language).
+
+This abstraction is sufficient for \keyword{polling}, where you query the device periodically to see if it has anything ready to process.
+Polling may be sufficient for devices with a simple request-response interface.
+For example, if you send some plaintext to an AES engine and then read the cyphertext back, you always know that there'd data ready (or about to be data ready in a few cycles).
+In contrast, for something like a UART, Ethernet interface, USB controller, and so on, there will be long periods where the device has no data for you to process.
+Querying every such device in a loop would be inefficient both in terms of power and performance and so devices can raise \keyword{interrupts}.
+We'll discuss these in more detail in \ref{_handling_interrupts} but, at a high level, they are asynchronous events that come from a device.
+When a frame is ready on an Ethernet controller, for example, it will send an interrupt letting the CPU know, so that some software can handle the incoming frame.
+
+Between MMIO regions and interrupts, you have the building blocks for interfacing with any CHERIoT device.
+
+\section{Why do device drivers exist?}
+
+Device drivers are software interfaces to devices.
+In general (not limited to CHERIoT) they exist for two reasons:
+
+\begin{description}
+	\item[tag=Abstraction]{ A device driver allows software to be written to interface with a \keyword{device class} rather than a single device.}
+	\item[tag=Multiplexing]{ A device may need to be accessed by different software components.}
+\end{description}
+
+If you want to write a USB protocol stack or a network stack, you need some generic interface to USB controllers or Ethernet interfaces.
+This code doesn't want to have to be specific to each device, it wants to have an abstract way of talking to any device of the correct class via some \keyword{device abstraction}.
+
+Often, the \keyword{device multiplexing} is delegated to a higher-level piece of software.
+For example, a disk interface may provide a generic block device abstraction but then give exclusive access to the next layer up in a storage stack.
+This may be a volume manager, which presents a set of logical block devices to other things in a kernel.
+On top of this, you'd often run a filesystem driver, which provides a way of naming variable-sized virtual disks ('files') and allows different users and different programs to store data independently.
+
+The multiplexing and abstraction features may be entangled.
+On most operating systems, the common interface to the network is a socket, not a time slice in a network device.
+The TCP/IP stack is responsible for both providing abstractions (TCP and UDP sockets) and for multiplexing (different components can have different sockets and treat them as if they had unique access to a network device).
+
+On a CHERIoT system, the correct structure for any device driver depends on the \keyword{trust model}.
+This determines how (or if) you should build multiplexing on top of abstraction.
+
+For example, if you have a GPIO device that controls some LEDs, you may simply want to delegate direct access to that device to a compartment that wants to control them.
+Alternatively, you may want to provide an interface that allows individual compartments to have control over a single LED, or allows compartments to monotonically set any of them but requires a different permission for clearing them.
+
+For more complex devices, such as SPI, Ethernet, or USB, you will want a low-level device driver that provides a generic interface to the device.
+This driver will be wrapped in something that provides a richer interface to other compartments.
+\fixme{Reference networking chapter once it exists}
+
 \section{Specifying a device's locations}
 
-Devices are specified in the board description file.
-\fixme{Cross reference}
-The two relevant parts are the `devices` node, which specifies the memory-mapped I/O devices and the `interrupts` section that describes how external interrupts should be configured.
+Devices are specified in the board description file, which is described in detail in \ref{new_board}.
+The two relevant parts are the \json{devices} node, which specifies the memory-mapped I/O devices and the \json{interrupts} section that describes how external interrupts should be configured.
 For example, our initial FPGA prototyping platform had sections like this describing its Ethernet device:
 
 \begin{jsonsnippet}
@@ -108,15 +170,34 @@ We don't define a C structure that covers every single field for this and instea
 
 \section{Handling interrupts}
 
+Interrupts are asynchronous notifications from devices.
+On most modern systems, including CHERIoT, external interrupts are multiplexed by an \keyword{interrupt controller}.
+The RISC-V \keyword[abbreviation=PLIC]{platform-local interrupt controller} (PLIC) handles all interrupts coming from devices and forwards them to the core.
+When the core is running with interrupts disabled (or, more accurately, \textem{deferred}), interrupts are still received by the PLIC and recorded.
+Similarly, if two interrupts fire at the same time, the PLIC ensures that they are not lost.
+
+When the PLIC delivers an interrupt to the core, it will trigger the \keyword{switcher} to save the current process's state.
+The switcher will then invoke the \keyword{scheduler}, which will query the PLIC to see which interrupts have fired and wake more any threads that were waiting for them.
+
+CHERIoT has a unified event model, where the \keyword{futexes} are the \textem{only} event source that can block.
+This means that the same waiting mechanism is used for both hardware- and software-generated events.
+In both cases, you will wait for a futex (see \ref{futex}) and then run code when the scheduler wakes you.
+
 To be able to handle interrupts, you must have a software capability (see \ref{software_capabilities}) that authorises access to the interrupt.
-\fixme{Add description of how interrupts work.}
-For the ethernet device that we've been using as an example, you would typically request one with this macro invocation:
+This capability allows you to get a pointer to the futex word associated with the interrupt.
+Futexes are building blocks for a variety of different synchronisation primitives.
+For interrupts, the futex word contains a counter that is incremented each time the interrupt fires.
+\ref{interrupt_waiting} discusses how to wait on this futex.
+
+Before you can wait for interrupts using a futex, you must get the pointer to the futex word.
+This will be a read-only capability to a 32-bit value.
+For the Ethernet device that we've been using as an example, you would request the associated interrupt futex with this macro invocation:
 
 \begin{cxxsnippet}
 DECLARE_AND_DEFINE_INTERRUPT_CAPABILITY(ethernetInterruptCapability, Ethernet, true, true);
 \end{cxxsnippet}
 
-If you wish to share this between multiple compilation units, you can use the separate `DECLARE_` and `DEFINE_` forms (see `interrupt.h`) but the combined form is normally most convenient.
+If you wish to share this between multiple compilation units, you can use the separate \c{DECLARE_} and \c{DEFINE_} forms (see \file{interrupt.h}) but the combined form is normally most convenient.
 This macro takes four arguments:
 
 \begin{enumerate}
@@ -143,7 +224,7 @@ For example, the above macro expands to this in the final report:
           \}
 \end{cxxsnippet}
 
-The sealing type tells you that this is an interrupt capability (it's sealed with the `InterruptKey` type, provided by the scheduler).
+The sealing type tells you that this is an interrupt capability (it's sealed with the \json{InterruptKey} type, provided by the scheduler).
 The contents lets you audit what this authorises.
 The first two bytes are a 16-bit (little-endian on all currently supported targets) integer containing the interrupt number, so 1000 means 16 (our Ethernet interrupt number).
 The next two bytes are boolean values reflecting the last two arguments to the macro, so this authorises both waiting and clearing the macro.

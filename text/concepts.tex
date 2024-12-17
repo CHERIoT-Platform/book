@@ -4,10 +4,19 @@ The CHERIoT platform is an embedded environment that provides a number of low-le
 
 \section{Understanding CHERI capabilities}
 
+\keyword{CHERI} (pronounced 'cherry') defines an abstract set of features that can be applied to a base architecture, such as AArch64, x86, or RISC-V, to provide fine-grained memory safety that can be used as a building block for compartmentalisation.
+CHERIoT is a concrete instantiation of the CHERI ideas that is tailed and extended for use in low-cost embedded devices.
+It makes sense to understand CHERI before you try to understand CHERIoT.
+
+CHERI stands for \keyword{Capability Hardware Enhanced RISC Instructions}.
+This is a somewhat contrived acronym but it captures a few key ideas in CHERI.
+It's a extension to existing hardware and it doesn't require any complex microcode or look-aside structures to implement (it can be applied to RISC instruction sets).
+Most importantly, it's an extension that adds a \keyword{capability} model to the base instruction set.
+
 A capability, in the abstract sense, is an unforgeable token of authority that must be presented to perform an operation.
 Capabilities exist in the physical world in various forms.
-For example, a key to a padlock is a capability to unlock the padlock.
-When the key is presented, the padlock can be unlocked, without the key the padlock cannot be unlocked without exploiting some security vulnerability.
+For example, a key to a padlock is a capability to unlock that padlock.
+When the key is presented, the padlock can be unlocked, without the key the padlock cannot be unlocked without exploiting some security vulnerability, such as using lock picks or a bolt cutter.
 It doesn't matter to the padlock who presents the key, only that the correct key has been presented.
 Some complex building locks have different keys that authorise unlocking different sets of doors.
 For example, a team leader may have a key that unlocks the offices of everyone on their team and the building manager may hold a key that unlocks everything.
@@ -24,7 +33,24 @@ This is often solved in capabilities by adding a layer of indirection; you hold 
 On a CHERI system, capabilities are used to authorise access to memory.
 Any instruction that takes an address in a conventional architecture takes a \keyword{CHERI capability} as the operand instead.
 The CHERI capability both describes a location in memory and grants access to it.
+For example, the following RISC-V snippet loads a word from offset eight relative to the address in register \reg{a1} and places the result in \reg{s0}.
 
+\begin{asmsnippet}
+	lw	s0, 8(a1)
+\end{asmsnippet}
+
+On a CHERIoT system, which is a CHERI RISC-V variant, this instruction looks slightly different:
+
+\begin{asmsnippet}
+	clw	s0, 8(ca1)
+\end{asmsnippet}
+
+Now, it is loading a word into \reg{s0} from offset eight relative to the \textem{capability} (not address) in register \reg{ca1} (\reg{a1} extended to hold a capability.
+This instruction will check that the capability in \reg{ca1} is a valid capability, check that it has load permission, and check that the range covered by the four-byte load starting at offset eight from the current address is all in bounds.
+If, and only if, all of these checks pass, will it do the same load as the original version.
+If any of these fail, the instruction will trap.
+
+Most of the time, hopefully, you will not be writing assembly and so this is simply a detail for the compiler to worry about.
 You can think of a CHERI memory capability as a pointer that the hardware understands.
 In C, if you hold a pointer to an object then you are allowed to access the object that it points to.
 If you do some pointer arithmetic that goes out of bounds, C says that this is undefined behaviour.
@@ -52,17 +78,26 @@ The latter avoids a large category of confused deputy attacks, where a component
 The phrase 'differently trusted' in the previous paragraph is not an attempt to extend political correctness to software components.
 Capability systems do not imply hierarchical trust models.
 Two components may hold disjoint or overlapping sets of capabilities that allow each to perform some set of actions that the other cannot.
-
 In a CHERI system, this can include one component having read access to an object and another write access, or two components having access to different fields of the same structure.
 
 \section[label=permissions]{Decomposing permissions in CHERIoT}
 
 Any CHERI system provides a set of permissions on capabilities.
-Most existing CHERI systems have 64-bit addresses (and therefore 128-bit capabilities) and so have a lot of space for permissions as an orthogonal bitfield.
+Permissions, along with bounds, are \keyword{capability metadata}.
+CHERI systems typically use double the size of the platform's native address for capabilities, so all of the metadata needs to fit in the size of one address.
+As well as this metadata, there is a non-addressable \keyword{tag bit}, sometimes called a \keyword{valid bit} that differentiates between capabilities and other data.
+If a memory location or a register has its valid bit set, then it holds a capability and the hardware promises that this was derived from a valid sequence of operations from some more powerful capability.
+
+\begin{note}
+The very earliest CHERI research prototypes used a 256-bit capability on a 64-bit architecture.
+The versions aimed at production have all used no more than double the address size to store a capability.
+\end{note}
+
+Most prior CHERI systems have 64-bit addresses (and therefore 128-bit capabilities) and so have a lot of space for permissions as an orthogonal bitfield.
 The CHERIoT platform has 32-bit addresses (and therefore 64-bit capabilities) and so has to compress the permissions.
 This is done, in part, by separating the permissions into primary and dependent permissions.
 The primary permissions (listed in \ref{tbl:primary_permissions}) have meaning by themselves.
-If you use the CHERIoT RTOS logging support to print capabilities, the permissions will be listed using the letters in the first column.
+If you use the CHERIoT RTOS logging support (described in \ref{debug}) to print capabilities, the permissions will be listed using the letters in the first column.
 
 \begin{table}
 	\begin[cols="20%fw 20%fw 60%fw"]{tabular}
@@ -165,11 +200,9 @@ For executable capabilities, most of the object types are reserved for sealed en
 A sentry capability can be unsealed automatically by jumping to it.
 Return addresses are automatically sealed by the jump-and-link instructions, so you cannot modify a return address, you can only jump to it.
 
-\begin{note}
-CHERIoT v1 does not currently differentiate between forward and backwards sentries.
-This is a limitation inherited from RISC-V, which lacks an explicit return instruction and so has no convenient mechanism for determining whether a branch is intended as forward or backwards control flow.
-This will be addressed in a future version of the CHERIoT ISA.
-\end{note}
+Beyond that, return addresses are sealed as a different kind of sentry.
+If you substitue a return address on the stack with a function pointer (or vice versa) you will get a trap in the jump.
+This makes control-flow hijacking attacks very hard to mount on a CHERIoT system.
 
 Sentries are also used as a building block for cross-compartment calls.
 A sentry can point to a region of memory that contains both code and data.
