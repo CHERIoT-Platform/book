@@ -255,8 +255,11 @@ span.code-Punctuation { color: #000000; }
 span.code-TypeRef { color: #0000FF; }
 span.code-DeclRef { color: #00a000; }
 span.code-FunctionName { color: #00a000; }
+span.code-RuleHead { color: #00a000; }
 span.code-ParamName { color: #00a000; }
 span.code-Literal { color: #a00000; }
+span.code-String { color: #a00000; }
+span.code-Number { color: #a00000; }
 span.code-Keyword { color: #ff0000; }
 span.code-Comment { color: #008000; }
 

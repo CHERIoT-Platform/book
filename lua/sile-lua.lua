@@ -13,9 +13,6 @@ function visit(tree)
 			tree.kind = 'verbatim'
 		elseif tree.kind == 'jsonsnippet' then
 			tree.kind = 'verbatim'
-		elseif tree.kind == 'lualisting' then
-			tree.kind = 'verbatim'
-			tree:append_text("FIXME: Lua listings not implemented yet")
 		else
 			tree:visit(visit)
 		end

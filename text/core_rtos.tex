@@ -134,87 +134,78 @@ It also produces the JSON report that describes all cross-compartment interactio
 Using the RTOS build system involves writing an \file{xmake.lua} file that describes the build.
 This starts with some boilerplate:
 
-\begin{luasnippet}
-set_project("CHERIoT examaple project")
-sdkdir = "../../sdk"
-includes(sdkdir)
-set_toolchains("cheriot-clang")
-\end{luasnippet}
+\lualisting[filename=examples/hello_world/xmake.lua,marker=boilerplate,label=lst:xmakeboilerplate,caption="Build system code for importing the CHERIoT RTOS SDK"]{}
 
-The first line gives a name to the project.
-The next three import the build system components from the CHERIoT RTOS SDK.
+The \lua{set_project} call gives a name to the project.
+
+Lines 7–9 import the RTOS SDK.
+This first tries to use the \command{CHERIOT_SDK} environment variable and, if not, tries a relative file.
 The \lua{sdkdir} variable should point to the location of the \file{sdk} directory from the RTOS repository.
-The other lines should be reproduced verbatim.
+Finally, line 11 selects the CHERIoT toolchain.
+Ideally this line would not be needed, but \command{xmake}'s scoping rules require it to be provided here.
 
-Next, you may wish to include some shared libraries from the RTOS.
-Each of these libraries has an \file{xmake.lua} that you can include by listing the directory containing it as an argument to `includes`.
-A typical image will include something like this:
+This boilerplate snipped will exist at the top of most \file{xmake.lua} files for CHERIoT.
+Only the name of the project (and possibly the path to the SDK) will be different.
 
-\begin{luasnippet}
--- Support libraries
-includes(path.join(sdkdir, "lib/freestanding"),
-         path.join(sdkdir, "lib/atomic"),
-         path.join(sdkdir, "lib/crt"))
-\end{luasnippet}
-
-This includes the core definitions for a freestanding C implementation (\c{memcpy} and friends), the atomic helpers for cores without atomic instructions, and the C runtime things that are called from compiler builtins.
+The SDK file provides rules for building the various kinds of CHERIoT components (compartments, libraries, and firmware) and also includes all of the libraries that are part of the RTOS.
+These libraries include the core definitions for a freestanding C implementation (\c{memcpy} and friends), the atomic helpers for cores without atomic instructions, and the C runtime things that are called from compiler builtins.
 See the \file{lib} directory in the SDK for a full list.
 
-Next you need to provide the option for selecting the board:
+If you want your firmware built to support running on more than one CHERIoT implementation then you will typically want to make the board to target an option, as shown in \ref{lst:xmakeboardselect}.
+This exposes a \flag{--board} option at the configure stage, we'll see how this is used later.
 
-\begin{luasnippet}
-option("board")
-    set_default("sail")
-\end{luasnippet}
+\lualisting[filename=examples/hello_world/xmake.lua,marker=board,label=lst:xmakeboardselect,caption="Build system code for allowing the board to be selected at configure time"]{}
 
-You can set a default here.
-This refers to a board description file.
-If you're targeting a particular hardware platform, setting the default here allows users to avoid specifying it manually on every build.
+You can set a default and we use \lua{"sail"} here for the simulator build from our Sail formal model of the ISA.
+This refers to a board description file (see \ref{new_board}).
+If you're usually targeting a particular hardware platform, setting the default here allows users to avoid specifying it manually on every build.
+If you're \textem{always} targeting a particular hardware platform then you can avoid this entirely.
 
 Next, you need to add any compartments and libraries that are specific to this firmware image.
-In most cases, you can do this in just two lines, the first providing the name of the compartment and the second providing the list of files:
+In most cases, you can do this in just two lines, the first providing the name of the compartment and the second providing the list of files, as shown in \ref{lst:xmakecompartments}.
+For this example, we'll have two compartments.
+One is our entry point, the other is a function that we'll use as a simple example of a cross-compartment call.
 
-\begin{luasnippet}
-compartment("example")
-    add_files("example.cc")
-
-compartment("mylib")
-    add_files("lib.cc")
-\end{luasnippet}
+\lualisting[filename=examples/hello_world/xmake.lua,marker=compartments,label=lst:xmakecompartments,caption="Build system code for building compartments"]{}
 
 \begin{caution}
 	The name of the compartment in the \file{xmake.lua} must match the name used for the exported function as described in \ref{exporting_functions}.
+	If they do not match, the compiler will raise an error that a function is defined in the wrong compartment.
 \end{caution}
-If they do not match, the compiler will raise an error that a function is defined in the wrong compartment.
 
-Finally, you must provide a \lua{firmware} block that defines the complete integration:
+This example is going to do a cross-compartment call and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
+The cross-compartment call is exposed from \file{hello.h} as shown in \ref{lst:helloexport}.
+The only difference between this and a normal C/C++ function prototype is the \c{__cheri_compartment} macro.
+This is explained in detail in \ref{exporting_functions}.
 
-\begin{luasnippet}
--- Firmware image for the example.
-firmware("hello_world")
-    add_deps("crt", "freestanding", "atomic_fixed")
-    add_deps("example", "mylib")
-    on_load(function(target)
-        target:values_set("board", "$(board)")
-        target:values_set("threads", {
-            {
-                compartment = "hello",
-                priority = 1,
-                entry_point = "say_hello",
-                stack_size = 0x200,
-                trusted_stack_frames = 1
-            \}
-        \}, {expand = false\})
-    end)
-\end{luasnippet}
+\codelisting[filename=examples/hello_world/hello.h,marker=export,label=lst:helloexport,caption="Exporting a function for use by other compartments"]{}
 
-The \lua{add_deps} lines refer to \lua{library} and \lua{compartment} blocks defined earlier.
-The first refers to the ones imported from the SDK, the second to the ones from this example.
-The \lua{on_load} block then sets the CHERIoT-specific configuration.
-The \lua{board} key is set to the value from the option that we defined.
-You can hard-code this to a single board or provide multiple firmware targets for different boards if required.
+The implementation of this function is trivial (see \ref{lst:toycompartmentcall}), it just returns \c{42}.
+Note that, aside from the annotation from the function prototype, we don't need any changes to expose this for use from other compartments.
+The same is true on the caller's side, as shown in \ref{lst:helloworldentry}.
+Functions exported from a compartment are called just like any other C function.
 
-The \lua{threads} key is set to an array of thread descriptions.
+\codelisting[filename=examples/hello_world/compartment.cc,marker=all,label=lst:toycompartmentcall,caption="A trivial implementation of an exported function"]{}
+
+\codelisting[filename=examples/hello_world/hello.cc,marker=entry,label=lst:helloworldentry,caption="A simple compartment entry point that does a cross-compartment call"]{}
+
+The \c{entry} function is also annotated as a function exported from a compartment.
+This is because it's a \keyword{thread entry point}, a function that is called at the start of a thread.
+In CHERIoT RTOS, threads are statically defined.
+This is described in more detail in \ref{threads}.
+
+Returning to the build system \ref{lst:xmakefirmware} shows how the \lua{firmware} block defines everything that's combined together to create a firmware image.
+First, the \lua{add_deps} lines are defining the compartments and libraries that are linked.
+The first two are libraries provided by the RTOS, implementing the core functions for a freestanding C environment and a minimal subset of \file{stdio.h} functions, respectively.
+The next two are the compartments that we defined earlier.
+
+Not all of the metadata that we set can be defined in the declarative syntax of \command{xmake} and so we have to implement a function using the \lua{on_load} hook to set the remaining properties.
+The \lua{"board"} property is set from the option that we declared.
+This is where, if you don't need to support multiple targets, you could directly specify the board that you wish to target.
+
+\lualisting[filename=examples/hello_world/xmake.lua,marker=firmware,label=lst:xmakefirmware,caption="Build system code for linking the final firmware image"]{}
+
+The \lua{"threads"} property is set to an array (as a Lua array literal) of thread descriptions.
 Each thread must set five properties:
 
 \begin{description}

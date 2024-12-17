@@ -191,35 +191,16 @@ The sealing type tells you the compartment and the sealing key that are used to 
 
 In the \rego{rtos} package, there is a Rego rule that matches imports that are sealed with the correct value:
 
-\begin{regosnippet}
-is_allocator_capability(capability) {
-	capability.kind == "SealedObject"
-	capability.sealing_type.compartment == "alloc"
-	capability.sealing_type.key == "MallocKey"
-\}
-\end{regosnippet}
+\regolisting[filename=examples/auditing-rtos/rtos.rego,marker=isallocator,label=lst:isallocatorrego,caption="The Rego rule for matching objects sealed as allocator capabilities"]{}
 
-\fixme{Rename alloc to allocator before we release RTOS v1.0!}
+\fixme{Rename alloc to allocator before we release RTOS v1.0!  Make sure to update this to the other alternative once done!}
 
 This matches every import that refers to a sealed object that is sealed with the correct key, independent of its contents.
 The contents remains an opaque blob.
 These capabilities are 24-byte objects, where the first four bytes represent the quota and the remainder is reserved for future use (including internal use by the allocator) and must be initialised to zero.
 The \rego{rtos} package uses the following rule to decode them:
 
-\begin{regosnippet}
-decode_allocator_capability(capability) = decoded {
-	is_allocator_capability(capability)
-	some quota
-	quota = integer_from_hex_string(capability.contents, 0, 4)
-	# Remaining words are all zero
-	integer_from_hex_string(capability.contents, 4, 4) == 0
-	integer_from_hex_string(capability.contents, 8, 4) == 0
-	integer_from_hex_string(capability.contents, 12, 4) == 0
-	integer_from_hex_string(capability.contents, 16, 4) == 0
-	integer_from_hex_string(capability.contents, 20, 4) == 0
-	decoded := { "quota": quota \}
-\}
-\end{regosnippet}
+\regolisting[filename=examples/auditing-rtos/rtos.rego,marker=decodeallocator,label=lst:decodeallocatorrego,caption="The Rego rule for decoding allocator capabilities"]{}
 
 This uses the earlier rule to check the sealing kind.
 If the argument is not a sealed object of the correct kind, this fails and so will any rule that tries to use the result.
@@ -304,25 +285,11 @@ It's also a good reference for the kinds of things that may appear in policies.
 
 The RTOS policy starts with a check that all of the allocator capabilities are valid:
 
-\begin{regosnippet}
-all_sealed_allocator_capabilities_are_valid
-\end{regosnippet}
+\regolisting[filename=examples/auditing-rtos/rtos.rego,marker=allsealedvalid,label=lst:allsealedvalid,caption="The Rego expression checking that all sealed allocator capabilities are valid"]{}
 
 This uses a helper that looks similar to some of the introspection code that we've already looked at:
 
-\begin{regosnippet}
-	all_sealed_allocator_capabilities_are_valid
-	{
-		some allocatorCapabilities
-		allocatorCapabilities = [ c |
-			c = input.compartments[_].imports[_] ;
-			is_allocator_capability(c) ]
-		every c in allocatorCapabilities
-		{
-			decode_allocator_capability(c)
-		\}
-	\}
-\end{regosnippet}
+\regolisting[filename=examples/auditing-rtos/rtos.rego,marker=allsealedvalidimpl,label=lst:allsealedvalidimpl,caption="The Rego rule implementing the check that all sealed allocator capabilities are valid"]{}
 
 This uses a list comprehneison to collect everything that claims to be an allocator capability (i.e. everything sealed with the correct type).
 It then asserts that everything in this list must be a valid allocator capability by using the fact that the \rego{decode_allocator_capability} rule fails if given an invalid allocator capability.
@@ -330,37 +297,14 @@ If anything is sealed as an allocator capability but is not a 24-byte object whe
 
 Next, the policy uses some allow lists to make sure that certain devices are reserved for core components:
 
-\begin{regosnippet}
-# Only the allocator may access the revoker.
-data.compartment.mmio_allow_list("revoker", {"allocator"\})
-# Only the scheduler may access the interrupt controllers.
-data.compartment.mmio_allow_list("clint", {"scheduler"\})
-data.compartment.mmio_allow_list("plic", {"scheduler"\})
-\end{regosnippet}
+\regolisting[filename=examples/auditing-rtos/rtos.rego,marker=allowlists,label=lst:allowlists,caption="The compartment allow lists in the RTOS policy"]{}
 
 The interface to the revoker (the hardware component that invalidates capabilities to freed memory, allowing reuse) is reserved for the allocator.
 The core-local and platform-level interrupt controllers (CLIC and PLIC) are both reserved for the scheduler: nothing else should directly handle interrupts, the scheduler exposes APIs for other compartments to wait for or acknowledge interrupts.
 
 Finally, it checks the access to some pre-shared objects:
 
-\begin{regosnippet}
-# Only the allocator may access the hazard list (the switcher can
-# as well via another mechanism)
-data.compartment.shared_object_allow_list("allocator_hazard_pointers", {"allocator"\})
-# Only the allocator may write to the epoch.
-# Currently, only the compartment-helpers library reads the epoch,
-# but it isn't a security problem if anything else does.
-data.compartment.shared_object_writeable_allow_list("allocator_epoch", {"allocator"\})
-# Size of hazard list and allocator epoch.
-some hazardList
-hazardList = data.compartment.shared_object("allocator_hazard_pointers")
-# Two hazard pointers per thread.
-hazardList.end - hazardList.start = count(input.threads) * 2 * 8
-some epoch
-epoch = data.compartment.shared_object("allocator_epoch")
-# 32-bit epoch
-epoch.end - epoch.start = 4
-\end{regosnippet}
+\regolisting[filename=examples/auditing-rtos/rtos.rego,marker=preshared,label=lst:presharedrtos,caption="The RTOS policy for access to pre-shared objects"]{}
 
 The hazard-pointer list is used to implement the ephemeral claims mechanism described in \ref{heap_claim}.
 The allocator is the only thing that should have access to it (the switcher also exposes a write-only view of a part of it for the current thread).
