@@ -19,10 +19,6 @@ function visit(tree)
 			tree.kind = "pre"
 		elseif tree.kind == "verbatim" then
 			tree.kind = "pre"
-		elseif tree.kind == "lualisting" then
-			tree.kind = "pre"
-			tree:attribute_set("class", "listing-code")
-			tree:append_text("FIXME: Lua listings not implemented yet")
 		else
 			tree:visit(visit)
 		end

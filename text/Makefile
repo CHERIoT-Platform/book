@@ -5,6 +5,7 @@ IGK_PATH?=../../../igk/Build/
 all: html cheriot-programmers-guide.pdf
 
 SOURCES=\
+	audit.tex \
 	adding_a_new_board.tex \
 	book.tex \
 	compartments.tex \
@@ -22,10 +23,10 @@ SOURCES=\
 html: ${SOURCES} Makefile
 	mkdir -p _site
 	cp book.css _site/
-	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass clang-listing --pass number-tables --pass html-lua --pass html-listings --pass html-lists --pass html-em --pass html-xref --pass html-keywords --pass html-admonitions --pass html-multipage  --config output_directory=_site
+	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass clang-listing --pass ts-listing --pass number-tables --pass html-lua --pass html-listings --pass html-lists --pass html-em --pass html-xref --pass html-keywords --pass html-admonitions --pass html-multipage  --config output_directory=_site
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
-	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass sile-admonitions --pass clang-listing --pass sile-lua --pass sile-listings --pass sile-paragraph --pass sile-keywords --pass sile-description-lists --pass sile-tables --pass sile-note --pass sile-xref --pass sile-boilerplate --pass clean-empty --pass XMLOutputPass --config sile_packages=cheriot.listings > cheriot-programmers-guide.xml 
+	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass sile-admonitions --pass clang-listing --pass ts-listing --pass sile-lua --pass sile-listings --pass sile-paragraph --pass sile-keywords --pass sile-description-lists --pass sile-tables --pass sile-note --pass sile-xref --pass sile-boilerplate --pass clean-empty --pass XMLOutputPass --config sile_packages=cheriot.listings > cheriot-programmers-guide.xml 
 	sile cheriot-programmers-guide.xml
 
 validate: html
