@@ -285,13 +285,19 @@ The \c{message_queue_library} library provides a simple message queue API that i
 When the endpoints are in different trust domains, the endpoints must be protected from tampering.
 The \c{message_queue} compartment wraps the library in a compartment that exposes an almost identical interface to the library but with the endpoints exposed as (tamper-proof) sealed capabilities.
 
-Queues for use within a single compartment are created with \c{queue_create}, which allocates the buffer and returns a handle that can be used for sending and receiving messages.
-\fixme{This needs updating for the new APIs:}
-There is no explicit \c{queue_destroy} function.
-The memory allocated can simply be freed when the queue is no longer needed.
-The pointer returned via the \c{outAllocation} parameter refers to the entire allocation used for the queue and so can be passed to \c{heap_free}, along with the heap capability used to allocate the queue.
+Queues for use within a single compartment are created with \c{queue_create}, which allocates the ring buffer and returns a pointer to the structure.
+This is a \c{struct MessageQueue} and callers are at liberty to look inside it directly.
+There is no expectation that it is protected from the caller.
+The functions exposed by the library are (by their nature as shared-library functions) shared between any compartments that use the library, but this is a code-size reduction exercise not a security boundary.
 
 \functiondoc{queue_create}
+
+Queues can be freed simply with \c{heap_free} but doing so may result in deadlocks.
+If a thread is blocked trying to send or receive from a queue then it will remain blocking if the queue is freed out from underneath it.
+The \c{queue_destroy} function avoids this by waking all threads.
+Other threads may then trap immediately after they return and try to read from the queue's counters, but at least this is recoverable (see \ref{handling_errors}).
+
+\functiondoc{queue_destroy}
 
 Messages are then sent with \c{queue_send} and received with \c{queue_receive}.
 These are blocking (if allowed to by with a non-zero timeout) calls that send or receive a single message.
@@ -304,6 +310,7 @@ These are blocking (if allowed to by with a non-zero timeout) calls that send or
 The library interfaces to queues are not intended to be robust in the presence of malicious callers.
 They run in the same security context as the caller and so a caller may abuse them to corrupt its own state.
 They do aim to be robust with respect to the source or destination buffer for sending and receiving messages being invalid or concurrently deallocated.
+This robustness is implemented using the scoped error handling and so requires calling compartments to link the relevant error handler, as documented in \ref{_using_scoped_error_handling}.
 \end{caution}
 
 You can probe the number of messages in a queue with \c{queue_items_remaining}.
@@ -311,15 +318,33 @@ You can probe the number of messages in a queue with \c{queue_items_remaining}.
 \functiondoc{queue_items_remaining}
 
 If you are passing messages between compartments, you should use the versions of these functions with the \c{_sealed} suffix.
-The \c{queue_create_sealed} function creates a queue and returns separate send and receive handles, which can be passed to separate compartments.
-This queue can be destroyed by calling \c{queue_destroy_sealed} with the send and receive handles.
-The queue is not destroyed until both handles have been passed to this function.
+These are provided by the compartmentalised version and so ensure that the queue's internal state is not mutated by its callers.
+
+The \c{queue_create_sealed} function creates a queue in exactly the same way as \c{queue_create} (and has the same argument structure) but returns a \keyword{sealed} pointer to it.
+Nowhere outside of the queue compartment can unseal this and so the queue is protected against tampering.
+The queue may still contain malicious or malformed data, but you have guarantees that messages will arrive in order and that they won't be tampered with in flight.
 
 \functiondoc{queue_create_sealed}
 
+This queue can be destroyed by calling \c{queue_destroy_sealed}.
+You cannot free an object pointed to by a sealed capability unless you also have the capability that authorises unsealing.
+This means that, unlike the unsealed version, you cannot destroy a queue created with \c{queue_create_sealed} \textem{except} by calling the correct destroy function.
+
 \functiondoc{queue_destroy_sealed}
 
-The corresponding send and receive functions are identical to their library counterparts, but take one of the queue handles returned from \c{queue_destroy_sealed}.
+The corresponding send and receive functions are identical to their library counterparts, but take sealed queue handles.
+Sometimes, it's useful to be able to give one compartment the ability to write to a queue and another the ability to read.
+The queue compartment provides two APIs that let you allocate a handle that is authorised for only sending or receiving, \c{queue_receive_handle_create_sealed} and \c{queue_send_handle_create_sealed}.
+
+\functiondoc{queue_receive_handle_create_sealed}
+\functiondoc{queue_send_handle_create_sealed}
+
+With these APIs, you can have an initial setup compartment that creates a queue and then hands the send and receive endpoints to two others.
+This provides mutual distrust because neither compartment that holds a send or receive handle can free the queue, nor can they be used for the opposite operation, and the queue compartment protects the integrity of the queue itself.
+
+In many cases, the trust relationship may be asymmetric.
+For example, a compartment may provide a queue that other untrusted compartments can send messages to, but the senders trust the receiving compartment.
+The APIs also support this asymmetric use case, where the trusted compartment keeps the original handle but uses \c{queue_send_handle_create_sealed} to create handles to pass to other compartments.
 
 \section[label=multiwaiter]{Waiting for multiple events}
 
