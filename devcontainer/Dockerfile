@@ -43,5 +43,6 @@ RUN apt update && apt install -y liblua5.4-dev libicu-dev
 COPY --from=igk-build /llvm/lib /llvm/lib
 COPY --from=igk-build /igk/build/igk /igk/bin/
 COPY --from=igk-build /igk/build/libigk-clang.so /igk/lib/
+COPY --from=igk-build /igk/build/libigk-treesitter.so /igk/lib/
 COPY --from=igk-build /igk/lua /igk/share/igk-lua
 
