@@ -62,6 +62,26 @@ This can be used to size data structures that are indexed by thread ID.
 
 \functiondoc{thread_count}
 
+The \file{current_thread} example shows calling these functions.
+The entry point function for this is shown in \ref{lst:currentthread} and the thread definitions from the \file{xmake.lua} file in \ref{lst:currentthreadxmake}.
+
+\codelisting[filename=examples/current_thread/current.cc,marker=entry,label=lst:currentthread,caption="A simple example that prints the current thread"]{}
+
+\lualisting[filename=examples/current_thread/xmake.lua,marker=threads,label=lst:currentthreadxmake,caption="The thread definitions for the current-thread example"]{}
+
+Note that thread two has a higher priority than thread one.
+When you run this example, you should see output like this:
+
+\begin{console}
+Current thread: 2 of 2
+Current thread: 2 of 2
+Current thread: 1 of 2
+Current thread: 1 of 2
+\end{console}
+
+The higher-priority thread is running until it exist.
+Normally, a higher-priority thread would \keyword{yield} to allow another thread to run, as we'll see later in this chapter.
+
 \section{Using the \c{Timeout} structure}
 
 Several RTOS APIs have timeouts.
@@ -75,11 +95,18 @@ Timeouts represent time spent blocking (yielding waiting to be runnable), not ti
 Timeouts measure time in \keyword{scheduler ticks}.
 A tick is a single scheduling quantum, which depends on the board configuration.
 This is the minimum amount of time for which it is plausible for a thread to sleep.
-If a thread sleeps then another thread becomes runnable and is then allowed to run (unless it also yields) for one tick.
+If a thread sleeps then another thread becomes runnable and is then allowed to run (unless it also yields).
 
-At the end of each tick, the scheduler receives the timer interrupt and chooses the next thread to run.
-Threads may only run at all if no higher-priority thread is runnable.
-Threads at the same priority level are round-robin scheduled.
+Although ticks exist as a unit of accounting, the CHERIoT RTOS scheduler is a \keyword{tickless scheduler}.
+Traditional schedulers schedule a timer interrupt at a fixed quantum and make a scheduling choice at each call.
+This can be inefficient because a high-priority thread will be routinely interrupted and then rescheduled (because it remains the highest-priority thread).
+A tickless scheduler avoids this and instead, before scheduling a thread, sets a timer interrupt to fire at the next point when another thread may be woken.
+
+For example, consider the case where a high-priority thread sleeps for three ticks and a lower-priority thread runs.
+With a traditional scheduler, a timer interrupt will fire three times.
+Each time, the scheduler will do some accounting and then reschedule the lower-priority thread.
+In contrast, a tickless scheduler will configure the timer to fire once, after three ticks have elapsed.
+At that point, the high-priority thread is runnable and so will be scheduled.
 
 The timeout structure captures the amount of time that is allowed to block and the number of ticks for which it has blocked.
 Each subsequent call that is passed the same timeout structure may increase the amount of slept time and decrease the remaining time.
@@ -115,12 +142,8 @@ Sleeping in a system with an RTOS scheduler conflates two concepts:
 \end{itemize}
 
 The \c{thread_sleep} call supports both of these but understanding how they differ requires understanding a little of the scheduler's behaviour.
+Recall that CHERIoT RTOS has a \keyword{tickless scheduler}.
 
-Traditional OS schedulers from the earlies preemptive multitasking systems used a fixed scheduling quantum.
-The scheduler would configure a periodic timer interrupt and would make a new scheduling decision at each interrupt or at explicit yields.
-This fixed quantum is the origin of the tick abstraction in CHERIoT RTOS.
-
-The CHERIoT RTOS scheduler is *tickless*.
 This means that, although it uses ticks as an abstraction for defining scheduling quanta, it does not schedule a regular timer interrupt.
 When two threads at the same priority level are runnable, the scheduler will request a timer interrupt to preempt the current one and switch to the other.
 If the running thread has no peers, the scheduler will allow it to run until either it yields or another higher or equal-priority thread's timeout expires.
@@ -136,6 +159,50 @@ For example, if you're updating a clock display, you will want to run once a sec
 The same applies if you're sending keep-alive packets or periodically monitoring some other component.
 Even if no other threads are runnable, you have no useful work to do for a bit.
 You can pass \c{ThreadSleepNoEarlyWake} as the \c{flags} argument to \c{thread_sleep} to indicate that you really want to sleep.
+
+You can see the effect of sleeping in the \file{thread_sleep} example, as shown in \ref{lst:thread_sleep}.
+This is a modified version of the \file{current_thread} example from earlier, now sleeping in each loop iteration.
+
+\codelisting[filename=examples/thread_sleep/current.cc,marker=entry,label=lst:thread_sleep,caption="A simple example of thread sleeping"]{}
+
+If you run this, you should see output that looks somewhat like this:
+
+\begin{console}
+Current thread: 2 of 2
+Current thread: 1 of 2
+Current thread: 2 of 2
+Current thread: 1 of 2
+Cycles elapsed: 262193
+Cycles elapsed: 265806
+\end{console}
+
+As before, thread two runs first, but then it yields and allows thread one to run.
+Thread one then yields and allows thread two to run, and so on.
+If thread one did \textem{not} yield then it would be preempted after one tick.
+
+\begin{note}
+If you run this with the Sail simulator, do not be surprised if the cycle counts look very small.
+Sail is not a cycle-accurate model and so the cycle count is guaranteed to be monotonic, but not to represent a real system in any way.
+The snippets in this section are using the Ibex simulator.
+\end{note}
+
+Try modifying this example, adding \c{ThreadSleepNoEarlyWake}  as a second argument to the \c{thread_sleep} call.
+You should now see output that looks very similar, but shows lower cycle counts at the end:
+
+\begin{console}
+Current thread: 2 of 2
+Current thread: 1 of 2
+Current thread: 2 of 2
+Current thread: 1 of 2
+Cycles elapsed: 249233
+Cycles elapsed: 252273
+\end{console}
+
+Here you see that the total execution time has gone from 265,806 cycles to 252,273.
+In the original version, when thread one slept (after doing far less than one tick's worth of work), there were no runnable threads and so the scheduler does nothing for a while.
+Eventually, thread two (the high-priority thread) is runnable again and it resumes.
+In the version with \c{ThreadSleepNoEarlyWake}, thread two can resume as soon as thread one sleeps.
+Similarly, when thread two yields for the second time, thread one will resume.
 
 \section[label=futex]{Building locks with futexes}
 
