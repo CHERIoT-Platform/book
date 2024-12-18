@@ -14,7 +14,7 @@ set_toolchains("cheriot-clang")
 -- board#begin
 option("board")
     set_default("sail")
--- end#begin
+-- board#end
 
 -- compartments#begin
 -- An example compartment that we can call
