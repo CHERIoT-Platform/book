@@ -27,7 +27,7 @@ html: ${SOURCES} Makefile
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
 	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass sile-admonitions --pass clang-listing --pass ts-listing --pass sile-lua --pass sile-listings --pass sile-paragraph --pass sile-keywords --pass sile-description-lists --pass sile-tables --pass sile-note --pass sile-xref --pass sile-boilerplate --pass clean-empty --pass XMLOutputPass --config sile_packages=cheriot.listings > cheriot-programmers-guide.xml 
-	sile cheriot-programmers-guide.xml
+	./run_sile.sh cheriot-programmers-guide.xml
 
 validate: html
 	for I in *.html ; do vnu $$I ; done
