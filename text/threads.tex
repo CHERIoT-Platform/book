@@ -204,7 +204,7 @@ Eventually, thread two (the high-priority thread) is runnable again and it resum
 In the version with \c{ThreadSleepNoEarlyWake}, thread two can resume as soon as thread one sleeps.
 Similarly, when thread two yields for the second time, thread one will resume.
 
-\section[label=futex]{Building locks with futexes}
+\section[label=futex]{Waiting for events with futexes}
 
 The scheduler exposes a set of futex APIs as a building block for various notification and locking mechanisms.
 Futex is a contraction of 'fast userspace mutex'.
@@ -228,7 +228,7 @@ For example, consider the simplest possible spinlock, which uses a single word c
 When you encounter a one, you sit in a loop doing an atomic compare-and-swap trying to replace a zero with a one.
 When this succeeds, you've acquired the lock.
 
-On most operating systems with single-core systems, you will sit in this loop until you exhaust your quantum, then a timer will fire and another thread will run.
+On most operating systems running on single-core processors, you will sit in this loop until you exhaust your quantum, then a timer will fire and another thread will run.
 Your thread may be scheduled before the thread that owns the lock finishes, so you'll then spin for another quantum.
 
 The first simple optimisation on this design is to yield in the spin loop.
@@ -241,44 +241,180 @@ The \c{futex_timed_wait} call will compare the value in the futex word to the ex
 A more complete futex-based lock uses three values in the lock word to differentiate between locked states with and without waiters.
 This allows the uncontended case to avoid any cross-compartment calls.
 
+Futexes can be used to build other waiting mechanisms beyond locks.
+A \keyword{barrier} is the simplest primitive that you can build with a futex.
+This is a very simple primitive that blocks every thread until all threads have reached the same point in the code.
+\ref{lst:barrier} shows how a barrier might be implemented, using the \cxx{std::atomic} wrapper around futexes.
+
+\codelisting[filename=examples/barrier/barrier.cc,marker=entry,label=lst:barrier,caption="Implementing a barrier with a futex"]{}
+
+The counter is set to the number of threads (two in this case).
+When a thread arrives at the barrier, it decrements the counter.
+Note that the decrement operator on \cxx{std::atomic} is an atomic decrement, so exactly one thread should take the counter to zero.
+The thread that set the counter to zero then notifies any waiting threads to wake.
+Other threads, as they arrive, will sit using the \cxx{wait} method, which is a thin wrapper around \c{futex_wait}.
+
+The loop on line 26 is important.
+Imagine that one thread decrements the counter to one and is then preempted.
+Then another thread decrements it to zero and does the \cxx{notify_all} (\c{futex_wake}) call.
+The first thread, when it resumes will try to wait on the futex, but the value has now changed.
+Fortunately, \c{futex_wait} takes an expected value and so, if the futex word does not have this value then the call will resume immediately.
+
+If this example had three threads, a similar race could occur in the opposite direction.
+If the first thread decremented from three to two and was then preempted by a second thread then it would call \c{futex_wake} with an expected value of two, but the value would now be one.
+It would then wake, because the value does not match.
+If this happens, it would reload the value, note that it is not zero, and retry waiting.
+The futex APIs are designed to allow this combination of atomic operation and wait to work for any interleaving.
+
+Try modifying this example by adding more threads (don't forget to increase the initial value of the counter!).
+
+\section{Building locks from futexes}
+
 The \file{locks} library provides a set of futex-based locks.
 The \file{locks.h} header exposes the interface to this library.
 
 \begin{description}
 	\item[tag=Ticket locks]{ provide guaranteed FIFO semantics for waiters.}
-	\item[tag=Flag locks]{  are simple locks that wake waiters in the order of their thread priorities.}
-	\item[tag=These can optionally provide priority inheritance (see \ref{priority_inheritance}).}
+	\item[tag=Flag locks]{  are simple locks that wake waiters in the order of their thread priorities.
+	      These can optionally provide priority inheritance (see \ref{priority_inheritance}).}
 	\item[tag=Recursive mutexes]{ wrap a priority-inheriting flag lock and allow the same thread to acquire a lock multiple times.}
 	\item[tag=Semaphores]{ provide a counting semaphore abstraction.}
 \end{description}
 
-C++ users may prefer to use the wrappers provided in `locks.hh`, which implement a uniform interface for different lock types.
-This header also defines a `NoLock` class that provides the same interface but does not do any locking so generic data structures can be implemented with and without locking.
+C++ users may prefer to use the wrappers provided in \file{locks.hh}, which implement a uniform interface for different lock types.
+This header also defines a \cxx{NoLock} class that provides the same interface but does not do any locking so generic data structures can be implemented with and without locking.
 
-Futexes can be used to build other waiting mechanisms beyond locks.
-For example, a ring buffer with producer and consumer counters can have the sender wait while the ring is full by using a futex wait on the consumer counter and the receiver can do likewise with the producer counter.
-This allows a ring buffer design that is mostly lockless, yet allows the producer to sleep when the ring is full or the consumer to sleep when it is empty.
+You can see the difference between the lock types by running the \file{locking} example.
+This uses a lock declared at the top of the file, as shown in \ref{lst:locksdeclare}.
+This is using a flag lock in the uncommented version, you can change it to using a ticket lock by commenting out the first declaration and uncommenting the second.
+
+\codelisting[filename=examples/locking/locking.cc,marker=declare,label=lst:locksdeclare,caption="Declaring a lock in C++"]{}
+
+The rest of this file contains three versions of the function shown in \ref{lst:lockslow}.
+One of these is defined for each of three threads, which are created with three different priorities.
+The \c{do_useful_work} function in the example just calls \c{thread_sleep} with a timeout of one second, but in real code would be doing the work that must be done with the lock held.
+
+\codelisting[filename=examples/locking/locking.cc,marker=low,label=lst:lockslow,caption="The low-priority thread entry point for the locking example"]{}
+
+When you run this example, you should see output like this:
+
+\begin{console}
+High priority thread acquired lock
+High priority thread acquired lock
+High priority thread acquired lock
+High priority thread acquired lock
+High priority thread acquired lock
+\end{console}
+
+This is an example of \keyword{starvation}.
+The low- and medium-priority threads are both waiting for the lock, but the high-priority thread is not yielding between releasing and reacquiring the lock and so they are never woken.
+
+If you change this to a ticket lock, the output will change to this:
+
+\begin{console}
+High priority thread acquired lock
+Medium priority thread acquired lock
+Low priority thread acquired lock
+High priority thread acquired lock
+Medium priority thread acquired lock
+Low priority thread acquired lock
+\end{console}
+
+Ticket locks are modelled after the ticket dispensers that are used to manage queues of people.
+When you arrive, you take the ticket with the next number.
+There is a display showing the current number and you wait until the display matches your number.
+A ticket lock is implemented with two counters.
+The first counter is used to assign tickets.
+When you try to acquire the lock, you atomically fetch-and-increment the counter.
+The result of the fetch is your ticket number.
+You then wait until the second counter is equal to your ticket number.
+When you release the lock, you increment the second counter.
+This is built from futexes by doing a futex-wait on the counter word to block acquiring the lock and a futex-wake when you release the lock.
+
+In this example, the high-priority thread runs first and acquires the lock.
+Next, while it's yielding in the middle, the medium-priority thread tries to acquire the lock and blocks.
+Before blocking, it successfully receives a ticket and so is next in line for the lock.
+The low-priority thread then does the same.
+When the high-priority thread resumes, it also acquires a ticket and is now in the queue to run after the other two threads.
+
+Each thread runs in this version, but a high-priority thread is blocked waiting for two lower-priority threads to proceed, which may not be desirable.
 
 \section[label=priority_inheritance]{Inheriting priorities}
 
-Simple futex-based locks are vulnerable to \keyword{priority inversion}.
-Consider a case with three threads.
-The first is a low-priority thread that acquires a lock.
-The second is a medium-priority thread that preempts the first.
-The third is a high-priority thread that waits for the lock.
+Simple futex-based locks are vulnerable to \keyword{priority inversion}, where a high-priority thread is unable to make progress because a lock is held by a lower-priority thread.
+We saw an example of this with ticket locks but the same is also possible with flag locks, as we'll see in the \file{priority_inheritance} example.
 
-The high-priority thread in this example cannot make progress until the low-priority thread releases the lock.
-The low-priority thread cannot make progress until the medium-priority thread blocks.
-This means that the medium-priority thread is preventing the high-priority thread from making progress, which is the opposite of the desired situation.
+This starts with the high-priority thread shown in \ref{lst:pihigh} running.
+This will sit in a loop, first yielding for up to a second to allow other threads to run, then tries to acquire a lock.
+This example is using \cxx{LockGuard}, a simple RAII wrapper around the RTOS' locks.
+The constructor variant here with two arguments takes a timeout in addition to the lock.
+Lock guards are convertible to \cxx{bool} and convert as \cxx{true} if and only if the lock is acquired.
+This allows the thread to print whether the lock was acquired, or it timed out waiting for the lock.
+
+\codelisting[filename=examples/priority_inheritance/priority_inheritance.cc,marker=high,label=lst:pihigh,caption="A high-priority thread that will be starved"]{}
+
+While this thread yields, the thread shown in \ref{lst:pimedium} runs.
+This first yields and then infinite loops.
+The infinite loop in this example is a placeholder for anything that does long-running work and does not yield.
+
+\codelisting[filename=examples/priority_inheritance/priority_inheritance.cc,marker=medium,label=lst:pimedium,caption="A medium-priority thread that will starve a high-priority thread"]{}
+
+While the medium-priority thread yields, the thread shown in \ref{lst:pilow} runs.
+This acquires the lock and also yields.
+This thread is the lowest priority and so, even without the explicit yield, a similar thread in a more complex program could easily be preempted with the lock held.
+The yield simply forces it to happen every time, to trigger the problem.
+
+\begin{note}
+	Prior to C++26, infinite loops are \keyword{undefined behaviour} in C++ if they do not have any side effects.
+	The \cxx{x++} in this loop is simply incrementing an atomic integer to make sure that this loop is not optimised away.
+\end{note}
+
+\codelisting[filename=examples/priority_inheritance/priority_inheritance.cc,marker=low,label=lst:pilow,caption="A low-priority thread that will be preempted with a lock held"]{}
+
+After the low-priority thread yields (or is preempted) the medium-priority thread will resume and infinite loop (or, at least, does something that doesn't yield).
+The low-priority thread cannot run, because a higher-priority thread is runnable.
+When the high-priority thread tries to run, it sees that the lock is already acquired blocks waiting for it to be finished.
+Unfortunately, the thread that could release the lock never runs and so you see output like this:
+
+\begin{console}
+Low-priority thread acquired the lock
+Low-priority thread releasing the lock
+Low-priority thread acquired the lock
+Medium priority thread entering infinite loop and not yielding
+High-priority thread failed to acquire the lock!
+High-priority thread failed to acquire the lock!
+High-priority thread failed to acquire the lock!
+\end{console}
+
+This example is quite easy to debug, because the starvation is total: the high-priority thread never makes progress.
+If the medium-priority thread yielded sometimes, this would be much worse because the high-priority thread would make progress but at a far slower rate than its priority would imply.
 
 \keyword{Priority inheritance} is the solution to this kind of problem.
-The blocking high-priority thread loans its priority to the low-priority thread, allowing it to (temporarily) be scheduled in preference to the medium-priority thread.
+With priority inheritance, a thread that blocks on a lock that is held by a lower-priority thread will temporarily loan its priority to the thread the owns the lock.
+This allows the lower-priority thread run and release the lock.
+If you change the \cxx{FlagLock} in the example to a \cxx{FlagLockPriorityInherited}, you will see this output:
+
+\begin{console}
+Low-priority thread acquired the lock
+Low-priority thread releasing the lock
+Low-priority thread acquired the lock
+Medium priority thread entering infinite loop and not yielding
+Low-priority thread releasing the lock
+High-priority thread acquired the lock!
+High-priority thread acquired the lock!
+High-priority thread acquired the lock!
+\end{console}
+
+Now, while the medium-priority thread the high-priority thread waits and tries to acquire the lock.
+The lock is held and so it will try to loan its priority to the thread that owns it.
+This allows the low-priority thread to run in preference to the medium-priority one.
+The low-priority thread runs and releases the lock, allowing the high-priority thread to resume and acquire the lock.
 
 The futex APIs implement this by storing the thread ID of the owning thread in the bottom 16 bits of the futex word and passing \c{FutexPriorityInheritance} to the \c{flags} argument in the wait call.
 The specified thread will have its priority set to the highest priority of any of the waiting threads.
 The priority boost lasts until the waiters time out or the boosted thread releases the lock, whichever happens first.
-
 A single thread can hold multiple priority-inheriting locks and receive priority boosts from all of them.
+Most of the time, you will not use this directly and will instead use the priority-inheriting lock APIs from C or their C++ wrappers.
 
 The priority inheritance mechanism can also be used to build asymmetric locks.
 These have a fast path that doesn't do any cross-compartment calls and a slow path that does.
@@ -290,6 +426,7 @@ If the top 16 bits have changed, they know that the allocator has scanned the li
 If the top 16 bits contain an odd value, the allocator is currently scanning the list and they must wait.
 They can do a priority-inheriting wait with a one-tick timeout \textem{even though the allocator will not ever call \c{futex_wake}}.
 They will yield for one tick, boosting the priority of the thread that's currently in the allocator, but then resume at the end of the tick.
+
 
 \section{Securing futexes}
 
