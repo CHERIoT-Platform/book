@@ -8,19 +8,16 @@
 
 // entry#begin
 /// Thread entry point.
-void __cheri_compartment("current")
-  entry()
+void __cheri_compartment("current") entry()
 {
 	for (int i = 0; i < 2; i++)
 	{
-		printf(
-		  "Current thread: %d of %d\n",
-		  thread_id_get(),
-		  thread_count());
+		printf("Current thread: %d of %d\n",
+		       thread_id_get(),
+		       thread_count());
 		Timeout t{1};
 		thread_sleep(&t);
 	}
-	printf("Cycles elapsed: %lld\n",
-	       rdcycle64());
+	printf("Cycles elapsed: %lld\n", rdcycle64());
 }
 // entry#end

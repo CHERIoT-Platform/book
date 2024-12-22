@@ -214,7 +214,8 @@ pre.listing-code
 {
 	word-wrap: break-word;
 	white-space: pre-wrap;
-	tab-size: 4;
+	tab-size: 2;
+	font-size: 95%;
 	background-color: #f0f0f0;
 }
 
@@ -295,7 +296,21 @@ div.code-documentation-inner > div.listing
 }
 
 
+div.figure 
+{
+	text-align: center;
+}
 
+div.figure > img
+{
+	max-width: 100%;
+}
+
+p.figure-caption
+{
+	font-size: 0.8em;
+	text-align: center;
+}
 
 
 table

@@ -1,6 +1,7 @@
 
 local tableNumber = 1
 local listingNumber = 1
+local figureNumber = 1
 local sectionNumbers = {0, 0, 0, 0}
 local depths = {
 	chapter = 1,
@@ -18,6 +19,10 @@ function visit(textTree)
 		if textTree.kind == "code" and textTree:has_attribute("caption") then
 			textTree:attribute_set("number", tostring(listingNumber))
 			listingNumber = listingNumber + 1
+		end
+		if textTree.kind == "figure" then
+			textTree:attribute_set("number", tostring(figureNumber))
+			figureNumber = figureNumber + 1
 		end
 		if depths[textTree.kind] then
 			local depth = depths[textTree.kind]
