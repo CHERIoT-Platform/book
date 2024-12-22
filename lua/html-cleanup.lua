@@ -16,5 +16,23 @@ function process(textTree)
 		end
 		return { caption }
 	end)
+	textTree:match("figure", function(figure)
+		local figureBlock = TextTree.new("div")
+		figureBlock:attribute_set("class", "figure")
+		local img = figureBlock:new_child("img")
+		img:attribute_set("src", figure:attribute("src"))
+		img:attribute_set("alt", figure:attribute("alt"))
+		if figure:has_attribute("number") then
+			figure:insert_text(1, "Figure " .. figure:attribute("number") .. ". ")
+		end
+		local caption = figureBlock:new_child("div")
+		caption = caption:new_child("p")
+		caption:attribute_set("class", "figure-caption")
+		caption:take_children(figure)
+		if figure:has_attribute("label") then
+			caption:attribute_set("id", figure:attribute("label"))
+		end
+		return { figureBlock }
+	end)
 	return textTree
 end

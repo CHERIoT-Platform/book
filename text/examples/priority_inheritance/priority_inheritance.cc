@@ -10,12 +10,11 @@
 // line below to fix the priority
 // inversion in this example.
 FlagLock lock;
-//FlagLockPriorityInherited lock;
+// FlagLockPriorityInherited lock;
 
 // high#begin
-__cheri_compartment(
-  "priority_"
-  "inheritance") void high()
+__cheri_compartment("priority_"
+                    "inheritance") void high()
 {
 	// Let the low and
 	// medium-priority threads start
@@ -26,16 +25,12 @@ __cheri_compartment(
 		t = Timeout(MS_TO_TICKS(1000));
 		if (LockGuard g{lock, &t})
 		{
-			printf(
-			  "High-priority thread "
-			  "acquired the lock!\n");
+			printf("High-priority thread acquired the lock!\n");
 		}
 		else
 		{
-			printf(
-			  "High-priority thread "
-			  "failed to acquire the "
-			  "lock!\n");
+			printf("High-priority thread failed to acquire the "
+			       "lock!\n");
 		}
 	}
 }
@@ -44,17 +39,15 @@ __cheri_compartment(
 std::atomic<int> x;
 
 // medium#begin
-__cheri_compartment(
-  "priority_"
-  "inheritance") void medium()
+__cheri_compartment("priority_"
+                    "inheritance") void medium()
 {
 	// Let the low-priority thread run
 	// until it yields
 	Timeout t(MS_TO_TICKS(1000));
 	thread_sleep(&t);
-	printf("Medium priority thread "
-	       "entering infinite loop and "
-	       "not yielding\n");
+	printf("Medium priority thread entering infinite loop "
+	       "and not yielding\n");
 	while (true)
 	{
 		x++;
@@ -63,20 +56,16 @@ __cheri_compartment(
 // medium#end
 
 // low#begin
-__cheri_compartment(
-  "priority_"
-  "inheritance") void low()
+__cheri_compartment("priority_"
+                    "inheritance") void low()
 {
 	while (true)
 	{
 		lock.lock();
-		printf("Low-priority thread "
-		       "acquired the lock\n");
+		printf("Low-priority thread acquired the lock\n");
 		Timeout t(MS_TO_TICKS(500));
-		thread_sleep(
-		  &t, ThreadSleepNoEarlyWake);
-		printf("Low-priority thread "
-		       "releasing the lock\n");
+		thread_sleep(&t, ThreadSleepNoEarlyWake);
+		printf("Low-priority thread releasing the lock\n");
 		lock.unlock();
 	}
 }
