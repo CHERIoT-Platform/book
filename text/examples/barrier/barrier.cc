@@ -8,14 +8,11 @@
 
 // entry#begin
 /// Thread entry point.
-__cheri_compartment(
-  "barrier") void entry()
+__cheri_compartment("barrier") void entry()
 {
-	static std::atomic<uint32_t>
-	  barrier = 2;
-	printf(
-	  "Thread: %d arrived at barrier\n",
-	  thread_id_get());
+	static std::atomic<uint32_t> barrier = 2;
+	printf("Thread: %d arrived at barrier\n",
+	       thread_id_get());
 	uint32_t value = --barrier;
 	if (value == 0)
 	{
@@ -29,8 +26,6 @@ __cheri_compartment(
 			value = barrier;
 		}
 	}
-	printf(
-	  "Thread: %d passed barrier\n",
-	  thread_id_get());
+	printf("Thread: %d passed barrier\n", thread_id_get());
 }
 // entry#end

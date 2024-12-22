@@ -5,8 +5,10 @@
 #include <debug.hh>
 #include <unwind.h>
 
-/// Expose debugging features unconditionally for this compartment.
-using Debug = ConditionalDebug<true, "Error handling example">;
+/// Expose debugging features unconditionally for this
+/// compartment.
+using Debug =
+  ConditionalDebug<true, "Error handling example">;
 
 void try_to_trap(bool shouldTrap)
 {

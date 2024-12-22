@@ -1,0 +1,324 @@
+\chapter{Getting started writing CHERIoT software}
+
+Now that you understand the abstract ideas in CHERIoT, you almost certainly want to start writing some real code.
+CHERIoT is a complete hardware-software platform, which means that you will need at least the following:
+
+\begin{itemize}
+	\item{A device or simulator that implements the ISA.}
+	\item{A copy of the CHERIoT RTOS software to run on the device.}
+	\item{A CHERIoT toolchain to compile and link the software.}
+\end{itemize}
+
+The whole software stack, the ISA specification, and a reference implementation of a CHERIoT core are all open source and so these should be easy to acquire.
+
+This is not the complete list of software in the CHERIoT ecosystem.
+For example, the auditing tool (see \ref{cheriot-audit}) is separate and there are other open-source components maintained as part of the project.
+
+\section{Getting the RTOS source code}
+
+CHERIoT RTOS is developed on \href[src=https://github.com/CHERIoT-Platform/cheriot-rtos]{GitHub}.
+This is also the home for the project's issue tracker, please report any bugs that you find there!
+You will need to clone this repository to get the latest version.
+
+\begin{note}
+	The RTOS has not quite reached 1.0 at the time of writing.
+	After the 1.0 release, you should also be able to download the RTOS source as a release.
+	Please see the \file{README.md} file in the repository for the latest instructions.
+\end{note}
+
+The RTOS repository uses \keyword{git submodules} for some third-party components.
+This means that you must do a \textem{recursive} clone:
+
+\begin{console}
+$ git clone --recursive https://github.com/CHERIoT-Platform/cheriot-rtos
+Cloning into 'cheriot-rtos'...
+\end{console}
+
+This will create a directory called \file{cheriot-rtos}.
+Inside this you will find a directory called \file{sdk}, which contains the SDK.
+There are also some examples and exercises to help you get started.
+
+If you forgot to do a recursive clone, you can run the following command from the \file{cheriot-rtos} directory to initialise the submodules:
+
+\begin{console}
+$ git submodule update --init --recursive
+\end{console}
+
+\section[label=devcontainer]{Using the CHERIoT development container}
+
+The CHERIoT project provides a \keyword{development container}, usually referred to as a \keyword{dev container}.
+This is an Open Container Initiative (OCI) container image that has all of the tools required for building CHERIoT software preinstalled.
+This includes the toolchain, auditing tools (see \ref{cheriot-audit}) and some simulators (see \ref{implementations}).
+
+OCI containers are sometimes referred to as Docker Containers, because the standards evolved from the model supported by the Docker tools, but they are now supported by a range of software including \command{containerd}, \command{podman}, and so on.
+A \keyword{container instance} (often referred to as simply a container) is an isolated environment that is instantiated from a \keyword{container image}.
+The image is a filesystem built from a set of layers, which allows different containers to share on-disk (and in-cache) space for different images that share a common base.
+
+Dev containers are intended to be used with an editor that supports them but can also be used directly as if they were any other kind of container.
+Most of what makes a container image a dev container is not part of the container image.
+The RTOS repository contains a \file{.devcontainer/devcontainer.json} file that describes how to find and use the image.
+This includes scripts to run when the container is created, editor plugins to install, and so on.
+
+This means that, if you use an editor that supports dev containers directly, the experience is largely seamless.
+If you open the RTOS repository in Visual Studio Code and have the Dev Containers plugin installed, then it will prompt you to reopen the repository in a container.
+This will then fetch the container for you, configure plugins for syntax highlighting, autocomplete, and so on.
+
+\begin{caution}
+	If you're using Windows, you may find that git has mangled line endings or failed to create symbolic links (which require Developer Mode to be enabled).
+	Visual Studio Code will offer an option to clone the repository in a new volume.
+	Docker and Podman on Windows run containers in a Linux virtual machine and volumes are implemented as folders in the VM's filesystem, rather than as Windows folders mounted into the VM.
+	You will probably find that this works better.
+\end{caution}
+
+If, like me, your preferred development environment is a lightly modernised version of a 1970s minicomputer, you can still use the dev container.
+The container image is \file{ghcr.io/cheriot-platform/devcontainer:latest}.
+You can run this directly (from the directory where you checked out the RTOS repository):
+
+\begin{console}
+$ docker run --rm -it \\
+	--mount source=$(pwd),target=/home/cheriot/cheriot-rtos,type=bind \\
+	ghcr.io/cheriot-platform/devcontainer:latest
+\end{console}
+
+This command will create a single instance of the container with the current directory mounted as \file{/home/cheriot/cheriot-rtos}.
+This creates an ephemeral instance, you can create persistent instances with \command{docker create}.
+
+In the dev container, all of the CHERIoT tools are installed in \file{/cheriot-tools/bin/}.
+
+\begin{note}
+	The dev container also exists to support \keyword{GitHub Code Spaces}.
+	These run a Visual Studio Code instance in a browser, attached to a dev container deployed in an Azure VM.
+	If you create a Code Space from the CHERIoT RTOS repository, it will be set up with everything that you need to develop for CHERIoT, in the browser.
+	GitHub Code Spaces are a good way to start playing with CHERIoT, but the free tier is limited to 120 CPU hours (60 hours on the smallest VM tier) and so you will probably want to install the toolchain locally for serious development.
+\end{note}
+
+\section{Setting up a development environment}
+
+Having a copy of the RTOS software does not enable you to build it.
+You will also need a \keyword{toolchain}, a compiler, linker, and other associated tools that can take source code and turn it into a firmware image that can run on a device.
+If are using the dev container, these tools are all installed for you.
+
+The CHERIoT toolchain is based on LLVM, which used to stand for 'Low Level Virtual Machine' until it became clear that none of those words actually applied to the project and is now just a name.
+LLVM is a generic set of building blocks for writing compilers, structured around the \keyword{LLVM Intermediate Representation} (LLVM IR).
+It includes a mature C/C++ front end, a component that transforms C and C++ (and Objective-C) into LLVM IR.
+This front end, \command{clang}, is the default compiler on Apple platforms, Android, and FreeBSD.
+LLVM also includes a linker, \command{lld}.
+These two are sufficient to turn source code into something that can run on a system.
+Some other components that are useful for development.
+For example, \command{llvm-objdump} is used to disassemble a binary, which is useful when you have some telemetry that tells you that you've taken a CHERI bounds exception at address 0xbaadc0de but would quite like to know what that corresponds to in the source code where you might be able to fix the issue.
+It also includes \command{llvm-objcopy}, which is used on some targets to turn an \keyword{Executable and Linkable Format} (ELF) file into a raw stream of bytes to be loaded into memory.
+
+\begin{note}
+	The CHERIoT LLVM toolchain aims to upstream all of the CHERIoT support in mainline LLVM.
+	We hope to have the majority of this work done in 2025, so by the time that you read this it's possible that a generic LLVM install will be sufficient.
+	We expect to do new-feature development in the CHERIoT LLVM repository and so you may prefer to use it even if upstream works.
+\end{note}
+
+You can build LLVM yourself, though it takes quite a lot of CPU time and memory.
+Make sure you have at least 10-20 GiB of disk space available if you want to do this.
+You will find instructions in the \href[src=https://github.com/CHERIoT-Platform/cheriot-rtos/blob/main/docs/GettingStarted.md#building-cheriot-llvm]{CHERIoT RTOS Getting Started guide}.
+Generally, building the toolchain yourself is recommended only if you have software supply-chain concerns or if you are working on the toolchain.
+For everyone else, it's better to use a pre-built version from the dev container.
+
+These days, a compiler is expected to do more than simply compile code.
+It is also expected to talk the \keyword{language server protocol} (LSP) and provide syntax highlighting, autocompletion, cross-referencing, and so on.
+
+\figure[label=vscode,src=figures/vs-code-clangd.png,alt=A Visual Studio Code instance showing autocompletion and API help]{Visual Studio Code with \command{clangd} integration for syntax highlighting and cross-referencing.}
+
+The build system used by CHERIoT RTOS is intended to make this easy to support.
+\ref{vscode} shows the result in Visual Studio Code.
+All of the CHERIoT-specific extensions (see \ref{language_extensions}) are correctly highlighted.
+
+This support is not limited to Visual Studio Code, it can work with any editor that supports the language-server protocol.
+The parsing code from the clang front end is also part of the \command{clangd} dæmon, which implements the server part of this protocol.
+
+The dev container includes a \file{.vimrc} that (if you install vim) uses the \href[src=https://github.com/dense-analysis/ale]{Asynchronous Lint Engine} plugin to connect to our \command{clangd} build.
+Simply run \command{:PlugInstall} in Vim to install it.
+
+C and C++ are more complex than many languages for syntax highlighting and cross references.
+Consider even a simple hello-world C program, which starts with \c{#include <stdio.h>}.
+Where does \file{stdio.h} come from?
+That typically depends on command-line arguments passed to the compiler.
+For native compilation, there may be some good places to guess (such as \file{/usr/include} on *NIX platforms) but for cross compilation, this is harder.
+This gets more complex with as code that references macros passed on the command line.
+Without knowing the command line for the compiler, the syntax highlighter can't even tell the type of these identifiers.
+
+Clang works around this with a \keyword{JSON compilation database}.
+This is a JSON file that provides the command line used to compile each file.
+When \command{clangd} is asked to open a file, it search up the directory tree until it finds a \file{compile_commands.json} file and use it to determine how to open the file.
+
+For CHERIoT, this will be different for each project.
+When you create the dev container for the first time from an editor that supports dev containers, it will run a script that generates these for the core RTOS and for the examples and exercises.
+If you launched the dev container yourself, you can run this script yourself.
+You will find it in \file{scripts/generate_compiler_commands.sh} in the RTOS repository.
+
+This script simply invokes \command{xmake}, which we'll see in more detail in \ref{_building_firmware_images}.
+For your own projects, run the following command:
+
+\begin{console}
+$ xmake project -k compile_commands
+\end{console}
+
+This must be run after the \command{xmake} configure step, so that the build system knows how to build each file and is then able to communicate this to \command{clangd}.
+
+\section[label=implementations]{Choosing an implementation}
+
+You should now have everything installed to be able to build a firmware image.
+The next step is to be able to run one.
+This means some implementation of the \keyword{CHERIoT Instruction Set Architecture} (ISA).
+
+The CHERIoT ISA is another open-source project maintained as part of the CHERIoT Platform organisation.
+As with other modern instruction sets, this is formally specified in an ISA modelling language, in our case \href[src=https://github.com/rems-project/sail]{Sail}.
+Sail (a name, not an acronym) can export to various theorem provers and has some built-in support for running SMT queries, which we use to check some properties about the ISA automatically.
+It can also generate a simulator.
+We use this simulator as our \keyword{gold model}: it is a reference implementation of how the architecture should behave and so can be used to compare behaviour across implementations.
+
+Sail is one of several emulators or simulators included in the dev container.
+The CHERIoT-SAFE (Small And Fast FPGA Emulator) project is the testbed for the CHERIoT Ibex, the reference implementation of the CHERIoT ISA.
+Both of these projects are maintained by Microsoft.
+CHERIoT-SAFE can target the Arty A7 low-cost FPGA development board and also build a software simulation using \command{verilator}.
+
+The CHERIoT Ibex is, at the time of writing, the only available core that supports the CHERIoT ISA, though we expect more to appear in the next few years.
+The Ibex is a three-stage in-order core, which is optimised for area, rather than performance.
+As part of the original CHERIoT research project, we also added the CHERIoT extensions for Flute, a RISC-V core implemented in BlueSpec.
+Flute was not production quality, but did demonstrate that a five-stage core that was (slightly) more optimised for performance could eliminate most of the CHERIoT-specific overhead.
+Ibex is expected to be slower than a similar-complexity non-CHERI microcontroller, but is only very slightly larger.
+
+Google has also contributed an emulator based on their Renode simulation environment.
+Renode is primarily aimed at simulating complex SoCs.
+Google has created a clean-slate implementation of the CHERIoT ISA in this.
+This is currently, by quite a large margin, the fastest of the available simulators or emulators.
+The Sail model is directly translated from the formal model and typically manages 200–400 KIPS (thousand instructions per second) on a fast machine.
+The SAFE simulator is a cycle-accurate simulation of a chip and is typically a bit over 50% of the performance of Sail.
+Renode can usually manage around 20 MIPS.
+
+Beyond software simulators there are currently two mature options for FPGA simulation.
+The SAFE project, as previously mentioned, can be run on the Arty A7.
+Unfortunately, Microsoft does not provide FPGA bitfiles and so you must build this yourself.
+
+lowRISC has produced an FPGA development board designed specifically for CHERIoT, using a slightly smaller version of the same FPGA as the Arty A7.
+This has a rich set of peripherals, including an LCD display.
+It also has set of LEDs that can display CHERI exceptions directly for the CHERIoT Ibex core, as shown in \ref{sonataexception}.
+These will glow red and gradually fade when a CHERIoT-specific exception is triggered in software.
+
+\figure[label=sonataexception,src=figures/sonata-exception-leds.jpg,alt=Sonata's CHERIoT exception LEDs]{CHERIoT exception LEDs on the Sonata FPGA development board.}
+
+At the time of writing, there are not yet any CHERIoT chips commercially available.
+SCI Semiconductor has announced their ICENI line of CHERIoT microcontrollers.
+The first of these should be available in 2025.
+
+\section{Building firmware images}
+
+CHERIoT RTOS uses the \href[src=https://xmake.io/#/]{xmake} build system.
+Xmake is a build system implemented in Lua.
+It was chosen because it is easy to add new kinds of build targets.
+
+In a typical system that uses the compile-link process invented by Mary Allen Wilkes in the '60s, you compile source files to object code and then link object code to produce executables.
+You may have an intermediate step that produces libraries.
+
+The CHERIoT build process was designed to enable separate compilation and binary distribution of components.
+Each source file is compiled either for use in a shared library or for use in a specific compartment.
+This means that, when building compartments, the compiler invocation must know the compartment in which the object file will be used.
+
+Next, compartments and libraries are linked.
+This requires a special invocation of the linker that produces a relocatable object file with the correct structure.
+At this point, the only exported symbols are those for exported functions and the only undefined symbols should be those for MMIO regions or exports from other compartments (see \ref{compartments} for more information).
+
+\begin{note}
+	The build system produces a \file{.library} or \file{.compartment} file for each shared library and each compartment.
+\end{note}
+
+In theory, these can be distributed as binaries and linked into a firmware image but this is not yet handled automatically by the build system.
+
+The final link step produces a firmware image.
+It also produces the JSON report that describes all cross-compartment interactions and is used for auditing.
+
+Using the RTOS build system involves writing an \file{xmake.lua} file that describes the build.
+This starts with some boilerplate:
+
+\lualisting[filename=examples/hello_world/xmake.lua,marker=boilerplate,label=lst:xmakeboilerplate,caption="Build system code for importing the CHERIoT RTOS SDK"]{}
+
+The \lua{set_project} call gives a name to the project.
+
+Lines 7–9 import the RTOS SDK.
+This first tries to use the \command{CHERIOT_SDK} environment variable and, if not, tries a relative file.
+The \lua{sdkdir} variable should point to the location of the \file{sdk} directory from the RTOS repository.
+Finally, line 11 selects the CHERIoT toolchain.
+Ideally this line would not be needed, but \command{xmake}'s scoping rules require it to be provided here.
+
+This boilerplate snipped will exist at the top of most \file{xmake.lua} files for CHERIoT.
+Only the name of the project (and possibly the path to the SDK) will be different.
+
+The SDK file provides rules for building the various kinds of CHERIoT components (compartments, libraries, and firmware) and also includes all of the libraries that are part of the RTOS.
+These libraries include the core definitions for a freestanding C implementation (\c{memcpy} and friends), the atomic helpers for cores without atomic instructions, and the C runtime things that are called from compiler builtins.
+See the \file{lib} directory in the SDK for a full list.
+
+If you want your firmware built to support running on more than one CHERIoT implementation then you will typically want to make the board to target an option, as shown in \ref{lst:xmakeboardselect}.
+This exposes a \flag{--board} option at the configure stage, we'll see how this is used later.
+
+\lualisting[filename=examples/hello_world/xmake.lua,marker=board,label=lst:xmakeboardselect,caption="Build system code for allowing the board to be selected at configure time"]{}
+
+You can set a default and we use \lua{"sail"} here for the simulator build from our Sail formal model of the ISA.
+This refers to a board description file (see \ref{new_board}).
+If you're usually targeting a particular hardware platform, setting the default here allows users to avoid specifying it manually on every build.
+If you're \textem{always} targeting a particular hardware platform then you can avoid this entirely.
+
+Next, you need to add any compartments and libraries that are specific to this firmware image.
+In most cases, you can do this in just two lines, the first providing the name of the compartment and the second providing the list of files, as shown in \ref{lst:xmakecompartments}.
+For this example, we'll have two compartments.
+One is our entry point, the other is a function that we'll use as a simple example of a cross-compartment call.
+
+\lualisting[filename=examples/hello_world/xmake.lua,marker=compartments,label=lst:xmakecompartments,caption="Build system code for building compartments"]{}
+
+\begin{caution}
+	The name of the compartment in the \file{xmake.lua} must match the name used for the exported function as described in \ref{exporting_functions}.
+	If they do not match, the compiler will raise an error that a function is defined in the wrong compartment.
+\end{caution}
+
+This example is going to do a cross-compartment call and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
+The cross-compartment call is exposed from \file{hello.h} as shown in \ref{lst:helloexport}.
+The only difference between this and a normal C/C++ function prototype is the \c{__cheri_compartment} macro.
+This is explained in detail in \ref{exporting_functions}.
+
+\codelisting[filename=examples/hello_world/hello.h,marker=export,label=lst:helloexport,caption="Exporting a function for use by other compartments"]{}
+
+The implementation of this function is trivial (see \ref{lst:toycompartmentcall}), it just returns \c{42}.
+Note that, aside from the annotation from the function prototype, we don't need any changes to expose this for use from other compartments.
+The same is true on the caller's side, as shown in \ref{lst:helloworldentry}.
+Functions exported from a compartment are called just like any other C function.
+
+\codelisting[filename=examples/hello_world/compartment.cc,marker=all,label=lst:toycompartmentcall,caption="A trivial implementation of an exported function"]{}
+
+\codelisting[filename=examples/hello_world/hello.cc,marker=entry,label=lst:helloworldentry,caption="A simple compartment entry point that does a cross-compartment call"]{}
+
+The \c{entry} function is also annotated as a function exported from a compartment.
+This is because it's a \keyword{thread entry point}, a function that is called at the start of a thread.
+In CHERIoT RTOS, threads are statically defined.
+This is described in more detail in \ref{threads}.
+
+Returning to the build system \ref{lst:xmakefirmware} shows how the \lua{firmware} block defines everything that's combined together to create a firmware image.
+First, the \lua{add_deps} lines are defining the compartments and libraries that are linked.
+The first two are libraries provided by the RTOS, implementing the core functions for a freestanding C environment and a minimal subset of \file{stdio.h} functions, respectively.
+The next two are the compartments that we defined earlier.
+
+Not all of the metadata that we set can be defined in the declarative syntax of \command{xmake} and so we have to implement a function using the \lua{on_load} hook to set the remaining properties.
+The \lua{"board"} property is set from the option that we declared.
+This is where, if you don't need to support multiple targets, you could directly specify the board that you wish to target.
+
+\lualisting[filename=examples/hello_world/xmake.lua,marker=firmware,label=lst:xmakefirmware,caption="Build system code for linking the final firmware image"]{}
+
+The \lua{"threads"} property is set to an array (as a Lua array literal) of thread descriptions.
+Each thread must set five properties:
+
+\begin{description}
+	\item[tag=compartment]{ The compartment in which this thread starts.}
+	\item[tag=entry_point]{ The name of the function for this thread's entry point.
+		This must be a function that takes and returns \c{void}, exported from the compartment specified by the \lua{compartment} key.}
+	\item[tag=priority]{ The priority of this thread.
+		Higher numbers indicate higher priorities.}
+	\item[tag=stack_size]{ The number of bytes of stack space that this thread has allocated.}
+	\item[tag=trusted_stack_frames]{ The number of trusted stack frames.
+		Each cross-compartment call pushes a new frame onto this stack and so this defines the maximum number of compartments call depth (including the entry point) for this thread.}
+\end{description}
+
+\section{Running firmware images}

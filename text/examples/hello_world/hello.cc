@@ -8,7 +8,6 @@
 /// Thread entry point.
 void __cheri_compartment("hello") entry()
 {
-	printf("compartment returned %d\n",
-	       exported_function());
+	printf("compartment returned %d\n", exported_function());
 }
 // entry#end

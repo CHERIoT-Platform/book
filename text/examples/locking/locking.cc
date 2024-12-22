@@ -22,13 +22,11 @@ FlagLock lock;
 void do_useful_work()
 {
 	Timeout t{MS_TO_TICKS(1000)};
-	thread_sleep(
-	  &t, ThreadSleepNoEarlyWake);
+	thread_sleep(&t, ThreadSleepNoEarlyWake);
 }
 
 // low#begin
-__cheri_compartment(
-  "locking") void low()
+__cheri_compartment("locking") void low()
 {
 	while (true)
 	{
@@ -42,8 +40,7 @@ __cheri_compartment(
 // low#end
 
 // medium#begin
-__cheri_compartment(
-  "locking") void medium()
+__cheri_compartment("locking") void medium()
 {
 	while (true)
 	{
@@ -57,8 +54,7 @@ __cheri_compartment(
 // medium#end
 
 // high#begin
-__cheri_compartment(
-  "locking") void high()
+__cheri_compartment("locking") void high()
 {
 	while (true)
 	{
