@@ -210,12 +210,16 @@ pre.listing-code-numbered > code.listing-line:before
 	margin-right: 0.5em;
 }
 
-pre.listing-code
+pre
 {
 	word-wrap: break-word;
 	white-space: pre-wrap;
 	tab-size: 2;
 	font-size: 95%;
+}
+
+pre.listing-code
+{
 	background-color: #f0f0f0;
 }
 
