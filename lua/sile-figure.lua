@@ -9,7 +9,6 @@ function process(textTree)
 			caption:attribute_set("label", figure:attribute("label"))
 		end
 		caption:take_children(figure)
-		figureBlock:dump()
 		return { figureBlock }
 	end)
 	return textTree
