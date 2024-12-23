@@ -56,6 +56,12 @@ function resolveXrefs(textTree)
 			-- Append all of the children of the target node.  This lets us
 			-- handle captions that include other markup.
 			linkNode:take_children(target.node:deep_clone())
+			local caption = linkNode.children
+			if type(caption[#caption]) == "string" then
+				local captionEndText = caption[#caption]
+				captionEndText = string.gsub(captionEndText, "%.?%s*$", "")
+				caption[#caption] = captionEndText
+			end
 			return {linkNode}
 		else
 			textTree:visit(resolveXrefs)
