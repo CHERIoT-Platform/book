@@ -17,6 +17,80 @@ If a function is defined while compiling a compilation unit belonging to a diffe
 In CHERIoT RTOS, this attribute is always used via the \c{__cheri_compartment({name\})}` macro.
 This makes it possible to simply use \c{#define __cheri_compartment(x)} when compiling for other platforms.
 
+Most of the time, you will not need to worry about the compiler flags directly.
+The \command{xmake} provided by CHERIoT RTOS will set the compiler flags for you automatically.
+\ref{lst:simpleexport} shows the prototype of a trivial function that increments an integer that is private to a compartment.
+
+\codelisting[filename=examples/c_extensions/interface.h,marker=compartment_export,label=lst:simpleexport,caption="Exporting a function for use by other compartments from a header."]{}
+
+The body of this function is then shown in \ref{lst:incrementfn}.
+Note that this does not require the attribute, it is inherited from the prototype.
+If you forget to include the header, you will see a linker error about a missing symbol.
+\fixme{I thought we now had a better linker error but I can't reproduce it.}
+
+\codelisting[filename=examples/c_extensions/compartment.cc,marker=increment,label=lst:incrementfn,caption="The body of a function that is exposed for cross-compartment calls."]{}
+
+The build system specifies the \flag{-cheri-compartment=} flag based on the \lua{compartment} target definition in the \file{xmake.lua}.
+\ref{lst:xmakecompartment} shows this for the simple example compartment.
+
+\lualisting[filename=examples/c_extensions/xmake.lua,marker=compartment,label=lst:xmakecompartment,caption="Build system code for defining a compartment."]{}
+
+If you get the compartment name wrong, the compiler will generate an error.
+For example, if you change the compartment name in this example to \c{"hello"} in the source code, you will see the following:
+
+\begin{console}
+error: entry.cc:15:35: error: CHERI compartment entry declared for compartment 'hello' but implemented in 'entry' (provided with -cheri-compartment=)
+   15 | void __cheri_compartment("hello") entry()
+      |                                   ^
+1 error generated.
+\end{console}
+
+\section[label=cheri_callback]{Passing callbacks to other compartments.}
+
+The \c{cheri_ccallback} attribute specifies a function that can be used as an entry point by compartments that are passed a function pointer to it.
+This attribute must also be used on the type of function pointers that hold cross-compartment invocations.
+Any time the address of such a function is taken, the result will be a sealed capability that can be used to invoke the compartment and call this function.
+
+\begin{note}
+	The compiler does not know, when calling a callback, whether it points to the current compartment.
+	As such, calling a CHERI callback function will \textem{always} be a cross-compartment call, even if the target is in the current compartment.
+\end{note}
+
+This attribute can also be used via the \c{__cheri_callback} macro, which allows it to be defined away when targeting other platforms.
+
+\ref{lst:callbackexport} shows both how to declare a \c{typedef} for a function pointer type that can be used for cross-compartment callbacks and how to expose a function that takes one.
+This is a simple function that will increment a private counter and invoke the callback.
+
+\codelisting[filename=examples/c_extensions/interface.h,marker=compartment_export_callback,label=lst:callbackexport,caption="Exposing a function that takes a cross-compartment callback for use by other compartments."]{}
+
+The implementation of this function (\ref{lst:monotoniccallbackfn}) calls it just as it would call any other function pointer.
+The difference is dealt with entirely by the compiler.
+For a normal call, the compiler will emit a simple jump-and-link to the address, whereas in this case it will invoke the switcher (see \ref{_changing_trust_domain_with_the_switcher}) with the callback as an extra argument.
+
+Every function that's exposed for cross-compartment invocation has an entry in the compartment's \keyword{export table}, containing the metadata that the switcher will use.
+Every function that is directly called by another compartment will then have an entry in the calling compartment's \keyword{import table} that the loader will initialise with a sealed capability to the export table entry.
+Callback functions work in a similar way, except that the import-table entry is for the compartment that exposes the callback.
+
+When you take the address of a callback function, the compiler simply inserts a load of the import-table entry, giving exactly the same kind of sealed capability that you would use for direct cross-compartment calls.
+At the call site, the only difference between a direct cross-compartment call and a callback is that the former will contain the load from the import table, whereas the latter will simply move the callback into the register that is used to pass the callee to the switcher.
+
+\codelisting[filename=examples/c_extensions/compartment.cc,marker=monotonic,label=lst:monotoniccallbackfn,caption="The body of a function that invokes a cross-compartment callback."]{}
+
+The callback is then declared just like any other function, but with the correct attribute, as shown in \ref{lst:declaresimplecallback}.
+
+\begin{note}
+	The function attributes can be provided either before the start of the function or before the function name (after the return type).
+	In some cases, the latter can avoid ambiguity (the attribute definitely applies to the function, not to the return type), but both are equivalent the rest of the time.
+\end{note}
+
+\codelisting[filename=examples/c_extensions/entry.cc,marker=callback,label=lst:declaresimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
+
+The callback function is passed just like any other function pointer, as shown in \ref{lst:passsimplecallback}.
+Note that the two ways of taking the address of a function in C/C++ (\c{callback} and \c{&callback}) are equivalent.
+Both work, some people prefer the former because it is more concise, others prefer the latter because it is a visual marker that a pointer is being constructed.
+
+\codelisting[filename=examples/c_extensions/entry.cc,marker=compartment_call,label=lst:passsimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
+
 \section{Exposing library entry points}
 
 Libraries are discussed in \ref{compartments}.
@@ -30,18 +104,6 @@ As with \c{cheri_compartment()}, this may be used on both definitions and declar
 This attribute can also be used via the \c{__cheri_libcall} macro, which allows it to be defined away when targeting other platforms.
 
 
-\section[label=cheri_callback]{Passing callbacks to other compartments.}
-
-The \c{cheri_ccallback} attribute specifies a function that can be used as an entry point by compartments that are passed a function pointer to it.
-This attribute must also be used on the type of function pointers that hold cross-compartment invocations.
-Any time the address of such a function is taken, the result will be a sealed capability that can be used to invoke the compartment and call this function.
-
-\begin{note}
-	The compiler does not know, when calling a callback, whether it points to the current compartment.
-	As such, calling a CHERI callback function will *always* be a cross-compartment call, even if the target is in the current compartment.
-\end{note}
-
-This attribute can also be used via the \c{__cheri_callback} macro, which allows it to be defined away when targeting other platforms.
 
 \section{Interrupt state control}
 
