@@ -184,13 +184,13 @@ As part of the original CHERIoT research project, we also added the CHERIoT exte
 Flute was not production quality, but did demonstrate that a five-stage core that was (slightly) more optimised for performance could eliminate most of the CHERIoT-specific overhead.
 Ibex is expected to be slower than a similar-complexity non-CHERI microcontroller, but is only very slightly larger.
 
-Google has also contributed an emulator based on their Renode simulation environment.
-Renode is primarily aimed at simulating complex SoCs.
+Google has also contributed an emulator based on their MPACT simulation environment.
+MPACT is intended for integration with Renode for simulating complex SoCs.
 Google has created a clean-slate implementation of the CHERIoT ISA in this.
 This is currently, by quite a large margin, the fastest of the available simulators or emulators.
 The Sail model is directly translated from the formal model and typically manages 200–400 KIPS (thousand instructions per second) on a fast machine.
 The SAFE simulator is a cycle-accurate simulation of a chip and is typically a bit over 50% of the performance of Sail.
-Renode can usually manage around 20 MIPS.
+The MPACT simulator can usually manage over 5 MIPS, at least an order of magnitude faster than Sail.
 
 Beyond software simulators there are currently two mature options for FPGA simulation.
 The SAFE project, as previously mentioned, can be run on the Arty A7.
@@ -322,3 +322,104 @@ Each thread must set five properties:
 \end{description}
 
 \section{Running firmware images}
+
+Many of the board targets provide a run command.
+This is simple for simulators: it runs the simulator.
+
+If you have built the example from the last section then you can run it simply with \command{xmake run}, like this:
+
+\begin{console}
+$ xmake run
+Running file hello_world.
+ELF Entry @ 0x80000000
+tohost located at 0x800061e0
+compartment returned 42
+SUCCESS
+\end{console}
+
+\begin{note}
+	The current version of \command{xmake} does not automatically build the target and so it's good to get into the habit of using \command{xmake && xmake run}, which will build (if necessary) before running.
+	This is expected to be changed in a future version of \command{xmake}.
+\end{note}
+
+In some cases, these commands may depend on external configuration.
+For example, Sonata has a nice mBed-inspired loader that runs on a Raspberry Pi 2040 that configures the FPGA and loads firmware images.
+This exposes the flash filesystem so that you can just copy a firmware file into the \file{SONATA} device and the 2040 will reboot the FPGA and load the firmware.
+The run script provided for Sonata looks for the \file{SONATA} device in some common mount locations and, if that fails, simply prints the location of the file and tells you to copy it yourself.
+
+If you are working in the dev container, the host filesystems are not automatically available and must be explicitly added.
+You can add extra mount locations can be added to the \file{.devcontainer/devcontainer.json} file.
+If you're on macOS, the \file{SONATA} filesystem will be mounted in \file{/Volumes}, so you can add the following snippet to expose it to the container:
+
+\begin{jsonsnippet}
+  "mounts": [
+    "source=/Volumes/SONATA,target=/mnt/SONATA,type=bind"
+  ]
+\end{jsonsnippet}
+
+On other operating systems, modify the \json{source} part to the correct location.
+This should prompt for the dev container to be restarted, which is required for new mount points to take effect.
+
+If you are running the dev container directly, you will need to add this instruction directly to the invocation of \command{docker} or \command{podman}.
+For example, from the \file{cheriot-rtos} directory:
+
+\begin{console}
+$ docker run -it --rm \\
+	--mount source=$(pwd),target=/cheriot-rtos,type=bind \\
+	--mount source=/Volumes/SONATA/,target=/mnt/SONATA,type=bind \\
+	ghcr.io/cheriot-platform/devcontainer:latest \
+	/bin/bash
+\end{console}
+
+Either of these approaches will mount the SONATA filesystem as \file{/mnt/SONATA}, where the run script for Sonata can find it.
+
+\begin{caution}
+	On Windows, Docker containers run in WSL2, which is a specialised Hyper-V virtual machine.
+	Host folders are exposed via 9p over VirtFS.
+	It appears that this is either too slow, or lacks the correct sync commands, for writes to the Sonata flash storage to be reliable from Docker on Windows.
+	Docker and Podman both work reliably for Sonata on Linux and macOS.
+\end{caution}
+
+The run command typically provides a convenient default.
+Some simulators provide various options if you invoke them directly.
+For example, both the Sail and SAFE simulators provide instruction-level tracing
+
+The Sail simulator is installed in the dev container as \file{/cheriot-tools/bin/cheriot_sim}.
+This will directly run an ELF binary, so you can recreate the behaviour of the \command{xmake run} command like this:
+
+\begin{console}
+$ cheriot-tools/bin/cheriot_sim  build/cheriot/cheriot/release/hello_world
+Running file hello_world.
+ELF Entry @ 0x80000000
+tohost located at 0x800061e0
+compartment returned 42
+SUCCESS
+\end{console}
+
+If you add the \flag{--trace} flag, you will get a \textem{lot} more output.
+This enables all possible tracing.
+Every memory access, every register update, and every executed instruction will be traced.
+You can select a subset of this by providing an argument to \flag{--trace=}.
+For example, passing \flag{--trace=instr} will trace only instructions.
+The most useful option here is \flag{--trace=exception}.
+This will provide a line of output for exceptions, which includes the address of the faulting instruction.
+This is very useful for finding out where CHERI exceptions have happened.
+
+\begin{caution}
+	If you use \command{xmake run} to run a simulator then it will run only the simulator that the firmware image was built for.
+	If you invoke a simulator directly, you will not get this check.
+	Most targets have sufficiently different memory layouts that you cannot use the same firmware image between them.
+\end{caution}
+
+The SAFE simulator is built with Verilator, which requires tracing to be enabled or disabled as a compile-time option.
+The dev container therefore installs two versions \command{cheriot_ibex_safe_sim} and \command{cheriot_ibex_safe_sim_trace}.
+Unlike the Sail simulator, this cannot simply run an ELF file, it needs a VHX file for each memory containing a hex dump of the initial contents of that memory.
+The run script for SAFE first creates this and then invokes the simulator.
+The \file{scripts/ibex-build-firmware.sh} script takes the ELF file as and argument and then creates the \file{firmware} directory containing the two required VHX files.
+The simulator expects a \file{firmware} directory to exist in the current directory and does not take any arguments.
+
+For both simulators, tracing provides a lot of output and redirecting this to a file may be useful.
+
+The MPACT simulator also provides an interactive mode, enabled with \file{-i}.
+This provides debugging environment.
+You can use \command{help} inside the interactive mode to see the commands, which include breakpoints, watchpoints, and so on.
