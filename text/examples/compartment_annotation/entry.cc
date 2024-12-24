@@ -15,9 +15,9 @@ int __cheri_callback callback(int counter)
 /// Thread entry point.
 void __cheri_compartment("entry") entry()
 {
-// compartment_call#begin
+	// compartment_call#begin
 	increment();
 	monotonic(callback);
 	monotonic(&callback);
-// compartment_call#end
+	// compartment_call#end
 }

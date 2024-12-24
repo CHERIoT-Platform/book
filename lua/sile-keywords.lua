@@ -8,6 +8,7 @@ local monospace = {
 	"flag",
 	"json",
 	"file",
+	"tty",
 	"rego",
 	"c",
 	"cxx",

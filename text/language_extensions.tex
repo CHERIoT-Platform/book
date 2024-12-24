@@ -14,26 +14,26 @@ This allows the compiler to know whether a particular function (which may be in 
 This can be used on either definitions or declarations but is most commonly used on declarations.
 
 If a function is defined while compiling a compilation unit belonging to a different compartment then the compiler will raise an error.
-In CHERIoT RTOS, this attribute is always used via the \c{__cheri_compartment({name\})}` macro.
+In CHERIoT RTOS, this attribute is always used via the \c{__cheri_compartment({name\})} macro.
 This makes it possible to simply use \c{#define __cheri_compartment(x)} when compiling for other platforms.
 
 Most of the time, you will not need to worry about the compiler flags directly.
 The \command{xmake} provided by CHERIoT RTOS will set the compiler flags for you automatically.
 \ref{lst:simpleexport} shows the prototype of a trivial function that increments an integer that is private to a compartment.
 
-\codelisting[filename=examples/c_extensions/interface.h,marker=compartment_export,label=lst:simpleexport,caption="Exporting a function for use by other compartments from a header."]{}
+\codelisting[filename=examples/compartment_annotation/interface.h,marker=compartment_export,label=lst:simpleexport,caption="Exporting a function for use by other compartments from a header."]{}
 
 The body of this function is then shown in \ref{lst:incrementfn}.
 Note that this does not require the attribute, it is inherited from the prototype.
 If you forget to include the header, you will see a linker error about a missing symbol.
 \fixme{I thought we now had a better linker error but I can't reproduce it.}
 
-\codelisting[filename=examples/c_extensions/compartment.cc,marker=increment,label=lst:incrementfn,caption="The body of a function that is exposed for cross-compartment calls."]{}
+\codelisting[filename=examples/compartment_annotation/compartment.cc,marker=increment,label=lst:incrementfn,caption="The body of a function that is exposed for cross-compartment calls."]{}
 
 The build system specifies the \flag{-cheri-compartment=} flag based on the \lua{compartment} target definition in the \file{xmake.lua}.
 \ref{lst:xmakecompartment} shows this for the simple example compartment.
 
-\lualisting[filename=examples/c_extensions/xmake.lua,marker=compartment,label=lst:xmakecompartment,caption="Build system code for defining a compartment."]{}
+\lualisting[filename=examples/compartment_annotation/xmake.lua,marker=compartment,label=lst:xmakecompartment,caption="Build system code for defining a compartment."]{}
 
 If you get the compartment name wrong, the compiler will generate an error.
 For example, if you change the compartment name in this example to \c{"hello"} in the source code, you will see the following:
@@ -61,7 +61,7 @@ This attribute can also be used via the \c{__cheri_callback} macro, which allows
 \ref{lst:callbackexport} shows both how to declare a \c{typedef} for a function pointer type that can be used for cross-compartment callbacks and how to expose a function that takes one.
 This is a simple function that will increment a private counter and invoke the callback.
 
-\codelisting[filename=examples/c_extensions/interface.h,marker=compartment_export_callback,label=lst:callbackexport,caption="Exposing a function that takes a cross-compartment callback for use by other compartments."]{}
+\codelisting[filename=examples/compartment_annotation/interface.h,marker=compartment_export_callback,label=lst:callbackexport,caption="Exposing a function that takes a cross-compartment callback for use by other compartments."]{}
 
 The implementation of this function (\ref{lst:monotoniccallbackfn}) calls it just as it would call any other function pointer.
 The difference is dealt with entirely by the compiler.
@@ -74,7 +74,7 @@ Callback functions work in a similar way, except that the import-table entry is 
 When you take the address of a callback function, the compiler simply inserts a load of the import-table entry, giving exactly the same kind of sealed capability that you would use for direct cross-compartment calls.
 At the call site, the only difference between a direct cross-compartment call and a callback is that the former will contain the load from the import table, whereas the latter will simply move the callback into the register that is used to pass the callee to the switcher.
 
-\codelisting[filename=examples/c_extensions/compartment.cc,marker=monotonic,label=lst:monotoniccallbackfn,caption="The body of a function that invokes a cross-compartment callback."]{}
+\codelisting[filename=examples/compartment_annotation/compartment.cc,marker=monotonic,label=lst:monotoniccallbackfn,caption="The body of a function that invokes a cross-compartment callback."]{}
 
 The callback is then declared just like any other function, but with the correct attribute, as shown in \ref{lst:declaresimplecallback}.
 
@@ -83,36 +83,74 @@ The callback is then declared just like any other function, but with the correct
 	In some cases, the latter can avoid ambiguity (the attribute definitely applies to the function, not to the return type), but both are equivalent the rest of the time.
 \end{note}
 
-\codelisting[filename=examples/c_extensions/entry.cc,marker=callback,label=lst:declaresimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
+\codelisting[filename=examples/compartment_annotation/entry.cc,marker=callback,label=lst:declaresimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
 
 The callback function is passed just like any other function pointer, as shown in \ref{lst:passsimplecallback}.
 Note that the two ways of taking the address of a function in C/C++ (\c{callback} and \c{&callback}) are equivalent.
 Both work, some people prefer the former because it is more concise, others prefer the latter because it is a visual marker that a pointer is being constructed.
 
-\codelisting[filename=examples/c_extensions/entry.cc,marker=compartment_call,label=lst:passsimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
+\codelisting[filename=examples/compartment_annotation/entry.cc,marker=compartment_call,label=lst:passsimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
+
+When you run this example 
 
 \section{Exposing library entry points}
 
-Libraries are discussed in \ref{compartments}.
+Libraries are discussed in detail in \ref{compartments}.
 Like compartments, they can export functions, via a simple annotation.
+Unlike compartments, they are simply a mechanism for code sharing, not a security boundary.
+Libraries do not have mutable globals and each call to a library is assumed to have access to everything in the caller.
+Libraries are intended to provide almost the same abstraction as if you'd copied and pasted code into each compartment that calls them, though without the accompanying code duplication.
 
 The \c{cheri_libcall} attribute specifies that this function is provided by a library (shared between compartments).
-Libraries may not contain any writeable global variables.
 This attribute is implicit for all compiler built-in functions, including \c{memcpy} and similar freestanding C environment functions.
 As with \c{cheri_compartment()}, this may be used on both definitions and declarations.
 
+Unlike the compartment annotation, the library annotation does not specify the library that provides the function (though you can validate this later with the auditing tooling, as described in \ref{cheriot-audit}.
+This allows library functions to be moved between libraries easily, a refactoring that does not affect most of the security model.
+For example, the RTOS used to provide a library that implemented all of the helpers for atomic operations.
+This was later split into separate libraries for different sized objects, allowing code to link only the atomic operations for types that it uses.
+
 This attribute can also be used via the \c{__cheri_libcall} macro, which allows it to be defined away when targeting other platforms.
+This is how it is used in \ref{lst:declarelibfn}, which declares a simple library function.
 
+\codelisting[filename=examples/library_annotation/interface.h,marker=library_export,label=lst:declarelibfn,caption="A declaration of a library function"]{}
 
+As with the compartment annotations, these don't need to be placed on both the prototype and the declaration.
+\ref{lst:definelibfn} shows the definition, which omits the attribute.
+
+\codelisting[filename=examples/library_annotation/library.cc,marker=library_implementation,label=lst:definelibfn,caption="A definition of a library function"]{}
+
+Both the library function and the call site, shown in \ref{lst:calllibfn} use the CHERIoT RTOS debugging APIs that are described in detail in \ref{debug}.
+These allow you to, among other things, pretty-print capabilities.
+These use a compiler builtin to get the capability to the stack and print it.
+
+\codelisting[filename=examples/library_annotation/entry.cc,marker=entry,label=lst:calllibfn,caption="Calling a simple library function."]{}
+
+When you run this example, you should see the stack capability printed twice, once by the entry compartment and once by the library.
+The library is called from the compartment and so you should see the stack pointer move, but the bounds will remain the same.
+When you run it, you should see something like this:
+
+\begin{console}
+Entry compartment: Stack pointer: 0x80000af0 (v:1 0x80000720-0x80000b20 l:0x400 o:0x0 p: - RWcgml -- ---)
+Library: Stack pointer: 0x80000ad0 (v:1 0x80000720-0x80000b20 l:0x400 o:0x0 p: - RWcgml -- ---)
+\end{console}
+
+The bounds (\tty{0x80000720-0x80000b20}) remain constant across the call.
+This means that malicious code in the library could inspect or modify everything on the caller's stack.
+In contrast, if you try the same thing in a compartment, you will see this stack truncated.
+
+Try modifying this example to place the function in a compartment instead of a library.
+Don't forget to modify the \file{xmake.lua} file to change the \lua{library} target to \lua{compartment}.
 
 \section{Interrupt state control}
 
-The \c{cheri_interrupt_state} attribute (commonly used as a C++11 / C23 attribute spelled \c{cheri::interrupt_state}) is applied to functions and takes an argument that is either:
+The \c{cheri_interrupt_state} attribute (commonly used as a C++11 / C23 attribute spelled \c{cheri::interrupt_state}) is applied to functions and takes an argument that is one of the following:
+\fixme{Should probably rename this cheriot in the compiler}
 
 \begin{description}
-	\item[tag=enabled]{, to enable interrupts when calling this function.}
-	\item[tag=disabled]{, to disable interrupts when calling this function.}
-	\item[tag=inherit]{, to not alter the interrupt state when invoking the function.}
+	\item[tag=enabled]{Interrupts are enabled when calling this function.}
+	\item[tag=disabled]{Interrupts are disabled when calling this function.}
+	\item[tag=inherit]{ The interrupt state is unchanged (inherited from the caller) when invoking the function.}
 \end{description}
 
 For most functions, \c{inherit} is the default.
@@ -121,11 +159,55 @@ For cross-compartment calls, \c{enabled} is the default and \c{inherit} is not p
 The compiler may not inline functions at call sites that would change the interrupt state and will always call them via a sentry capability set up by the loader.
 This makes it possible to statically reason about interrupt state in lexical scopes.
 
+\begin{caution}
+If a compartment is able to provide arbitrary interrupt-disabled functions, that compartment is in the TCB for availability.
+It is a good idea to move interrupts-disabled code into library functions where the contents of the library can be audited and the exact binary for the interrupt-disabled function can be part of a \keyword{software bill of materials} (SBOM), which can then allow you to reason about the whole system's availability guarantees.
+\end{caution}
+
 If you need to wrap a few statements to run with interrupts disabled, you can use the convenience helper \cxx{CHERI::with_interrupts_disabled}.
 This is annotated with the attribute that disables interrupts and invokes the passed lambda.
 This maintains the structured-programming discipline for code running with interrupts disabled: it is coupled to a lexical scope.
 
 \functiondoc{with_interrupts_disabled}
+
+You need to be very careful using this attribute.
+\ref{lst:lowpriorityinterruptsdisabled} shows a very simple example of how disabling interrupts can have adverse effects.
+The \cxx{spin_for_ticks} function in this example will simply spin for the requested number of ticks, reading the cycle counter until enough time has elapsed.
+This is called by a thread entry-point function that runs with low priority, with increasing tick counts.
+
+The \c{rdcycle64} function reads the cycle timer.
+The \c{thread_sleep} call is sleeping for a single scheduler tick.
+This function and the meaning of a scheduler tick are explained in more detail in \ref{threads}.
+For now, assume that the thread is attempting to sleep for the number of cycles shown by the \c{printf} call at the start, outside of the loop.
+
+\codelisting[filename=examples/interrupts_disabled/interrupts.cc,marker=low,label=lst:lowpriorityinterruptsdisabled,caption="A low-priority thread that uses an interrupts-disabled function to consume CPU."]{}
+
+The other thread in this program is shown in \ref{lst:highpriorityinterruptsdisabled}.
+This runs with high priority and so will always preempt the low-priority thread when it is able to, but disabling interrupts means that preemption is impossible.
+Timer interrupts do not fire and so the scheduler cannot interrupt the function.
+
+\codelisting[filename=examples/interrupts_disabled/interrupts.cc,marker=high,label=lst:highpriorityinterruptsdisabled,caption="A high-priority thread that is starved but an interrupts-disabled function called from a low-priority thread."]{}
+
+When you run this, you will see that the actual time spent sleeping increases each iteration:
+
+\begin{console}
+One tick is 10000 cycles
+low-priority thread running
+Cycles elapsed with high-priority thread yielding: 23461
+low-priority thread running
+Cycles elapsed with high-priority thread yielding: 33450
+low-priority thread running
+Cycles elapsed with high-priority thread yielding: 43449
+low-priority thread running
+Cycles elapsed with high-priority thread yielding: 53448
+\end{console}
+
+The low-priority thread is allowed to start running when the high-priority thread yields but then prevents any other thread in the system from running.
+If you did anything like this in a realtime system, this would guarantee that you would would miss your realtime deadlines.
+
+The key problem here is that the interrupts-disabled function has an unbounded run time.
+It will consume the CPU for a data-dependent amount of time with no practical upper bound.
+When you are building realtime systems, even very soft realtime systems, you must ensure that the worst-case execution time for responding to events is bounded.
 
 \section{Importing MMIO access}
 
@@ -140,11 +222,12 @@ The macro evaluates to a \c{volatile {type\} *}, so \c{MMIO_CAPABILITY(struct UA
 
 The compiler provides a set of built-in functions for manipulating capabilities.
 These are typically of the form \c{__builtin_cheri_{noun\}_{verb\}}.
-You can read all of the fields of a CHERI capability with `get` as the verb and the following nouns:
+You can read all of the fields of a CHERI capability with \c{get} as the verb and the following nouns:
 
 \begin{description}
 	\item[tag=address]{The current address that's used when the capability is used a pointer.}
 	\item[tag=base]{The lowest address that this authorises access to.}
+	\item[tag=top]{The address immediately after the end of the range that this authorises access to.}
 	\item[tag=length]{The distance between the base and the top.}
 	\item[tag=perms]{The architectural permissions that this capability holds.}
 	\item[tag=sealed]{Is this a sealed capability?}
@@ -173,9 +256,55 @@ Setting the object type is more complex.
 This is done with \c{__builtin_cheri_seal}, which takes an authorising capability (something with the permit-seal permission) as the second argument and sets the object type of the result to the address of the sealing capability.
 Conversely, \c{__builtin_cheri_unseal} uses a capability with the permit-unseal capability and address matching the object type to restore the original unsealed value.
 
+Most of the time, C code will avoid using the builtins directly and instead use the wrappers defined in \file{cheri-builtins.h}.
+This file contains a set of macros that wrap the builtins to remove the \c{__builtin_} prefix.
+
+\begin{note}
+	Although most of the macros in \file{cheri-builtins.h} match the names of the underlying builtins, the permissions ones follow the CHERIoT RTOS coding convention of avoiding abbreviations and so use \c{permissions} instead of \c{perms}.
+	The predicates prefix the operation with \c{_is} so \c{__builtin_cheri_equal_exact} becomes \c{cheri_is_equal_exact}.
+\end{note}
+
+You can see how to use most of the introspection builtins via their macro wrappers in \ref{lst:prettyprintcapc}.
+This prints a capability, showing its address, tag (valid) bit, length, bounds, and permissions.
+The permissions are expanded as the letters from the tables in \ref{permissions}.
+The builtins are thing wrappers around the instructions, which represent the permissions as a bitmask.
+Individual bits must be extracted by a bitwise and operation.
+
+\codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=print_capability,label=lst:prettyprintcapc,caption="Pretty printing a capability using the C builtin wrappers."]{}
+
+\ref{lst:capmanipc} uses this function to print both some initial capabilities from heap and stack memory and then manipulates them.
+First, it explicitly sets the bounds of the heap capability to 23 bytes, then removes all permissions except load.
+
+\codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=capability_manipulation,label=lst:capmanipc,caption="Manipulating capabilities using the C builtin wrappers."]{}
+
+When you run this example, you should see something like this (the exact addresses may vary):
+
+\begin{console}
+0x80000ae1 (valid:1 length: 0x17 0x80000ae1-0x80000af8 otype:0 permissions: - RWcgml -- -)
+0x80006710 (valid:1 length: 0x18 0x80006710-0x80006728 otype:0 permissions: G RWcgm- -- -)
+0x80006710 (valid:1 length: 0x17 0x80006710-0x80006727 otype:0 permissions: G RWcgm- -- -)
+0x80006710 (valid:1 length: 0x17 0x80006710-0x80006727 otype:0 permissions: - R----- -- -)
+0x80006710 (valid:1 length: 0x18 0x80006710-0x80006728 otype:0 permissions: G RWcgm- -- -)
+\end{console}
+
+First, note the difference between the permissions on the stack and heap allocation.
+The heap allocation has global permission: it may be stored anywhere.
+The stack allocation lacks global, but has store-local permission, which allows it to be used to store other capabilities that lack the global permission.
+This ensures that stack pointers can be stored only on the stack.
+
+The bounds on the original heap allocation are rounded up to a multiple of the heap's allocation granule size.
+The CHERIoT allocator allocates 8-byte chunks, so this is rounded up to 24 (0x18) bytes.
+For a capability this small, CHERIoT can precisely represent the desired size and so the bounds setting operation succeeds and you can derive a capability with the precise bounds that we requested.
+Next, this removes all permissions except load.
+This pointer now provides a read-only view of the data, which cannot be stored anywhere except on the stack and which cannot be used to load capabilities.
+
+Finally, this example prints the heap allocation again to remind you that these permissions and bounds apply to the \textem{pointer} and not to the \textem{object}.
+We have not removed permissions from an object, we have created a pointer that has fewer permissions to that object.
+There is no limit to the number of pointers that can exist to a single object.
+
 \section{Comparing capabilities with C builtins}
 
-By default, the C/C++ `==` operator on capabilities compares only the address.
+By default, the C/C++ \c{==} operator on capabilities compares only the address.
 
 \begin{note}
 	This is subject to change in a future revision of CHERI C.
@@ -189,7 +318,7 @@ It is, effectively, a bitwise comparison of all of the bits in the two capabilit
 
 Ordered comparison, using operators such as less-than or greater-than, always operate with the address.
 There is no total ordering over capabilities.
-Two capabilities with different bounds or different permissions but the same address will return false when compared with either `<` or `>`.
+Two capabilities with different bounds or different permissions but the same address will return false when compared with either \c{<} or \c{>}.
 
 This is fine according to a strict representation of the C abstract machine because comparing two pointers to different objects is undefined behaviour.
 It can be confusing but, unfortunately, there is no good alternative.
