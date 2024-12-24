@@ -1,10 +1,11 @@
 // Copyright CHERIoT Contributors.
 // SPDX-License-Identifier: MIT
 
-#include <atomic>
 #include "interface.h"
+#include <atomic>
 
-namespace {
+namespace
+{
 	std::atomic<int> counter;
 }
 

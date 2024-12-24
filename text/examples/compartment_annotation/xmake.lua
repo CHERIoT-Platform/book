@@ -23,7 +23,7 @@ compartment("entry")
 	add_files("entry.cc")
 
 -- Firmware image for the example.
-firmware("hello_world")
+firmware("compartment_annotation")
 	-- RTOS-provided libraries
 	add_deps("freestanding", "stdio")
 	-- Our compartments
