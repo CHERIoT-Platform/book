@@ -9,6 +9,7 @@ local monospace = {
 	"json",
 	"rego",
 	"file",
+	"tty",
 	"c",
 	"cxx",
 	"reg",
