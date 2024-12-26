@@ -311,10 +311,43 @@ By default, the C/C++ \c{==} operator on capabilities compares only the address.
 	It makes porting some existing code easier, but breaks the substitution principle (if \c{a == b}, you would expect to be able to use \c{b} or \c{a} interchangeably).
 \end{note}
 
-You can compare capabilities for exact equality with \c{__builtin_cheri_equal_exact}.
+You can compare capabilities for exact equality with the \c{__builtin_cheri_equal_exact}, or the \c{cheri_is_equal_exact} macro that wraps the builtin.
 This returns true if the two capabilities that are passed to it are identical, false otherwise.
 Exact equality means that the address, bounds, permissions, object type, and tag are all identical.
 It is, effectively, a bitwise comparison of all of the bits in the two capabilities, including the tag bits.
+
+You can see the difference between the two in \ref{lst:capequal}.
+This creates a capability with a small offset into an on-stack buffer and then restricts the bounds and removes permissions from it, then compares them for equality using both the \c{==} operator and the \c{cheri_is_equal_exact} macro.
+
+\codelisting[filename=examples/compare_capabilities/example.c,marker=capability_equality,label=lst:capequal,caption="Comparing two capabilities for equality."]{}
+
+When you run this example, you should see output that looks something like this:
+
+\begin{console}
+0x80000ae5 (valid:1 length: 0x17 0x80000ae1-0x80000af8 otype:0 permissions: - RWcgml -- -)
+0x80000ae5 (valid:1 length: 0x4 0x80000ae5-0x80000ae9 otype:0 permissions: - RWcgml -- -)
+Equal? 1
+Exactly equal? 0
+0x80000ae5 (valid:1 length: 0x4 0x80000ae5-0x80000ae9 otype:0 permissions: - R----- -- -)
+Equal? 1
+Exactly equal? 0
+0x80000ae5 (valid:0 length: 0x4 0x80000ae5-0x80000ae9 otype:0 permissions: - R----- -- -)
+Equal? 1
+Exactly equal? 0
+\end{console}
+
+First it shows the original capability, which grants complete access to a stack allocation and has its address four bytes offset into the object.
+Then the bounded capability, which has the same address and permissions, but different bounds.
+These compare equal with address-based comparison but not exactly equal.
+
+Next it removes permissions from the derived capability and compares these.
+Again, the difference in permissions is not reflected in the address-based equality but is in the exact equality.
+
+The final case is the most interesting and the one where this can be the most confusing.
+The last pointer constructed in this example is not a capability.
+This is constructed by clearing the tag, which is the bit that indicates that the capability-sized word is, in fact, a capability.
+Losing the tag bit means that this is not a capability at all, merely 64 bits of data that happen to be loaded into a capability register.
+With the C equality operator, this \textem{still} compares equal to any of the other capabilities, but the exact-equality comparison fails.
 
 Ordered comparison, using operators such as less-than or greater-than, always operate with the address.
 There is no total ordering over capabilities.
@@ -325,6 +358,21 @@ It can be confusing but, unfortunately, there is no good alternative.
 Comparison of pointers is commonly used for keying in collections.
 For example, the C++ \cxx{std::map} class uses the ordered comparison operators for building a tree and relies on it working correctly for keys that are pointers.
 Ideally, these would explicitly operate over the address, but that would require invasive modifications when porting to CHERI platforms.
+
+You can see the case that can make this confusing in \ref{lst:capordering}.
+This compares two capabilities using the ordered operators and then exact equality.
+
+\codelisting[filename=examples/compare_capabilities/example.c,marker=capability_ordering,label=lst:capordering,caption="Trying to construct an ordering over two capabilities."]{}
+
+When you run this example, it will print:
+
+\begin{console}
+bounded is not greater than, less than, nor equal to, offset
+\end{console}
+
+This highlights that, within the C abstract machine, there is no good choice for what \c{==} should do on capabilities.
+In the current version, it breaks the substitution principle: you cannot use \c{a} and \c{b} interchangeably if \c{a == b}.
+In the alternative version, existing code that does \c{a < b} and \c{a > b} and assumes that \c{a == b} holds if both ordered comparisons fail would now be incorrect.
 
 In general, in new code, you should avoid comparing pointers for anything other than exact equality, unless you are certain that they have the same base and bounds.
 Instead, be explicit about exactly what you are testing.
@@ -339,15 +387,61 @@ This returns true if the second argument is a subset of the first.
 A capability is a subset of another if every right that it conveys is held by the other.
 This means the bounds of the subset capability must be smaller than or equal to the superset and all permissions held by the subset must be held by the superset.
 
+You can see this for the capabilities that we've been looking at in \ref{lst:captestsubset}.
+
+\codelisting[filename=examples/compare_capabilities/example.c,marker=capability_subset,label=lst:captestsubset,caption="Subset relationships over two capabilities."]{}
+
+When you run this, the output is:
+
+\begin{console}
+bounded ⊂ offset? 1
+restricted ⊂ bounded? 1
+untagged ⊂ restricted? 0
+offset ⊂ bounded? 0
+\end{console}
+
+Most of these lines should not be a surprise.
+The bounded capability is a subset of the original, it was created by subsetting the bounds.
+The capability that was created by subsetting the rights on the bounded version is, in turn a subset of the bounded version.
+Finally, the original is not a subset of the bounded version.
+
+The surprising entry might be that the untagged capability is not a subset of the original.
+In a set-theoretic sense, this would be incorrect: The empty set is a subset of any other set.
+In practice, this degenerate case is not a useful.
+
+The test-subset operation gives a unidirectional substitution property (i.e. any operation that is safe to do with the subset is safe to do with the superset) but this is not usually something that you care about.
+The test is most useful for telling if one capability is \textem{derived from} another (or, at least, could have a derivation path from a specific common root).
+For example, we can tell that (ignoring stack lifetime errors) \c{bounded} and \c{restricted} are both derived from the original stack allocation.
+It happens that, in this specific case, \c{unbounded} was derived from the same stack allocation but the lack of a tag bit means that there are no \keyword{provenance} guarantees.
+For untagged values, we can make no claims about whether they were derived from any other capabilities.
+
+This is useful to check if a particular pointer that you've been given is derived from something that you already own.
+The claims mechanisms (described in \ref{heap_claim}) uses this, for example, to allow threads to keep an object alive if you hold a pointer derived from the original object pointer.
+The temporal-safety properties of CHERIoT ensure that any dangling pointer to a heap object will be untagged and so any valid (tagged) pointer that is a subset of a heap allocation must be derived from the return from the original call to \c{malloc} or some similar function.
+
 \section{Sizing allocations}
 
 CHERI capabilities cannot represent arbitrary bases and bounds.
-The larger the bounds, the more strongly aligned the base and bounds must be.
+The original CHERI prototypes, with a 64-bit address, encoded a 64-bit top address and a 64-bit base.
+This made capabilities 256 bits in total (four times the address size), which was not feasible for production implementations (though having lots of space was very useful for prototyping).
+Fortunately, there is a lot of redundancy between these three values.
+Generally, for any allocation, the high bits of the base, top, and some in-bounds address will all be the same.
 
-NOTE: The current CHERIoT encoding gives byte-granularity bounds for objects up to 511 bytes, then requires one more bit of alignment for each bit needed to represent the size, up to 8 MiB.
-Capabilities larger than 8 MiB cover the entire address space.
+CHERI systems since around 2016 have used compressed bounds encodings that take advantage of this redundancy.
+Rather than storing a complete address for the top and bottom, they store a floating-point value that is the distance from the address to the top and from the address to the base.
+The exponent bits are shared between the two.
+This means that, the larger the bounds, the more strongly aligned the base and bounds must be.
+
+\begin{note}
+The current CHERIoT encoding gives byte-granularity bounds for objects up to 511 bytes, then requires one more bit of alignment for each bit needed to represent the size, up to 8 MiB.
+Capabilities larger than 8 MiB must be aligned on an 8 MiB boundary for their base and top.
 This is ample for small embedded systems where most compartments or heap objects are expected to be under tens of KiBs.
+
+This is a slightly simplified version of the original CHERI scheme, which simplifies critical-path lengths on short pipelines.
+Future versions of CHERIoT are likely to support slightly more expressive formats on longer pipelines.
 Other CHERI systems make different trade offs.
+\end{note}
+
 
 Calculating the length can be non-trivial and can vary across CHERI systems.
 The compiler provides two builtins that help.
@@ -356,31 +450,84 @@ The first, \c{__builtin_cheri_round_representable_length}, returns the smallest 
 The compressed bounds encoding requires both the top and base to be aligned on the same amount and so there's a corresponding mask that needs to be used for alignment.
 The \c{__builtin_cheri_representable_alignment_mask} builtin returns the mask that can be applied to the base and top addresses to align them.
 
+\ref{lst:capalignmasks} shows how to use these builtins via their wrappers to find the smallest representable size for a requested size.
+
+\codelisting[filename=examples/bounds_lengths/example.c,marker=representable_range,label=lst:capalignmasks,caption="Rounding up sizes for representable allocations."]{}
+
+The allocator is using these internally when it determines the size to provide for a request and the alignment that it needs to find.
+When you run it, you may see something like this.
+
+\begin{console}
+Smallest representable size of 160000-byte allocation: 160256 (0x27200). Alignment mask: 0xfffffe00
+0x80006800 (valid:1 length: 0x27200 0x80006800-0x8002da00 otype:0 permissions: G RWcgm- -- -)
+\end{console}
+
+The requested size needs to be rounded up to 160,256 bytes.
+The hex representation makes it easier to see the alignment is 0x200, or 512 in decimal.
+The top and bottom of an allocation that can accurately represent the requested size must be 512-byte aligned.
+The alignment mask is simply another way of representing this, it is nine zeroes in the low bits and ones in all of the high bits.
+
+When the allocator returns a value for this requested size, the length is rounded up as you'd expect.
+If you bitwise and the base and top with the alignment mask, you will see no change.
+Both are, in this specific case, slightly more strongly aligned than required, most likely because this is the first \c{malloc} call in the program and so these are as strongly aligned as the heap base.
+You can test that the alignment is adequate by doing a bitwise and (C operator: \c{&}) of the base or top with the alignment mask.
+This should leave the value unmodified.
+
 \section[label=cheri_capability_cpp]{Manipulating capabilities with \cxx{CHERI::Capability}}
 
 The raw C builtins can be somewhat verbose.
 CHERIoT RTOS provides a \cxx{CHERI::Capability} class in \file{cheri.hh} to simplify inspecting and manipulating CHERI capabilities.
 
 These provide methods that are modelled to allow you to pretend that they give direct access to the fields of the capability.
-For example, you can write:
+The \file{manipulate_capabilities_cxx} example shows how to do the same things as the \file{manipulate_capabilities_c} example, this time with the C++ APIs.
+First, \ref{lst:prettyprintcapcxx} reimplements the \cxx{print_capability} function using \cxx{CHERI::Capability}.
+This is slightly more verbose because it's printing with the \c{printf} function, which is a C variadic and so cannot take the result of \cxx{ptr.address()}, which is a proxy that allows you to manipulate the address.
 
-\begin{cxxsnippet}
-capability.address() += 4;
-capability.permissions() &= permissionSet;
-\end{cxxsnippet}
+\codelisting[filename=examples/manipulate_capabilities_cxx/example.cc,marker=print_capability,label=lst:prettyprintcapcxx,caption="Pretty printing a capability using the C++ APIs."]{}
 
-This modifies the address of \cxx{capability}, increasing it by four, and removes all permissions not present in \cxx{permissionSet}.
-Other operations are also defined to be orthogonal.
+\begin{note}
+The \cxx{using P = CHERI::Permission} is not good style.
+It is done here so that the example code fits in a narrow page.
+In normal code, a mode descriptive name would be better.
+\end{note}
 
-Permissions are exposed as a \cxx{PermissionSet} object.
-This is a \cxx{constexpr} class that provides a rich set of operations on permissions.
+Note the \cxx{CHERI::PermissionSet} class here.
+This is a (\cxx{constexpr}) class that encapsulates a CHERI permission set.
+The C version of this exposed the permissions in their raw form as a word where each bit represented a permission.
+The C++ version uses a rich type, with methods for subsetting.
 This can be used as a template parameter and can be used in static assertions for compile-time validation of derivation chains.
-The loader makes extensive use of this class to ensure correctness.
+The loader makes extensive use of this class to ensure correctness, with compile-time checks that operations on permission-set objects are valid.
 
-\begin{caution}
-	The equality comparison for \cxx{CHERI::Capability} uses exact comparison, unlike raw C/C++ pointer comparison.
-	This is less confusing for new code (it respects the substitution principle) but users may be confused that \c{a == b} is true but \cxx{Capability{a\} == Capability{b\}} is false.
-\end{caution}
+This part of the example uses the \cxx{contains()} method to query whether a specific permission is present.
+This is strongly typed, it takes a \cxx{CHERI::Permission}, not an arbitrary integer.
+It is also a variadic template function: you can pass it multiple permissions and it will return true if and only if the permission set has all of them.
+
+Next, \ref{lst:capmanipcxx} does the same set of manipulations as \ref{lst:capmanipc}.
+This uses a \cxx{CHERI::Capability<void>} rather than a \c{void*} to hold the pointers.
+
+\codelisting[filename=examples/manipulate_capabilities_cxx/example.cc,marker=capability_manipulation,label=lst:capmanipcxx,caption="Manipulating capabilities using the C++ APIs."]{}
+
+The \cxx{bounded.bounds() = 23} expression shows how the methods act like fields.
+This is doing a set-bounds operation on the capability.
+Similarly, the \cxx{&=} operation on the result of calling \cxx{permissions()} is an and-permissions operation.
+This lets you operate on the permissions as a \cxx{CHERI::PermissionSet} directly.
+
+The equality comparison for \cxx{CHERI::Capability} uses exact comparison, unlike raw C/C++ pointer comparison.
+This is less confusing for new code (it respects the substitution principle) but users may be confused that \c{a == b} is true but \cxx{Capability{a\} == Capability{b\}} is false.
+\ref{lst:capequalcxx} shows the various forms of comparison.
+
+\codelisting[filename=examples/manipulate_capabilities_cxx/example.cc,marker=capability_equality,label=lst:capequalcxx,caption="Comparting capabilities using the C++ APIs."]{}
+
+When you run this, you will see:
+
+\begin{console}
+heapBuffer == bounded? 0
+heapBuffer == bounded (as raw pointers)? 1
+heapBuffer == bounded (as address comparison)? 1
+\end{console}
+
+The last two comparisons are equivalent, but the third is more explicit.
+If you want to compare two pointers for equality as address comparison, comparing their addresses makes the intent clear.
 
 See \file{cheri.hh} for more details and for other convenience wrappers around the compiler builtins.
 
