@@ -26,6 +26,7 @@ html: ${SOURCES} Makefile
 	cp book.css _site/
 	cp figures/*.png _site/figures
 	cp figures/*.jpg _site/figures
+	cp figures/*.svg _site/figures
 	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass clang-listing --pass ts-listing --pass number-tables --pass html-lua --pass html-listings --pass html-lists --pass html-em --pass html-xref --pass html-keywords --pass html-admonitions --pass html-multipage  --config output_directory=_site
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
