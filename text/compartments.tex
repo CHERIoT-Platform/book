@@ -13,7 +13,7 @@ Each library entry point is exposed as a sentry capability (see \ref{sealing_int
 \begin{warning}
 If a library traps, the error handler for the caller compartment may see the register file for the middle of the library.
 Similarly, the compiler may spill arbitrary values onto the stack or leave them in registers at the end of a library function.
-As such, you should assume that anything processed in a library written in a compiled language will leak to the caller and anything written in assembly must be *very* careful to avoid leaking secrets.
+As such, you should assume that anything processed in a library written in a compiled language will leak to the caller and anything written in assembly must be \textem{very} careful to avoid leaking secrets.
 This is not normally a problem because most libraries just exist as an alternative to compiling the same functions into multiple compartments.
 For example, the functions that implement locks on top of futexes (see \ref{futex}) are in a library to reduce overall code size, but simply copying the implementations of these functions into each caller would have no security implications.
 \end{warning}
@@ -26,8 +26,8 @@ In CHERIoT, compartments and libraries can export only functions as entry points
 Global variables are always private to a compartment or library, unless a pointer is explicitly passed out as a function argument or return in a cross-compartment call.
 This design is intended to make it easier to reason about sharing between compartments.
 
-If you declare a global in a header and define it in a library or a compartment, you will see linker errors if you try to use it in other compartments or libraries.
-This hold even for \c{const} globals exported from libraries.
+If you declare a global in a header and define it in a library or a compartment, you may see linker errors if you try to use it in other compartments or libraries.
+This holds even for \c{const} globals exported from libraries.
 You can place a \c{static const} global in a header for a library, but that will introduce tight coupling: the value in the header may be inlined at any use site.
 For very large globals, this may also increase code size significantly.
 
@@ -35,12 +35,62 @@ For very large globals, this may also increase code size significantly.
 As mentioned previously, (read-only) globals in a library are hidden in a software-engineering sense, but may be leaked to callers and should not be considered private in a security sense.
 \end{note}
 
-You can still use globals to share data but you must explicitly expose them via an accessor.
+You can still use globals to share data but you must explicitly expose them via an accessor function.
 This makes CHERIoT compartments and libraries similar to Smalltalk-style objects, with public methods and private instance variables.
 
 If you expose an interface that returns a pointer to a global, you can use CHERI permissions to restrict access.
 Returning a read-only pointer to a global is a common idiom for building a lightweight broadcast communication channel.
 The owning compartment can write to the global and other compartments can read from via their copy of the pointer, with guarantees that only the owning compartment is making changes.
+
+To see the differences, \ref{lst:exportcompartmentandlib} shows a header that exports two functions, one from a compartment and one from a library.
+
+\codelisting[filename=examples/library_or_compartment/interface.h,marker=exports,label=lst:exportcompartmentandlib,caption="A header defining library and compartment exports."]{}
+
+The exported functions both contain the implementation shown in \ref{lst:printcompartmentregisters}, which uses the debug APIs (see \ref{debug}) to print the capabilities in three registers.
+These show the stack, code, and globals regions, respectively.
+The compiler provides builtin functions to copy two of these (the program counter and stack capabilities) but the third, the globals pointer, requires some inline assembly.
+The inline assembly needs to run at the start of the function because this function does not reference any globals and so the compiler will otherwise spill this register to use it as a temporary.
+
+\codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
+
+When you run this code, you should see output something like this:
+
+\begin{console}
+Entry: Stack pointer: 0x80000d30 (v:1 0x80000750-0x80000d50 l:0x600 o:0x0 p: - RWcgml -- ---)
+Entry: Program counter: 0x80005f18 (v:1 0x80005ee0-0x80005fe8 l:0x108 o:0x0 p: G R-cgm- X- ---)
+Entry: Globals pointer: 0x80006202 (v:1 0x80006200-0x80006204 l:0x4 o:0x0 p: G RWcgm- -- ---)
+Library: Stack pointer: 0x80000d20 (v:1 0x80000750-0x80000d50 l:0x600 o:0x0 p: - RWcgml -- ---)
+Library: Program counter: 0x80005d48 (v:1 0x80005d20-0x80005df8 l:0xd8 o:0x0 p: G R-cgm- X- ---)
+Library: Globals pointer: 0x80006202 (v:1 0x80006200-0x80006204 l:0x4 o:0x0 p: G RWcgm- -- ---)
+Compartment: Stack pointer: 0x80000cf0 (v:1 0x80000750-0x80000d10 l:0x5c0 o:0x0 p: - RWcgml -- ---)
+Compartment: Program counter: 0x80005e20 (v:1 0x80005df8-0x80005ee0 l:0xe8 o:0x0 p: G R-cgm- X- ---)
+Compartment: Globals pointer: 0x800061fe (v:1 0x800061fc-0x80006200 l:0x4 o:0x0 p: G RWcgm- -- ---)
+\end{console}
+
+Ignore the exact memory addresses, these may change depending on where you run the example.
+First, note that the program counter capability (the capability used for instruction fetch) is different in all three cases and the bounds do not overlap.
+In this particular built, the example compartment is placed in code memory immediately after the entry compartment, so the address 0x80005df8 is the boundary between the two.
+
+Next, observe that the globals pointer is different between the two compartments.
+This example includes a single \c{int} global, to make sure that these are non-zero (two compartments may have the same zero-length capabilities for globals if they have no globals).
+In contrast, the library prints the same globals pointer as the caller.
+As previously mentioned, a malicious library can access any globals in the caller.
+
+Finally, look at the stack pointers.
+The first thing to note is that the \textem{start} address is 0x80000750 in all cases.
+Stacks grow downwards and the \textem{end} of the stack is the same for each.
+The \textem{address} of the stack pointer is different in each because they run at different depths on the stack.
+The initial value is very close to the top of the stack, then the library and compartment calls are deeper.
+A compartment call needs to save more state (two callee-save registers and the old global pointer, which are preserved across normal calls) and so entry to the compartment call is slightly (48 bytes) lower.
+The top of the stack is the most interesting place.
+In the compartment call, the top of the stack is at address 0x80000d10, 64 bytes below its location in the entry compartment and the library.
+Anything above that point is unreachable in the compartment before then.
+
+This may all be easier to understand visually.
+\ref{compartmentcallregisters} shows the memory ranges that each compartment points to, in each of the three places.
+The lines marked with a ⓵ indicate the initial values on entry, those marked ⓶ indicate the values in the library call and those marked ⓷ show the values in the cross-compartment call.
+
+\figure[label=compartmentcallregisters,src=figures/CompartmentCall.svg,alt=An illustration of the memory pointed to by each compartment in the compartment and library-call example.]{An illustration of memory pointed to by each register in the compartment-call example.}
 
 \section{Understanding the structure of a compartment}
 
