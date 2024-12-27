@@ -1,8 +1,27 @@
+function file_exists(name)
+	local f = io.open(name, "r")
+	if f ~= nil then
+		io.close(f)
+		return true
+	else
+		return false
+	end
+end
+
 function process(textTree)
 	textTree:match("figure", function(figure)
 		local figureBlock = TextTree.new("figure")
 		local img = figureBlock:new_child("img")
-		img:attribute_set("src", figure:attribute("src"))
+		local src = figure:attribute("src")
+		if string.match(src, "%.svg$") then
+			local pdf = string.gsub(src, "%.svg$", ".pdf")
+			if file_exists(pdf) then
+				src = pdf
+			else
+				img.kind = "svg"
+			end
+		end
+		img:attribute_set("src", src)
 		img:attribute_set("width", "100%fw")
 		local caption = figureBlock:new_child("caption")
 		if figure:has_attribute("label") then
