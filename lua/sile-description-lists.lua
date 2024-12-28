@@ -1,6 +1,9 @@
 local visit
 
 function itemTitle(textTree)
+	textTree:visit(visit)
+	local dd = TextTree.new()
+	dd:take_children(textTree)
 	local dt = TextTree.new("font")
 	if not textTree:has_attribute("tag") then
 		textTree:error("missing tag attribute")
@@ -8,10 +11,12 @@ function itemTitle(textTree)
 	end
 	dt:attribute_set("weight", "700")
 	dt:append_text(textTree:attribute("tag"))
-	dt:append_text(" ")
+	dt:append_text("\n\n")
 	textTree:attribute_erase("tag")
-	table.insert(textTree.children, 1, dt)
-	textTree:visit(visit)
+	local negativeIndent = textTree:new_child("glue")
+	negativeIndent:attribute_set("width", "-2em")
+	textTree:append_child(dt)
+	textTree:append_child(dd)
 	return {textTree}
 end
 
