@@ -100,14 +100,18 @@ The core of a compartment is made of just two capabilities.
 The program counter capability (PCC) defines (and grants access to) the range of memory covering the compartment's code and read-only globals.
 This has read and execute permissions.
 The capability global pointer (CGP) defines (and grants access to) the range of memory covering the compartment's mutable globals.
+The full structure is more complex and is shown in \ref{compartmentstructure}.
+
+\figure[label=compartmentstructure,src=figures/CompartmentStructure.svg,alt="The structure of a compartment.  The PCC register points a code region that contains code, read-only globals, and an import table.  The CGP register points to the read-write globals region.  An export table is not directly reachable."]{The structure of a compartment.}
+
 
 \begin{note}
 A future version of the ABI may move read-only globals out of the program counter capability region but this requires some ISA changes to be efficient and so will likely not happen before CHERIoT 2.0.
 \end{note}
 
-If a compartment didn't need to interact with anything else, this would be sufficient.
+If a compartment didn't need to interact with anything else, these two regions would be sufficient.
 In practice, compartments are useful only because they interact with other compartments or the outside world.
-The read-only data region contains an _import table_.
+The read-only data region contains an \keyword{import table}.
 This is the only region of memory that, at system start, is allowed to contain capabilities that grant access outside of the PCC and CGP region for the compartment.
 The instructions for the loader to populate these are in the firmware image and are amenable to auditing.
 
@@ -119,7 +123,7 @@ Import tables also contain sentry capabilities for library functions.
 A shared library has its own PCC region (like a compartment) but does not have a CGP region.
 Library routines are invoked by loading the sentry from the import table and jumping to it.
 
-Finally, import tables contain sealed capabilities referring to other compartments' _export tables_.
+Finally, import tables contain sealed capabilities referring to other compartments' \keyword{export tables}.
 If a compartment exports any entry points for other compartments to call, it has an export table.
 This contains the PCC and CGP for the compartment and a small amount of metadata for each exported function describing:
 
@@ -135,21 +139,51 @@ Extracting code and moving it to a new compartment adds a very small amount of m
 
 \section{Adding compartments to the build system}
 
+The build system makes adding compartments trivial.
+An \command{xmake} build file (\file{xmake.lua}) uses a declarative Lua-like syntax at the top level.
+This defines targets as sections.
+\ref{lst:xmakeaddcompartmenttargets} shows the build system logic for the example compartments and libraries from earlier.
+Defining a new target implicitly ends the definition of the previous one.
+This example implicitly ends the library and entry targets, but uses \lua{target_end()} to explicitly end the compartment target.
 
+\lualisting[filename=examples/library_or_compartment/xmake.lua,marker=compartments_and_libraries,label=lst:xmakeaddcompartmenttargets,caption="Build system code for defining compartment and library targets"]{}
+
+Inside each target definition, you can add files, dependencies on other targets, and so on.
+The \lua{"entry"} target, for example, sets itself as a non-default target.
+\command{xmake} will build every default target, whether it is used or not.
+Marking a target as non-default allows it to be defined, but built only if it is used.
+This is useful for reusable components.
+The RTOS provides build-system logic for a set of libraries, but each is built only if it is added as a dependency of something that is built.
+
+\begin{note}
+The \lua{compartment}, \lua{library}, and \lua{firmware} target markers are syntactic sugar over the \command{xmake} \lua{target} command.
+The first two simply set the default rules to build as the correct kind of target.
+The \lua{firmware} target definition is more complex because it also implicitly instantiates core parts of the RTOS, constructs the linker script, and so on.
+If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentation}, simply treat these as if they were \lua{target} definitions.
+\end{note}
+
+Once you have defined the rules to build each compartment and library, they need to be combined into a firmware image.
+Any library or compartment that is a direct or indirect dependency of a firmware image will be built and linked into the final image.
+For this example, we show both forms.
+The entry compartment calls the library and the example compartment and so lists them as explicit dependencies.
+In the firmware definition (\ref{lst:xmakeaddcompartmentdeps}) adds the entry compartment as an explicit dependency, which then pulls in the other two.
+This firmware also depends on two libraries from the core RTOS, the freestanding library, which provides the core of the C run-time environment, and the debug library which is pretty-printing the debug messages.
+
+\lualisting[filename=examples/library_or_compartment/xmake.lua,marker=compartments_as_dependencies,label=lst:xmakeaddcompartmentdeps,caption="Build system code for adding dependencies on compartment and library targets"]{}
 
 \section{Choosing a trust model}
 
 There are three trust models that are commonly applied to compartments:
 
 \begin{description}
-	\item[tag=Sandbox:]{ A sandbox is a compartment that is used to isolate
+	\item[tag=Sandbox]{ A sandbox is a compartment that is used to isolate
 		untrusted code.
 		This model is used to protect the rest of the system.
 		Typically, a sandbox will trust values passed to it as arguments to exported functions or return values from functions that it calls in other compartments.}
-		\item[tag=Safebox:]{ A safebox is a compartment that holds some secret or sensitive data that must be protected from the outside.
+		\item[tag=Safebox]{ A safebox is a compartment that holds some secret or sensitive data that must be protected from the outside.
 		For example, a safebox may be used to protect a key and perform encryption or signing on behalf of callers.
 		A safebox does not trust any data provided from outside of the compartment, but callers may trust it to behave correctly.}
-	\item[tag=Mutual distrust:]{ Mutual distrust is the strongest model.
+	\item[tag=Mutual distrust]{ Mutual distrust is the strongest model.
 		A compartment in a mutual-distrust relationship protects itself from attacks from the outside by careful handling of inputs and expects other compartments to protect themselves from it in the same way.}
 \end{description}
 
@@ -168,6 +202,48 @@ It is; however, written to assume that other compartments may try to maliciously
 When thinking about trust, it's worth trying to articulate the properties that other code is trusted to enforce or preserve.
 For example, everything in the CHERIoT system trusts the scheduler for availability.
 Most things trust the allocator to enforce spatial and temporal memory safety for the heap.
+
+\section{Implementing a safebox}
+
+The safebox abstraction is trivial to implement in CHERIoT.
+\ref{lst:guessthenumber} shows a complete implementation of a simple safebox for a guess-the-number game.
+This generates a (very weak!) pseudorandom number using the cycle counter and allows callers to guess it.
+
+\codelisting[marker=safebox,caption=A safebox for a guess-the-numbers game,label=lst:guessthenumber, filename=examples/safebox/safebox.cc]{}
+
+This is called from the runner compartment, shown in \ref{lst:guessthenumberrunner}.
+This compartment talks directly to the outside world and so is part of the attack surface.
+It's quite unlikely that a compartment that simply reads individual bytes and ignores anything not in the ASCII digit range could be vulnerable but the same techniques can protect much more realistic examples.
+
+\codelisting[marker=runner,caption=The runner compartment for the guess-the-numbers game,label=lst:guessthenumberrunner, filename=examples/safebox/runner.cc]{}
+
+When you run this, you will see output something like the following:
+
+\begin{console}
+Runner: Guess a number between 0 and 9 (inclusive)
+Safebox: Guess was 3, secret was 4
+Safebox: Guess was 1, secret was 8
+Safebox: Guess was 9, secret was 4
+Safebox: Guess was 4, secret was 3
+Safebox: Guess was 8, secret was 6
+Safebox: Guess was 1, secret was 0
+Safebox: Guess was 2, secret was 8
+Safebox: Guess was 3, secret was 5
+Safebox: Guess was 5, secret was 2
+Safebox: Guess was 2, secret was 3
+Safebox: Guess was 1, secret was 6
+Runner: Correct!  You guessed the secret was 3
+\end{console}
+
+In this example, the extra compartmentalisation doesn't really buy us anything.
+You could combine these two compartments and have similar functionality.
+Perhaps more importantly, separating them adds little additional complexity to the code, yet respects the \keyword{principle of least privilege}.
+The code that handles I/O does not need to know the secret and the code that knows the secret does not need to be able to read via the UART.
+
+A safebox assumes that its caller is malicious.
+A compartment may start malicious or become malicious as the result of a compromise.
+Try modifying only \file{runner.cc} in this example to leak the secret without any incorrect guesses.
+Hopefully, you will find it impossible.
 
 \section{Refining trust}
 
