@@ -88,7 +88,8 @@ Anything above that point is unreachable in the compartment before then.
 
 This may all be easier to understand visually.
 \ref{compartmentcallregisters} shows the memory ranges that each compartment points to, in each of the three places.
-The lines marked with a ⓵ indicate the initial values on entry, those marked ⓶ indicate the values in the library call and those marked ⓷ show the values in the cross-compartment call.
+\if[output=sile]{The lines marked with a 1 indicate the initial values on entry, those marked 2 indicate the values in the library call and those marked 3 show the values in the cross-compartment call.}
+\else[output=sile]{The lines marked with a ⓵ indicate the initial values on entry, those marked ⓶ indicate the values in the library call and those marked ⓷ show the values in the cross-compartment call.}
 
 \figure[label=compartmentcallregisters,src=figures/CompartmentCall.svg,alt=An illustration of the memory pointed to by each compartment in the compartment and library-call example.]{An illustration of memory pointed to by each register in the compartment-call example.}
 
