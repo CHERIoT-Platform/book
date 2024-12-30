@@ -251,9 +251,9 @@ It seems conceptually easy to say 'this code is trusted' and 'this code is untru
 At a high level, components are typically trusted (or not) with respect to three properties:
 
 \begin{description}
-	\item[tag=Confidentiality]{: How does information flow out of this component?}
-	\item[tag=Integrity]{: What how can information be modified by this component?}
-	\item[tag=Availability]{: What can this component prevent from working?}
+	\item[tag=Confidentiality]{How does information flow out of this component?}
+	\item[tag=Integrity]{What how can information be modified by this component?}
+	\item[tag=Availability]{What can this component prevent from working?}
 \end{description}
 
 \begin{note}
@@ -302,22 +302,9 @@ You will want narrow interfaces between the network stack and the TLS stack, so 
 The TLS stack will decode complete messages and forward them to the interpreter compartment.
 TLS packets have cryptographic integrity protection and so anything that comes through this path is probably safe, unless the TLS compartment is compromised, but putting the interpreter in a separate compartment ensures that invalid interpreter code can provide different colours to the LEDs but can't damage the LEDs and can't launch attacks over the network.
 
-\section[label=exporting_functions]{Exporting functions from libraries and compartments}
-
-Functions are exported using the attributes described in \ref{language_extensions}.
-Functions exported from a library are annotated with \c{__cheri_libcall}, those from a compartment with \c{__cheri_compartment()}, with the latter providing the name of the compartment.
-
-If you've written shared libraries on Windows, you may have had to add DLL export and import directives on function prototypes in headers.
-These are usually wrapped in a macro that allows you to define the export attribute when compiling the library and import when compiling anything else.
-
-The CHERIoT attributes are designed to avoid the need for this by operating in concert with the \flag{-cheri-compartment=} compiler flag.
-When you compile a C/C++ source file that will end up in a compartment, the compiler knows the compartment that it is being built for.
-It can therefore generate cross-compartment calls for functions that are in other compartments and direct calls for functions in the same compartment.
-It can also do some additional error checking and will refuse to compile functions in one compilation unit if they are defined in another.
-
 \section{Validating arguments}
 
-\functiondoc{check_pointer}
+\functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
 
 If a function that is exported from a compartment takes primitive values as arguments, there's little that an attacker can do other than provide invalid values.
 For things like integers, this doesn't matter, for enumerations it's important to ensure that they are valid values.
@@ -358,6 +345,35 @@ If this returns true, you can prevent deallocation by using the \keyword{claim} 
 
 \functiondoc{heap_address_is_valid}
 
+Alternatively, you can use the ephemeral claim mechanism (also documented in \ref{heap_claim} to ensure that a pointer is either a pointer that cannot be freed, or to ensure that it remains live until the next cross-compartment call.
+These techniques are all combined in \ref{lst:safeuartchecks}, which is a simple function that prints a string to the UART, defensively.
+This first uses a lock (see \ref{threads}) to ensure that only one thread will access this function at a time.
+If this compartment exposed more than one function that used the UART then the lock would need to be shared between all of them.
+
+\codelisting[marker=safe_uart,caption=Checks to ensure that a function does not crash.,label=lst:safeuartchecks, filename=examples/check_arguments/uart.cc]{}
+
+Next, it uses \c{heap_claim_fast} to prevent concurrent deallocation.
+After this, it is safe to use \cxx{check_pointer} to ensure that the permissions are correct and that this pointer does not overlap the current compartment's stack.
+For a C string, this checks only that a single byte is readable.
+The function then gets the length explicitly and prints either the full length of the buffer, or the buffer up to a null terminator, whichever is shorter.
+
+
+You can see how well this works with the attacks shown in \ref{lst:safeuartattacks}.
+This tries passing a string that is not null-terminated, a string without load permission, an untagged capability, and finally a valid capability.
+
+\codelisting[marker=attacks,caption=Attempting to attack the safe UART.,label=lst:safeuartattacks, filename=examples/check_arguments/hello.cc]{}
+
+When you run this example, you should see output like this:
+
+\begin{console}
+No null
+Non-malicious string
+\end{console}
+
+The string that misses the null terminator is written, but then there's no overflow.
+The string that has the wrong permissions and the string that is not a valid capability at all are simply not printed.
+Finally, the non-malicious string is printed correctly, showing that the attacker has not been able to corrupt internal state.
+
 \section{Ensuring adequate stack space}
 
 The stack is shared between compartments invoked on the same thread.
@@ -379,7 +395,7 @@ You can then use the difference between the top of the stack capability (accesse
 \functiondoc{stack_lowest_used_address}
 
 \begin{note}
-This helper checks the amount of stack usage *of the current compartment*.
+This helper checks the amount of stack usage \textem{of the current compartment}.
 The switcher check is not intended to ensure that the invocation of the current compartment can succeed, only that failures are detectable and recoverable.
 If you want to ensure that a called compartment *also* has enough stack then you will need to add its stack requirements to those of your compartment.
 \end{note}
@@ -517,6 +533,38 @@ The value \c{-1} is \c{-ECOMPARTMENTFAIL} and other numbers from \file{errno.h} 
 A CHERIoT capability is effectively a tagged union of a pointer and 64 bits of data.
 You can take advantage of this in functions that return pointers to return either an integer or, if the result is not tagged, an error code.
 
+To see a slightly less-contrived version of error handling, \ref{lst:safeuartyolo} is a version of \ref{lst:safeuartchecks}, rewritten to use error handling instead of checking.
+The original version checked all of the properties of the string and protected itself against concurrent mutation.
+This version still uses \cxx{check_pointer}, because this also prevents information disclosure by ensuring that the string does not overlap the current compartment invocation's stack.
+You could omit this check if you are not worried about information disclosure.
+For capabilities that you write through, this check is very important because otherwise you may write over parts of your own stack and corrupt internal state by accident.
+
+The example then simply tries to read the bytes, assuming that they are a valid null-terminated C string.
+
+\codelisting[marker=safe_uart,caption=Using structured error handling to ensure that a function does not crash.,label=lst:safeuartyolo, filename=examples/yolo_arguments/uart.cc]{}
+
+This version uses the C++ wrappers that take lambdas, rather than the macro versions, but the semantics are the same as described earlier.
+When you run this, you should see exactly the same output as the original version:
+
+\begin{console}
+No null
+Non-malicious string
+\end{console}
+
+The string that lacks a null terminator will now simply be written looking for one.
+The attempt to read one byte past the end will trigger a bounds exception.
+This will then invoke the second lambda passed to \cxx{on_error}, which will set the error code and resume.
+The other errors are caught by the \cxx{check_pointer} call.
+If you remove that call, you will instead see the following output:
+
+\begin{console}
+No null
+
+
+Non-malicious string
+\end{console}
+
+Now, each call is printing the trailing newline, even if it encountered a fault while reading the message.
 
 \section[label=software_capabilities]{Building software capabilities with sealing}
 
