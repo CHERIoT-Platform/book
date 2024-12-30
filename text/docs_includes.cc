@@ -7,3 +7,4 @@
 #include <thread.h>
 #include <token.h>
 #include <unwind.h>
+#include <NetAPI.h>

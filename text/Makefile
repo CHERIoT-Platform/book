@@ -16,6 +16,7 @@ SOURCES=\
 	getting_started.tex \
 	language_extensions.tex \
 	memory.tex \
+	networking.tex \
 	porting_from_bare_metal.tex \
 	porting_from_freertos.tex \
 	threads.tex

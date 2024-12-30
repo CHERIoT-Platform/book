@@ -1,0 +1,162 @@
+\chapter{Networking}
+
+The CHERIoT network stack is intended to serve three purposes:
+
+\begin{itemize}
+	\item{An example of a compartmentalized structure incorporating large amounts of existing code.}
+	\item{An off-the-shelf solution for common IoT device networking needs.}
+	\item{An example for building more specialised networking systems.}
+\end{itemize}
+
+The current stack contains code from several third-party projects: The FreeRTOS TCP/IP stack, along with their SNTP and MQTT libraries, and the BearSSL TLS implementation.
+These are wrapped in rich capability interfaces and deployed in several compartments.
+
+\begin{note}
+Currently, none of the simulators provide a network connection.
+The examples in this chapter will default to using Sonata, but should also work on the Arty A7 and future hardware.
+\end{note}
+
+\section{Understanding the structure of the network stack}
+
+The core compartments in the network stack are shown in \ref{networkstackstructure}.
+These do not include the SNTP and MQTT compartments, which we'll see later.
+
+\figure[label=networkstackstructure,src=figures/NetworkStack.svg,alt=An illustration of the compartments in the network stack]{The core compartments in the network stack.}
+
+The TCP/IP and TLS stacks are largely existing code, from the FreeRTOS+TCP and BearSSL projects, respectively.
+The BearSSL code has no platform dependencies and so is simply recompiled.
+The FreeRTOS+TCP code, unsurprisingly, assumes that it is running on FreeRTOS and is ported using the compatibility layer described in \ref{from_freertos}.
+
+In the initial port, the FreeRTOS+TCP code required only one change.
+It normally expects to create threads during early initialisation.
+The file that did this was wrapped in something that instead triggered a barrier to allow the statically created threads to start running.
+Later changes for network-stack reset required some additional steps, though none of these modified any of the FreeRTOS+TCP code.
+
+Each box in the diagram is a compartment (the User Code box is a placeholder for at least one compartment).
+The compartments have different goals and requirements.
+
+The firewall does both ingress and egress filtering.
+Ingress filtering reduces the attack surface of the TCP/IP layer.
+If there are no listening TCP sockets or unrestricted UDP ones, the firewall will drop all packets that do not come from an approved peer.
+Typically, an attacker on the local network segment can forge origin addresses but that gets harder across the Internet.
+Egress filtering is less common on embedded devices, which is unfortunate.
+The Mirai botnet launched large distributed denial of service (DDoS) attacks by compromising large numbers of embedded systems and using them to each generate relatively small amounts of traffic.
+With the CHERIoT network stack, this is much harder because the firewall compartment will not usually allow other compartments to send packets to arbitrary targets.
+
+The Network API compartment is new code and implements the control plane.
+When you want to create a socket or authorise a remote endpoint, you must call this compartment.
+It uses a software capability model to determine that callers are allowed to talk to remote endpoints and then opens holes in the firewall to authorise this.
+When you want to create a connected socket, you present this compartment with a software capability that authorises you to talk to a remote host on a specific port.
+It then briefly opens a firewall hole for DNS requests and instructs the DNS compartment to perform the lookup, then it closes that firewall hole and opens one for the connection.
+The socket that it returns is created by the TCP/IP compartment and so you can then send and receive data by calling the TCP/IP compartment directly.
+
+\section{Synchronising time with SNTP}
+
+The \keyword{Network Time Protocol} (NTP) is a complex protocol for synchronising time with a remote server.
+It is designed to build a tree of clock sources where each \keyword{stratum} is synchronised with a more authoritative one.
+Clients send messages to an NTP server and receive the current time back.
+The full protocol uses some complex statistical techniques to dynamically calculate the time taken for the response to arrive across the network and minimise clock drift.
+The \keyword{Simple Network Time Protocol} (SNTP) is a subset of NTP intended for simple embedded devices.
+It will not give the same level of accuracy but can run on very resource-constrained devices.
+
+Using SNTP doesn't require writing any code that talks directly to the network but it does require building and linking the network stack, so is a good place to start.
+First, you need to find the network-stack code.
+\ref{lst:xmakeincludenetwork} shows one way to do this, which is similar to how we find the SDK.
+This provides a hard-coded relative location and allows it to be overridden with an environment variable.
+
+\lualisting[filename=examples/sntp/xmake.lua,marker=include_network,label=lst:xmakeincludenetwork,caption="Build system code for including the network stack."]{}
+
+Next, you need to make sure that code using the network stack finds the headers by adding the include directory (\ref{lst:xmakesntpcompartment}).
+You must also explicitly add the SNTP compartment as a dependency in the compartment target, though this is somewhat redundant because we'll also add it globally later.
+Finally, the network stack provides an option to users to decide whether they want IPv6 support.
+This affects some of the definitions in headers and so you must define the same flag in your compartment to avoid linker errors.
+
+\lualisting[filename=examples/sntp/xmake.lua,marker=sntp,label=lst:xmakesntpcompartment,caption="Build system code for building a compartment that uses the network stack."]{}
+
+Next, the firmware definition needs to contain two things.
+First, it must add dependencies on the components of the network stack, as shown in \ref{lst:xmakenetdeps}.
+The first four are ones that we've already discussed.
+The SNTP compartment is (hopefully) obvious.
+The time helpers library is not something that we've looked at so far and you'll see what it does when we start using the SNTP APIs.
+
+\lualisting[filename=examples/sntp/xmake.lua,marker=network_stack_deps,label=lst:xmakenetdeps,caption="Build system code for adding dependencies on the network stack."]{}
+
+Finally, you need to create the threads that the network stack uses.
+The thread that starts in the driver handles incoming packets.
+This calls into the TCP/IP compartment for each packet, to enqueue it for handling.
+The other thread handles TCP retransmissions, keep-alive packets, and so on.
+TCP provides a reliable transport over an unreliable network and so has to buffer each outgoing packet until the receiver acknowledges receipt.
+Dropped packets are retransmitted until the acknowledgement arrives.
+
+\lualisting[filename=examples/sntp/xmake.lua,marker=network_stack_threads,label=lst:xmakenetthreads,caption="Build system code for defining the network stack's threads."]{}
+
+With the build system logic done, you can start using the network stack.
+Anything that uses the network stack will need to call \c{network_start} early on, as shown in \ref{lst:sntpnetinit}.
+This brings up the network stack, gets the DHCP lease, and so on.
+This is a blocking call and will return once the network is initialised.
+
+\codelisting[filename=examples/sntp/sntp.cc,marker=network_init,label=lst:sntpnetinit,caption="Initialisation for the network stack."]{}
+
+Next, you must ask the SNTP compartment to update the time.
+The \c{sntp_update} function, shown in \ref{lst:sntpupdate} is a blocking call that will attempt to update the time and return failure if it does not manage within the timeout.
+In this example, we simply keep trying in a loop.
+In a real system, you would probably want to handle the case where the network is unavailable more gracefully.
+
+\codelisting[filename=examples/sntp/sntp.cc,marker=sntp_update,label=lst:sntpupdate,caption="Updating the time from the SNTP server."]{}
+
+Once the current time has been fetched, you can get the current time of day.
+\ref{lst:sntpshowtime} shows a loop that runs roughly every 50 ms and prints the time (as a UNIX epoch timestamp) if the second number of seconds has changed since last time.
+The \c{gettimeofday} function called here is from the time helpers library that mentioned earlier.
+
+\codelisting[filename=examples/sntp/sntp.cc,marker=show_time,label=lst:sntpshowtime,caption="Printing the current UNIX epoch time."]{}
+
+The SNTP compartment and the time helpers library share a pre-shared object (see \ref{_sharing_globals_between_compartments}).
+The SNTP compartment has a read-write view of this, the time helpers library a read-only view.
+This contains the UNIX timestamp at the time of the last NTP update, the cycle time of the last update, and the current epoch.
+When the SNTP compartment updates this, it increments the epoch once, writes the new value, and then increments the epoch again.
+The time library can therefore get a consistent snapshot of the values by reading the epoch, reading the other values, and then reading the epoch again to make sure that it hasn't changed.
+If the epoch value is odd, the time helpers library does a futex wait operation to block until the value has changed.
+The SNTP compartment does a futex-wake operation after the update to wake any waiters.
+
+This means that, most of the time, calling \c{gettimeofday} does not require any cross-compartment calls.
+
+When you run this example, you should see the time printed once per second, something like this:
+
+\begin{console}
+Network test: Starting network stack
+Network test: Trying to fetch SNTP time
+Network test: Current UNIX epoch time: 1735563080
+Network test: Current UNIX epoch time: 1735563081
+Network test: Current UNIX epoch time: 1735563082
+Network test: Current UNIX epoch time: 1735563083
+Network test: Current UNIX epoch time: 1735563084
+\end{console}
+
+\begin{note}
+At the time of writing, there is a problem with the Sonata network interface's ability to receive IPv6 packets.
+If you try this example on Sonata and it does not work, try adding \flag{--IPv6=n} to the end of your \command{xmake} line during the \flag{config} stage.
+\end{note}
+
+If you leave this running for a while, the clock will eventually drift.
+Try modifying this example to update the time from the NTP server once per minute.
+
+\section{Creating a connected socket}
+
+In the traditional Berkeley Sockets model, creating a connected socket is a multi-step operation.
+First, you must create the socket.
+Next, you may (optionally) bind it to a specific local port, though this step is usually omitted to.
+Finally, you connect it.
+The CHERIoT network stack combines these into a single \c{network_socket_connect_tcp} call.
+
+\functiondoc{network_socket_connect_tcp}
+
+As you might expect from CHERIoT, this is a capability-based API.
+It requires a capability to authorise connecting to a specific host, along with a capability to allocate memory for the socket state.
+The latter ensures that all memory used for a network connection is accounted to the compartment that created it.
+
+
+\section{Creating a listening socket}
+
+\section{Communicating with an MQTT server}
+
+\section{Enforcing network-stack policies}

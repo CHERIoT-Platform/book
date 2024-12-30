@@ -20,6 +20,7 @@ riscv32-unknown-unknown
 -I../rtos-source/sdk/include/platform/generic-riscv
 -I../rtos-source/sdk/include
 -I../rtos-source/sdk/third_party
+-I../network-stack/include/
 -DDEBUG_LOADER=true
 -DDEBUG_ALLOCATOR=true
 -DDEBUG_SCHEDULER=true
@@ -40,3 +41,4 @@ riscv32-unknown-unknown
 -DCHERIOT_EXPOSE_FREERTOS_SEMAPHORE
 -DCHERIOT_EXPOSE_FREERTOS_MUTEX
 -DCHERIOT_EXPOSE_FREERTOS_RECURSIVE_MUTEX
+-DCHERIOT_RTOS_OPTION_IPv6=true
