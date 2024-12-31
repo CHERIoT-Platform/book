@@ -19,38 +19,33 @@ set_project("CHERIoT SNTP Example")
 option("board")
   set_default("sonata")
 
--- sntp#begin
-compartment("sntp_example")
+compartment("tcp_example")
   add_includedirs(path.join(networkstackdir,"include"))
-  add_deps("freestanding", "SNTP")
-  add_files("sntp.cc")
+  add_deps("freestanding")
+  add_files("tcp.cc")
   on_load(function(target)
     target:add('options', "IPv6")
     local IPv6 = get_config("IPv6")
     target:add("defines",
         "CHERIOT_RTOS_OPTION_IPv6=" .. tostring(IPv6))
   end)
--- sntp#end
 
-firmware("sntp")
+firmware("tcp")
   set_policy("build.warning", true)
   add_deps("atomic8", "debug")
-  -- network_stack_deps#begin
   add_deps("DNS", "TCPIP", "Firewall", "NetAPI",
            "SNTP", "time_helpers")
-  -- network_stack_deps#end
-  add_deps("sntp_example")
+  add_deps("tcp_example")
   on_load(function(target)
     target:values_set("board", "$(board)")
     target:values_set("threads", {
       {
-        compartment = "sntp_example",
+        compartment = "tcp_example",
         priority = 1,
         entry_point = "example",
         stack_size = 0xe00,
         trusted_stack_frames = 6
       },
-      -- network_stack_threads#begin
       {
         -- TCP/IP stack thread.
         compartment = "TCPIP",
@@ -71,7 +66,6 @@ firmware("sntp")
         stack_size = 0x1000,
         trusted_stack_frames = 5
       }
-      -- network_stack_threads#end
     }, {expand = false})
   end)
 

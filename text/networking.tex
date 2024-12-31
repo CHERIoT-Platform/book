@@ -154,9 +154,217 @@ As you might expect from CHERIoT, this is a capability-based API.
 It requires a capability to authorise connecting to a specific host, along with a capability to allocate memory for the socket state.
 The latter ensures that all memory used for a network connection is accounted to the compartment that created it.
 
+You need to define a connection capability before you can use one.
+\ref{lst:tcpconnectcap} shows an example that allows connecting with TCP to the \c{towel.blinkenlights.nl} host, on port 23, the well-known telnet port.
+This capability will show up in the auditing report for the firmware image (as discussed in \ref{cheriot-audit}) and so you can ensure that specific compartments in your firmware image are permitted to connect only to remote hosts that you authorised.
+
+\codelisting[filename=examples/tcp/tcp.cc,marker=server_capability,label=lst:tcpconnectcap,caption="A static capability that authorises connecting to a remote server."]{}
+
+The connect call is shown in \ref{lst:tcpconnect}.
+This passes the capability for the server along with this compartment's default \c{malloc} capability.
+You can separate the quota that your compartment uses for network-related things and provide a different capability.
+This is useful if, for example, you wish to call \c{heap_free_all} on your default \c{malloc} capability but not affect any network state
+
+\codelisting[filename=examples/tcp/tcp.cc,marker=connect,label=lst:tcpconnect,caption="Connecting to a remote server."]{}
+
+The result of this call is a valid \keyword{sealed capability} to the socket.
+All of the state required for the socket will be allocated with the allocator capability that you passed (and so counted against your quota), but is not directly accessible to you.
+On a POSIX system, the result of a socket call is a file descriptor.
+On Windows, it is a \c{HANDLE}.
+These are both opaque types that reference some internal data structure that the kernel associates with your process.
+In contrast, a sealed capability is just a pointer, but a type-safe tamper-proof one.
+You can pass it between compartments (allowing multiple compartments to use the same socket) but only the TCP/IP compartment can unseal it to access the internal state.
+If the connection fails, you will get back an untagged capability.
+
+\begin{note}
+Currently, \c{network_socket_connect_tcp} does not report the reason for the failure.
+A future version will likely use negative error codes in the address of untagged capabilities and so it's important to check whether the returned value is a valid capability, rather than comparing it against \c{NULL} or \cxx{nullptr}.
+\end{note}
+
+Assuming that the connection succeeded, you are now ready to start trying to receive data, as shown in \ref{lst:tcpreceive}.
+The \c{network_socket_receive} call is quite different from a conventional socket receive.
+On most operating systems, a system call cannot allocate userspace memory and so it must take a buffer for the kernel to write into.
+This is unfortunate because the kernel knows the amount of data available, but the caller does not.
+If the caller provides too small a buffer, they must then do another call to get the rest of the data.
+If they provide too large a buffer, they have wasted memory.
+In contrast, the \c{network_socket_receive} API allows the TCP/IP compartment to allocate a buffer large enough for the available data.
+
+\codelisting[filename=examples/tcp/tcp.cc,marker=receive,label=lst:tcpreceive,caption="Receiving data from a remote server."]{}
+
+\begin{caution}
+The \c{network_socket_receive} interface is convenient but it does not guarantee that the TCP/IP stack has not kept a pointer to the returned buffer.
+The TCP/IP compartment will not do this in normal operation but if an attacker manages to gain arbitrary-code execution in the TCP/IP compartment then they may be able to exploit time-of-check-to-time-of-use (TOCTOU) bugs in your code.
+This is not a problem for this example, which reads each byte in the returned buffer exactly once.
+\end{caution}
+
+The result of the \c{network_socket_connect_tcp} is a \c{struct NetworkReceiveResult}, which contains two fields.
+The first field, \c{bytesReceived}, is the number of bytes received, or a negative error code.
+The second, \c{buffer} is the buffer (which will be null in error cases).
+This example uses C++ structured binding to decompose the structure and make it appear as if the function returned two values.
+
+In this example, we are assuming that the TCP/IP stack is trusted.
+The TCP/IP compartment could attack this example by providing a received size that is greater than the claimed size, or one that lacks read permission.
+This example has no secrets and, if the network stack is compromised, can do nothing, and so does not worry about these potential problems.
+If you have such concerns, then you should put the code that uses the result in an error-handling block, or use \c{network_socket_receive_preallocated} instead.
+
+This example is simply writing the result to the UART directly.
+The server that it connects to will provide you with an ASCII-art rendering of Star Wars: A New Hope.
+After the initial banner and the scrolling text, you should see something like this:
+
+\begin{console}
+                               /~\\                   
+                              |oo )       What plans? 
+                              _\\=/_                  
+              ___            /  _  \\                 
+             / ()\\          //|/.\\|\\\\                
+           _|_____|_       ||  \\_/  ||               
+          | | === | |      || |\\ /| ||               
+          |_|  O  |_|      #  \\_ _/ #                
+           ||  O  ||          | | |                   
+           ||__*__||          | | |                   
+          |~ \\___/ ~|         []|[]                  
+          /=\\ /=\\ /=\\         | | |                  
+__________[_]_[_]_[_]________/_]_[_\\_________________
+\end{console}
+
+\functiondoc{network_socket_receive_preallocated}
 
 \section{Creating a listening socket}
+
+Listening sockets, like connected ones, require an authorising capability.
+This is shown in \ref{lst:tcplistencap} and includes the local port number that you can bind to along with the number of pending connections that are allowed.
+The second is important for limiting the amount of the TCP/IP compartment's memory you can consume.
+Each unaccepted socket requires some state in the TCP/IP stack.
+For most embedded uses, one or two is adequate.
+
+\codelisting[filename=examples/tcp_echo_server/tcp.cc,marker=server_capability,label=lst:tcplistencap,caption="A static capability that authorises binding to a local port."]{}
+
+As with the connect operation, the authorising capability is not the only difference in the CHERIoT network stack's APIs from the traditional Berkeley Sockets APIs.
+As shown in \ref{lst:tcplisten}, the \c{socket}, \c{bind} and \c{listen} operations are combined.
+The \c{network_socket_listen_tcp} call creates the socket, binds it to the local port associated with the authorising capability, and makes it ready to accept.
+
+\codelisting[filename=examples/tcp_echo_server/tcp.cc,marker=listen,label=lst:tcplisten,caption="Listening for TCP connections to a local port."]{}
+
+A listening socket is simply a placeholder for a local endpoint.
+You cannot send or receive with it, all that you can do is accept new connections.
+The \c{network_socket_accept_tcp} call, shown in \ref{lst:tcpaccept}, creates a new socket for the accepted connection and, optionally, returns the remote IP address and port.
+If you do not care about the address of the connecting host, you can pass null to the last two arguments.
+
+\codelisting[filename=examples/tcp_echo_server/tcp.cc,marker=accept,label=lst:tcpaccept,caption="Accepting TCP connections and running a simple echo-server loop."]{}
+
+After accepting a connection, this example simply sits in a loop reading one byte at a time and sending it back.
+It also writes the received byte to the UART.
+The send function is very similar to the receive.
+It takes a pointer to a buffer and a length.
+The network stack's interface is written defensively.
+If the length is smaller than the bounds of the buffer, or if the buffer is has the wrong permissions, this call will fail.
+
+\functiondoc{network_socket_send}
+
+Note here that the on-stack buffer (the single byte local variable) is derived from our stack pointer and so is automatically local.
+This ensures that the TCP/IP compartment cannot capture it.
+
+The inner loop is waiting for the receive call to return a value other than 1, indicating that it has failed to receive.
+This should happen when the connection is dropped.
+
+The inner loop uses an unlimited timeout, so that the demo doesn't fail if you get distracted in the middle of running it.
+A more realistic example would use a shorter timeout on the receive call.
+Short timeouts are useful to prevent denial of service issues.
+This simple example, like many embedded network servers, is single threaded and handles one connection at a time.
+Without the timeout, a single client failing to gracefully disconnect could prevent any future access until the device is restarted.
+
+If you connect to this example with netcat, you can try sending it some text, which it should echo back.
+Here, my Sonata board has joined my local network with a DHCP-assigned address of 192.168.1.154:
+
+\begin{console}
+$ nc 192.168.1.154 1234
+Hello world!
+Hello world!
+\end{console}
+
+On the UART console, you can see the debugging messages, along with the echoed text:
+
+\begin{console}
+TCP Server Example: Starting network stack
+TCP Server Example: Creating listening socket
+TCP Server Example: Listening for connections...
+TCP Server Example: Received connection from 192.168.1.86 on port 62599
+Hello world!
+\end{console}
+
+\fixme{There is a bug preventing a second connection from working}
+
+\section{Securing connections with TLS}
+
+In general, the kinds of unencrypted communication that we've seen so far is inappropriate for the modern Internet.
+Anyone who has control of any node on the network between the device and the remote server can tamper with messages.
+Such malicious messages may attack software on the device, attempting to exploit vulnerabilities.
+
+This is the threat model for a lot of the network stack work on CHERIoT: a remote attacker is trying to compromise the device.
+The firewall makes it somewhat harder, by ensuring that an attacker must spoof packets for a valid connection.
+This defence is weakened if your device uses a server socket because, by design, these must allow packets from unknown remote hosts.
+
+An attacker who sneaks a packet past the firewall can attack the TCP/IP compartment.
+This is a fairly complex piece of code, which does dangerous things like packet parsing.
+It is written in MISRA C and is more likely to be correct and secure than most C code, but it may still contain bugs.
+The simple act of compiling it for a CHERIoT target mitigates a large number of possible bugs, as does the memory management strategy.
+Every incoming packet (and every outgoing packet) is a fresh heap allocation, which ensures that dangling references to processed packets will trap, as will bounds errors.
+Any such bugs will cause the network stack to gracefully reset, as described in \ref{netreset}.
+
+Without encryption, the TCP/IP stack is not the limit of the attack surface.
+An attacker can push data through the network stack and into the next compartment.
+Using \keyword{authenticated encryption}, such as TLS, mitigates this.
+
+With authenticated encryption, you can ensure that only messages from a trusted endpoint, such as your cloud server, reach your code.
+The TLS stack checks each incoming message for cryptographic integrity and forwards the plaintext to you only after it has been decrypted.
+
+The TLS stack, of course, is now a critical part of the attack surface.
+Fortunately, it has a very narrow interface with the TCP/IP stack.
+Internally, BearSSL uses a ring buffer for messages that are ready to be sent and those waiting decryption.
+Before calling the send or receive functions in the TCP/IP stack, the TLS compartment removes all permissions except load or store (for send and receive, respectively) and sets the bounds to exactly the required amount.
+Removing the global permission protects the TLS stack from time-of-check-to-time-of-use (TOCTOU) attacks by guaranteeing that the TCP/IP compartment cannot capture the buffer for longer than the duration of the call.
+Similarly, removing permissions and bounding the pointers to the buffers ensures that no data can leak to the TCP/IP compartment and it cannot overwrite anything.
+
+Beyond this, the TLS compartment has no global state.
+All state associated with a TLS connection is stored in the connection object, exposed as a sealed capability.
+This means that two concurrent calls into the TLS compartment for different have no shared state, giving \keyword{flow isolation}.
+An attacker who compromises one TLS connection cannot use this to attack another.
+
+When you communicate with a remote server via TLS, you have to identify the server in two ways.
+As with unencrypted connections, you must provide a host name that can be mapped to a network address.
+Additionally, you need to provide a \keyword{TLS certificate} to identify the remote host.
+
+A TLS certificate is public key along with some metadata describing what it can be used for and when it is valid.
+Each TLS certificate also has an associated private key, which is (or, at least, should be) kept secret.
+If you sign something with the private key, someone else can use the certificate to validate that it really was signed by you.
+
+In the simplest case, TLS can use a single certificate.
+You generate the pair of this certificate and its private key and embed the certificate on your device.
+This is a dangerous practice because there is no possible way of revoking the certificate if the key is compromised.
+The key must be in memory on the server that the device connects to and so is vulnerable to attack.
+
+TLS certificates can also be arranged in \keyword{certificate chains}, where each certificate is signed by the private key associated with the next certificate in the chain.
+The root of a certificate chain is usually signed by a \keyword{certificate authority} (CA).
+
+With a certificate chain, you can store a certificate on the device that does not correspond to the private key on the server, but which can still be used to verify that key.
+It is quite common for the server to have a very short-lived certificate, generated every week, so that if the key is compromised the associated certificate expires after a short amount of time and an attacker has a narrow window to use it.
+This requires your device to hold a certificate that it trusts that will appear somewhere further up the chain.
+The set of trusted certificates is referred to as your \keyword{trust anchors}.
+Any certificate signed with the key corresponding to one of your trust anchors is considered valid.
+This property is transitive, so any number of certificates can exist between the one corresponding to the server's private key and the one that you hold.
+This provides a lot of flexibility, at the cost of computational power.
+Verifying a certificate chain is very fast on a multi-gigahertz machine with wide vector units but can be slow (a second or longer of CPU time) on an embedded device.
+
+\begin{note}
+Most of the network stack APIs are intended to hide the exact implementations that we use.
+For example, we may wish to replace the FreeRTOS TCP/IP compartment's code with something designed for CHERIoT, perhaps written in a safe language.
+The TLS compartment currently leaks the fact that it uses BearSSL at the API level, by exposing trust anchors in BearSSL's internal format.
+This will be addressed in a future version.
+\end{note}
+
 
 \section{Communicating with an MQTT server}
 
 \section{Enforcing network-stack policies}
+
+\section[label=netreset]{Understanding network-stack reset}
