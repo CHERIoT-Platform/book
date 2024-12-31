@@ -4,7 +4,7 @@
 #include <thread.h>
 #include <tick_macros.h>
 
-using Debug = ConditionalDebug<true, "Network test">;
+using Debug = ConditionalDebug<true, "SNTP Example">;
 constexpr bool UseIPv6 = CHERIOT_RTOS_OPTION_IPv6;
 
 void __cheri_compartment("sntp_example") example()
