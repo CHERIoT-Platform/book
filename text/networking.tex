@@ -362,8 +362,269 @@ The TLS compartment currently leaks the fact that it uses BearSSL at the API lev
 This will be addressed in a future version.
 \end{note}
 
+If you control the remote server then you already have the \file{.pem} file that contains the certificate.
+If you are connecting to a server that someone else controls then you need to extract it first, or include a large set of trusted anchors.
+Modern web browsers do the latter, but the certificate bundle is larger than most embedded platforms would like.
+Fortunately, you can use the \command{openssl} command to connect to a server and report the certificate chain.
+Try this for \host{example.com} on the HTTPS port:
+
+\begin{console}
+$ openssl s_client -connect example.com:443 -showcerts </dev/null 
+Connecting to 2606:2800:21f:cb07:6820:80da:af6b:8b2c
+CONNECTED(00000005)
+depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+verify return:1
+depth=1 C=US, O=DigiCert Inc, CN=DigiCert Global G2 TLS RSA SHA256 2020 CA1
+verify return:1
+depth=0 C=US, ST=California, L=Los Angeles, O=Internet Corporation for
+   Assigned Names and Numbers, CN=www.example.org
+verify return:1
+\end{console}
+The first bit of the output shows the certificate chain.
+The first certificate is the DigitCert Global Root G2, a certificate that the DigitCert CA uses to sign their own signing certificates.
+This certificate is the root that you are expected to deliver out of band.
+Typically, your \command{openssl} install will have some system-provided root certificates that include this one.
+This certificate is valid from August 2013 to January 2038.
+It is \textem{probably} safe to use with your device.
+
+The lifetime is longer than most embedded devices last.
+The CA claims (and their auditors support the claim) that this certificate is stored securely and is used only to sign the intermediate certificates that are used to sign keys for clients.
+Information about the intermediate certificate, DigiCert Global G2 TLS RSA SHA256 2020 CA1, shows up later in the output:
+
+\begin{console}
+ 1 s:C=US, O=DigiCert Inc, CN=DigiCert Global G2 TLS RSA SHA256 2020 CA1
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Mar 30 00:00:00 2021 GMT; NotAfter: Mar 29 23:59:59 2031 GMT
+\end{console}
+
+This expires in six years, so might seem safe to use as a trust anchor.
+Unfortunately, this is not the case.
+Although this certificate is valid for another six years, there's no guarantee that this intermediate certificate will be the one used to sign the certificate for \host{example.com} next time.
+The certificate that the site operator created is the first to be displayed in the output:
+
+\begin{console}
+Certificate chain
+ 0 s:C=US, ST=California, L=Los Angeles, O=Internet Corporation for
+        Assigned Names and Numbers, CN=www.example.org
+   i:C=US, O=DigiCert Inc, CN=DigiCert Global G2 TLS RSA SHA256 2020 CA1
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jan 30 00:00:00 2024 GMT; NotAfter: Mar  1 23:59:59 2025 GMT
+\end{console}
+
+This is valid for one year and will probably have expired by the time that you read this.
+Note that the lifetime of the \textem{certificate} is not the same as the lifetime of the \textem{key pair}.
+You can easily generate a new certificate signing request for the same key and have a newly signed certificate valid for another year (or just for a week) using the same key.
+
+If we wanted to use either of the certificates that are directly sent by the server then we could simply copy the bit between \output{BEGIN CERTIFICATE} and \output{END CERTIFICATE} lines into a file.
+Unfortunately, we don't and so we have to go to the \href[src=https://www.digicert.com/kb/digicert-root-certificates.htm]{DigiCert web site} and download the correct certificate.
+
+Once you have the certificate, BearSSL's command-line tool can convert it into a form that the library expects.
+The command-line tools are not built by the CHERIoT network stack, so you will need to either build them from the copy of BearSSL in \file{network-stack/third_party/BearSSL} or install them from your operating system's package manager.
+You can then convert the certificate file into a header that contains the trust anchor that you need:
+
+\begin{console}
+$ brssl  ta DigiCertGlobalRootG2.crt.pem  > DigiCertGlobalRootG2.h
+Reading file 'DigiCertGlobalRootG2.crt.pem': 1 trust anchor
+\end{console}
+
+Once you have the trust anchors and the hostname and port, you have everything that you need to be able to create a TLS connection.
+The current implementation of TLS in the CHERIoT network stack uses BearSSL, which avoids heap allocation.
+Unfortunately, this includes all of the big-number arithmetic, which causes it to require very large stacks.
+\ref{lst:xmaketlsbigstack} shows the stack for this example: it is just under 8 KiB.
+
+\lualisting[filename=examples/tls/xmake.lua,marker=example_thread,label=lst:xmaketlsbigstack,caption="Build system code for a thread that will use TLS."]{}
+
+This thread is now able to connect to a TLS server without running out of stack space.
+Recall from the certificates earlier that each has a period when it is valid.
+The TLS stack will check that the certificate is currently valid, which requires that the TLS stack has access to the current time.
+This means that you need some code that is similar to the SNTP example at the start.
+After initialising the network stack, you need to synchronise the clock, as shown in \ref{lst:tlssetup}.
+
+\codelisting[filename=examples/tls/https.cc,marker=setup,label=lst:tlssetup,caption="Setup required before a TLS connection is possible."]{}
+
+Connecting to a TLS server is very much like connecting to a TCP server.
+Compare \ref{lst:tcpconnect}, which established an unencrypted connection, to \ref{lst:tlsconnect}, which creates an encrypted connection.
+Aside from the connect function name, the only difference is that the TLS connect function requires the trust anchors.
+This is an intentional API choice: CHERIoT aims to be secure by default and so it should be as easy to create secured connections as it is to create insecure ones.
+
+\codelisting[filename=examples/tls/https.cc,marker=tls_connect,label=lst:tlsconnect,caption="Connecting to a remote server with TLS."]{}
+
+The return value from the \c{tls_connection_create} call is either a valid sealed capability, or null.
+In the future, it will use a negated error code in the untagged capability to report failure.
+Currently, the only failure that will be reported as a non-null capability is \c{-ECOMPARTMENTFAIL}, which will occur if there is a crash in the TLS compartment.
+If you did not provide a large stack (as in \ref{lst:xmaketlsbigstack}) then you may see this result.
+Try reducing the stack size to 4 KiB and you will see failure like this in the output:
+
+\begin{console}
+HTTPS Client: Failed to connect.  Error: 1
+HTTPS Client: TLS socket: 0xffffffff (v:0 0xfffffe00-0xfffffe00 l:0x0 o:0x0 p: - ------ -- ---)
+\end{console}
+
+Note that the returned capability for this does \textem{not} expose the socket.
+The TLS compartment owns the socket on behalf of he caller.
+This demonstrates the value of \keyword{capability delegation}.
+The TLS compartment takes the caller's malloc capability as an argument and can subsequently forward it to the TCP/IP compartment to allocate the socket.
+This encapsulation means that it is impossible for the caller to accidentally send data over the socket unencrypted.
+
+This example implements a minimal HTTP client to demonstrate sending and receiving data over TLS, do not use this HTTP client in production.
+The send code is shown in \ref{lst:tlssend}.
+As with the underlying TCP send call, the TLS send call may send less than the requested amount of data.
+This code is therefore called in a loop, which will try if it fails.
+The echo server did not need to handle this case because it only ever sent individual bytes and provided an unlimited timeout, so either the byte entered the TCP socket's send queue or the caller blocked.
+
+This is unnecessary for the example because the amount of sent data is smaller than the TLS socket's internal buffer size, so the loop will never execute, but you can force it to by adding additional headers.
+Internally, the TLS stack needs to assemble a complete message and then send it.
+The message may need to contain padding if it is too small and so the underlying APIs provide an explicit flush.
+CHERIoT's wrapper aims to be easy for the common case and so automatically flushes after a send.
+If this is not what you want, you are free to extend the source code.
+
+\codelisting[filename=examples/tls/https.cc,marker=send,label=lst:tlssend,caption="Sending data over a TLS connection."]{}
+
+Receiving the response data is almost identical to receiving unencrypted data.
+The call shown in \ref{lst:tlsreceive} directly mirrors the TCP API from \ref{lst:tcpreceive}.
+The only difference is that you can trust that the data has not been tampered with in-flight (unless the TLS compartment is compromised).
+
+\codelisting[filename=examples/tls/https.cc,marker=receive,label=lst:tlsreceive,caption="Receiving data over a TLS connection."]{}
+
+\begin{caution}
+The threat model for the TLS compartment is directed towards the TCP/IP stack as the main adversary.
+It implicitly trusts the caller for availability.
+You can almost certainly crash the TLS compartment if you call it with insufficient stack, insufficient trusted stack, and so on.
+If you do, you will not impact other TLS flows and the flow that you will impact is allocated from your own heap quota and so you can only attack yourself doing this.
+\end{caution}
 
 \section{Communicating with an MQTT server}
+
+A lot of IoT applications use MQTT (which doesn't stand for anything) as a publish-subscribe protocol for messaging.
+MQTT exposes an abstraction of a tree of nodes, where clients can subscribe to nodes and publish new values to a node.
+When a client publishes a message to a node, a copy is sent to every client that has subscribed to that topic.
+The protocol supports multiple levels of \keyword{quality of service} (QoS):
+
+\begin{description}
+\item[tag=At most once]{The server will attempt to deliver the message.
+	If delivery fails, neither the client nor server will do any additional steps.}
+\item[tag=At least once]{The server will attempt to deliver the message and wait for an acknowledgement.
+	If delivery fails, the server will try again until the message is acknowledged.}
+\item[tag=Exactly once]{The server will attempt to deliver the message and use a two-way handshake to ensure that the message arfives exactly once.}
+\end{description}
+
+The QoS levels are intended to work even if the network breaks.
+Clients connect with a unique 23-character identifier.
+If a client is already connected with the same identifier, new clients may not connect with the same identifier but they may \textem{reconnect}.
+A reconnecting client will disconnect the original and take ownership of the ID and any messages with higher QoS levels that were destined for the original will be sent to the new owner.
+The CHERIoT MQTT library contains a helper for creating random client IDs, shown in \ref{lst:mqttclientid}.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=client_id,label=lst:mqttclientid,caption="Creating a client ID to use with MQTT."]{}
+
+The CHERIoT MQTT interface doesn't support unencrypted connections and so connecting to a server requires everything that you needed for a TLS connection.
+This example is using the Mosquitto public MQTT test server.
+This server is intended for demos and is not always reliable.
+If the demo doesn't work, check \href[src=https://test.mosquitto.org/sys/ssl.html]{their web interface} to see if it is down.
+
+The \c{mqtt_connect} call to connect to the server is shown in \ref{lst:mqttconnect}.
+This API and takes quite a lot of arguments.
+The first few are familiar from previous connection APIs: they provide the timeout, the allocation capability, and the connection capability.
+The next two are callbacks for publish messages (someone has published to a node that you subscribed to) and acknowledgement messages (a message that you sent has been acknowledged by the server).
+Next come the trust anchors, as we saw in \ref{lst:tlsconnect}.
+The function then takes the sizes for some internal buffers and finally the client ID.
+
+This example omits the last parameter, which has a default value of \cxx{false} in C++.
+Setting this to \cxx{true} will cause the library to reconnect, rather than connecting, to the MQTT server.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=connect,label=lst:mqttconnect,caption="Connecting to an MQTT broker."]{}
+
+As with other networking APIs, all of the state associated with this connection is allocated from the caller's quota.
+This includes the TLS and TCP/IP state that is allocated indirectly.
+Similarly, the result is a sealed capability that encapsulates the state of the connection.
+This includes a sealed capability to the TLS state, which includes a sealed capability to the TCP socket state.
+The MQTT, TLS, and TCP state is visible only to the compartment that owns it.
+
+Once you have connected to an MQTT broker, you can send publish and subscribe messages and invoke the run loop to process incoming messages.
+This example first subscribes to a topic, in \ref{lst:mqttsubscribe}.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=subscribe,label=lst:mqttsubscribe,caption="Subscribing to an MQTT topic."]{}
+
+The return value will be either a negative error code or a non-negative packet ID.
+We don't care about the packet ID in this example, so simply assert that we didn't see an error.
+
+The server will send a reply message to acknowledge the subscription.
+When you call \c{mqtt_run}, it will process incoming messages and invoke the relevant callbacks.
+The call is shown in \ref{lst:mqttsuback}.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=suback,label=lst:mqttsuback,caption="Waiting for acknowledgement after subscribing to an MQTT topic."]{}
+
+The callback that \c{mqtt_run} invokes are the ones that were passed in \ref{lst:mqttconnect}.
+These are a CHERIoT cross-compartment callbacks.
+The one for acknowledgements is shown in \ref{lst:mqttackcallback}.
+This will run in the compartment that defined it, invisible to the MQTT compartment, and on a new \keyword{trusted stack} activation record.
+This example callback is not written defensively.
+A buggy (or malicious) MQTT compartment could pass invalid pointers that would cause a trap.
+If this happens, the switcher will unwind the trusted stack out of the callback, as if the callback simply returned early.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=ack_callback,label=lst:mqttackcallback,caption="Callback for acknowledging MQTT messages."]{}
+
+Running the example to this point should give output like this:
+
+\begin{console}
+MQTT example: Generating client ID...
+MQTT example: Connecting to MQTT broker...
+MQTT example: Connected to MQTT broker!
+MQTT example: Subscribing to test topic 'cheriot-book-example'.
+MQTT example: Now fetching the SUBACK.
+MQTT example: Got an ACK for packet 0x1
+\end{console}
+
+Next, the example will publish a message on the same topic and make sure that it is received.
+The publish part is shown in \ref{lst:mqttpublish}.
+As with the subscribe call, this returns a negative error code or a non-negative packet number.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=publish,label=lst:mqttpublish,caption="Publishing to an MQTT topic."]{}
+
+Publishing the message will trigger two messages from the server.
+There will be an acknowledgement of the publish and, because the example is subscribed to this topic, it will also receive the publish notification.
+The latter will be sent to the callback in \ref{lst:mqttpubcallback}, which logs the received message.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=publish_callback,label=lst:mqttpubcallback,caption="Callback for receiving published MQTT messages."]{}
+
+Running to this point should give you output like the following:
+
+\begin{console}
+MQTT example: Publishing a value to test topic 'cheriot-book-example'.
+MQTT example: Now fetching the PUBACK and waiting for the publish notification.
+MQTT example: Got a PUBLISH for topic cheriot-book-example: Cheriots of fire!
+MQTT example: Got an ACK for packet 0x2
+\end{console}
+
+The demo will then wait for four more messages on the same topic.
+If you happen to run this demo at the same time as other people, you might see them.
+Alternatively, if you install the command-line tools that come with Mosquitto, you can send a message from the command line:
+
+\begin{console}
+$ mosquitto_pub -h test.mosquitto.org \
+	-t cheriot-book-example \
+	-m 'My name is David'
+\end{console}
+
+This will then show up as:
+
+\begin{console}
+MQTT example: Got a PUBLISH for topic cheriot-book-example: My name is David
+\end{console}
+
+Don't put anything secret in the message, it will go to anyone running this demo or anyone observing the public test server.
+
+Finally, the demo disconnects.
+This is often unnecessary.
+Most IoT devices will simply remain connected for their entire operation.
+They will explicitly reconnect if the connection drops but never disconnect explicitly.
+
+\codelisting[filename=examples/mqtt/mqtt.cc,marker=disconnect,label=lst:mqttdisconnect,caption="Gracefully disconnecting from an MQTT server."]{}
+
+This function gracefully disconnects, allowing the server to clean up all state associated with the current connection.
+It can fail, for example by running out of memory to hold the disconnection messages.
+
+\functiondoc{mqtt_run}
 
 \section{Enforcing network-stack policies}
 
