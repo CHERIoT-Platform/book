@@ -14,6 +14,8 @@ local monospace = {
 	"cxx",
 	"reg",
 	"lua",
+	"output",
+	"host",
 }
 
 function process(textTree)
