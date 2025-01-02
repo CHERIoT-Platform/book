@@ -26,10 +26,17 @@ span.file,
 span.c,
 span.cxx,
 span.reg,
+span.host,
+span.output,
 span.lua
 {
 	font-family: "Source Code Pro", monospace;
 }
+span.command
+{
+	font-weight: bold;
+}
+
 span.reg
 {
 	font-variant-caps: small-caps;
