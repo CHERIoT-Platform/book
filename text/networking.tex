@@ -494,7 +494,7 @@ You can almost certainly crash the TLS compartment if you call it with insuffici
 If you do, you will not impact other TLS flows and the flow that you will impact is allocated from your own heap quota and so you can only attack yourself doing this.
 \end{caution}
 
-\section{Communicating with an MQTT server}
+\section[label=mqtt]{Communicating with an MQTT server}
 
 A lot of IoT applications use MQTT (which doesn't stand for anything) as a publish-subscribe protocol for messaging.
 MQTT exposes an abstraction of a tree of nodes, where clients can subscribe to nodes and publish new values to a node.
@@ -547,6 +547,8 @@ This example first subscribes to a topic, in \ref{lst:mqttsubscribe}.
 
 The return value will be either a negative error code or a non-negative packet ID.
 We don't care about the packet ID in this example, so simply assert that we didn't see an error.
+
+\functiondoc{mqtt_run}
 
 The server will send a reply message to acknowledge the subscription.
 When you call \c{mqtt_run}, it will process incoming messages and invoke the relevant callbacks.
@@ -624,8 +626,347 @@ They will explicitly reconnect if the connection drops but never disconnect expl
 This function gracefully disconnects, allowing the server to clean up all state associated with the current connection.
 It can fail, for example by running out of memory to hold the disconnection messages.
 
-\functiondoc{mqtt_run}
 
-\section{Enforcing network-stack policies}
+\section{Enforcing network access policies}
 
-\section[label=netreset]{Understanding network-stack reset}
+The network stack comes with a \file{network_stack.rego} file that provides helpers for inspecting the state of the network stack.
+You pass this to the \flag{--module} (or \flag{-m}) argument to \command{cheriot-audit}.
+For the rest of this section, we'll use \command{cheriot-audit} the \ref{mqtt} example.
+From the \file{examples/mqtt} directory, you will need to run a command like this:
+
+\begin{console}
+$ cheriot-audit -m path/to/network-stack/network_stack.rego \\
+	-b path/to/sdk/boards/sonata.json \\
+	-j build/cheriot/cheriot/release/mqtt.json \\
+	-q {query\}
+\end{console}
+
+This assumes that \command{cheriot-audit} is in your path.
+If it is not, provide the full path, for example \file{/cheriot-tools/bin/cheriot-audit} in the dev container.
+The first two arguments need to be paths to wherever the network stack and CHERIoT RTOS sources are located.
+The \flag{-j} flag should be coped as-is, this finds the JSON file that the linker created with the audit report for the firmware image.
+Finally, you will provide a query for the \flag{-q}, which will be different as you work through the example.
+
+If you want to actually read the JSON output, you will find that piping it to \command{jq} is helpful, which will pretty-print (and colour) the output.
+
+\begin{note}
+If you're copying the Rego queries to the command line, make sure that you quote them.
+Placing the query text in single quotes should work for all of the examples in this section.
+\end{note}
+
+Let's start with a query that invokes one of the more complex rules.
+This will find every software-defined capability in the firmware image that is sealed with the type for connection capabilities, and then decodes them into JSON objects.
+Try this query:
+
+\begin{regosnippet}
+data.network_stack.all_connection_capabilities
+\end{regosnippet}
+
+You should see the following JSON as the result:
+
+\begin{jsonsnippet}
+[
+  {
+    "capability": {
+      "connection_type": "UDP",
+      "host": "pool.ntp.org",
+      "port": 123
+    \},
+    "owner": "SNTP"
+  \},
+  {
+    "capability": {
+      "connection_type": "TCP",
+      "host": "test.mosquitto.org",
+      "port": 8883
+    \},
+    "owner": "mqtt_example"
+  \}
+]
+\end{jsonsnippet}
+
+This tells you that there are two compartments that can make sockets.
+The MQTT example compartment can make a TCP connection to the Mosquitto test server on port 8883.
+The SNTP compartment can create a UDP socket and open a firewall rule that allows it to communicate with the public NTP pool on the well-known NTP port.
+
+Remember that capabilities can be delegated.
+The MQTT example compartment does not open a socket directly, it is passing this capability to the MQTT compartment, which passes it to the TLS compartment, which then passes it to the network API compartment to access the socket.
+You can validate this with another query:
+
+\begin{regosnippet}
+data.compartment.compartments_calling_export_matching("NetAPI",
+`network_socket_connect_tcp\(.*`)
+\end{regosnippet}
+
+The report contains the mangled name of the export, which includes the types.
+This query uses a regular expression to match anything with the function name followed by an open bracket, so will catch any overload of the function (this function has no overloads but specifying all of the arguments is tedious).
+The output should look like this:
+
+\begin{jsonsnippet}
+[
+  "TLS"
+]
+\end{jsonsnippet}
+
+The only compartment that creates TCP connections is the TLS compartment.
+This is interesting but not very useful.
+
+The policy that we actually want is that no unencrypted data leaves the device.
+The way to express that is that nothing sends data over a socket except via the TLS compartment.
+This query is very similar to the last one:
+
+\begin{regosnippet}
+data.compartment.compartments_calling_export_matching(
+	"TCPIP",
+	`network_socket_send\(.*`)
+\end{regosnippet}
+
+And, again, tells you that only the TLS compartment is sending data:
+
+\begin{jsonsnippet}
+[
+  "TLS"
+]
+\end{jsonsnippet}
+
+If you remember the result of the first query, this might be a surprise.
+Didn't the SNTP compartment also have a capability that allows it to connect to the network?
+SNTP doesn't run over TLS, so what's happening here?
+
+You don't send UDP data with \c{network_socket_send}, you send it with \c{network_socket_send_to}.
+This requires another variant of the same query:
+
+\begin{regosnippet}
+data.compartment.compartments_calling_export_matching(
+	"TCPIP",
+	"network_socket_send_to.*") 
+\end{regosnippet}
+
+And now that we see that the only compartment sending data over UDP is the SNTP compartment:
+
+\begin{jsonsnippet}
+[
+  "SNTP"
+]
+\end{jsonsnippet}
+
+Now we can think about ways that a compartment might be able to exfiltrate data with this.
+First, let's see what this compartment exports:
+
+\begin{regosnippet}
+input.compartments.SNTP.exports
+\end{regosnippet}
+
+This compartment exports a single symbol, which takes a single \c{Timeout} argument:
+
+\begin{jsonsnippet}
+[
+  {
+    "export_symbol": "__export_SNTP__Z11sntp_updateP7Timeout",
+    "exported": false,
+    "interrupt_status": "enabled",
+    "kind": "Function",
+    "register_arguments": 1,
+    "start_offset": 208
+  \}
+]
+\end{jsonsnippet}
+
+This could potentially leak data via the timeout.
+If you are concerned about this, you can wrap the calls to this function in another compartment and audit the source of that.
+
+There's another way that you might leak data to the SNTP compartment, via per-shared objects.
+You can ask if the SNTP compartment has access to any pre-shared objects with the following query:
+
+\begin{regosnippet}
+data.compartment.shared_object_imports_for_compartment(
+	input.compartments.SNTP)
+\end{regosnippet}
+
+This tells you that, yes, it does:
+
+\begin{jsonsnippet}
+[
+  {
+    "kind": "SharedObject",
+    "length": 24,
+    "permits_load": true,
+    "permits_load_mutable": false,
+    "permits_load_store_capabilities": false,
+    "permits_store": true,
+    "shared_object": "sntp_time_at_last_sync",
+    "start": 1237648
+  \}
+]
+\end{jsonsnippet}
+
+This can't contain capabilities, but it is readable and so if another compartment has write access to this object then it could communicate data to the SNTP compartment.
+We can check that with an allow-list query:
+
+\begin{regosnippet}
+data.compartment.shared_object_writeable_allow_list(
+	"sntp_time_at_last_sync",
+	{"SNTP"\})
+\end{regosnippet}
+
+This takes the name of a shared object as the fist argument and a set of compartments that may hold writeable capabilities to it as the second.
+Unlike the prior queries, this does not expand to a complex JSON response, it is a single JSON value: \json{true}.
+
+This is one of the checks performed by the \rego{valid} rule in the \rego{network_stack} package.
+This takes the network interface as its argument.
+On Sonata, the Ethernet device is accessed via the second SPI channel.
+You can check the integrity of the network stack with the following query:
+
+\begin{regosnippet}
+data.network_stack.valid(spi2)
+\end{regosnippet}
+
+Again, this should simply evaluate to \json{true}.
+You can use this, along with the other things that you've seen in this section, to build a policy for this example.
+The start is shown in \ref{lst:regomqttstart}.
+This is the head of a Rego rule that is parameterised on the device name and forwards to the network stack's validity rule.
+The network stack checks access for the shared object.
+
+\regolisting[filename=examples/mqtt/mqtt.rego,marker=network_stack,label=lst:regomqttstart,caption="The start of the Rego policy for the MQTT example."]{}
+
+Next, the policy checks that there are exactly two connection capabilities and that they are the two that we expect.
+This is shown in \ref{lst:regomqttconnection_capabilities}.
+The first check uses the \rego{count} operator to ensure that the length of the array containing all capabilities is two.
+The next two checks are more interesting because they use the fact that Rego expressions include JSON.
+Each of these stats with a JSON object literal for the capability that we expect to find (the one that we saw earlier using \command{cheriot-audit} for introspection) and then uses the \rego{in} operator to check that this object is part of the array.
+
+JSON is tree structured data with a small number of primitive types and so it is easy to do exact equality comparisons on arbitrary JSON data.
+The \rego{in} operator uses this to operate over a collection (set, array, or object) and return whether the collection contains the requested value.
+This is not string comparison.
+The indentation in this example is purely for readability.
+
+\regolisting[filename=examples/mqtt/mqtt.rego,marker=connection_capabilities,label=lst:regomqttconnection_capabilities,caption="Rego rules for restricting output in the MQTT example."]{}
+
+Finally, in \ref{lst:regomqttsend_restrictions} the rule contains checks for the property that you saw earlier: no unencrypted data can leave the device.
+This is implemented with two allow-list rules, which pass only if the set of allowed compartments contains every compartment that can call the specified set of entry points.
+
+\regolisting[filename=examples/mqtt/mqtt.rego,marker=send_restrictions,label=lst:regomqttsend_restrictions,caption="Rego rules to ensure that no data leaves the device unencrypted for the MQTT example."]{}
+
+These are all in the \file{mqtt.rego} file in the example and so you can add \flag{-m mqtt.rego} to your \command{cheriot-audit} command line to use them.
+Now, you can simply run \rego{data.mqtt.valid(spi2)} (or \rego{data.mqtt.valid(kunyan_ethernet)}, if you're using the Arty A7 builds) to check that the firmware image that you've built from this example complies with the policy.
+
+If you write a similar policy for your real firmware and incorporate it into your code-signing flow then you can ensure that everything running on your device has the properties that we've described.
+If a developer accidentally leaves an unencrypted debug channel enabled in a release build, for example, then the policy check will fail.
+Similarly, if someone adds integration with another cloud service, you will see the checks fail and need to update the policy to make sure that it matches your new security goals.
+
+\section[label=netreset]{Understanding TCP/IP-stack reset}
+
+CHERIoT provides a lot of out-of-the-box security guarantees simply by recompiling code.
+The FreeRTOS+TCP codebase was audited in 2019 and the auditors found ten vulnerabilities.
+Of these, eight were memory-safety bugs that could either allow arbitrary-code execution or information disclosure.
+One was a division by zero, which could cause a trap.
+The remaining one was a failure to properly implement DNS, which could allow DNS cache poisoning.
+
+All of these are mitigated by the compartmentalisation model in the CHERIoT network stack.
+The DNS attack may still be possible, but very hard to exploit.
+The vulnerability was that DNS responses were processed even if they did not accompany a query and so sending a DNS response to the device would cause it to add the entry to its cache and then not do the DNS query when it was requested.
+The CHERIoT firewall drops in-bound DNS packets except when a DNS request is known to be in flight, so attempting to send the response to the device early would simply be ignored.
+An attacker would have needed to time the attack for when a DNS response was in flight.
+An attacker who can observe DNS requests leave the device and send packets in response can simply lie in the DNS response (unless DNSSEC is being used) and so could achieve the same result on any system even without the bug.
+Alternatively, an attacker could flood the device with responses and hope that theirs arrived first.
+This would be likely to succeed but would show up as unusual traffic on any network with some monitoring.
+
+The memory-safety bugs would all have the same impact as the division-by-zero error.
+They would cause the hardware to raise a trap, which would then crash the TCP/IP compartment.
+
+Crashing is usually better than allowing an attacker to gain control of a device, but it's far from ideal.
+Crashing a compartment is somewhat better because it allows other functionality to keep working.
+For an IoT device, the Internet bit may be a core part of the functionality.
+Fortunately, CHERIoT compartmentalisation provides two benefits:
+
+\begin{itemize}
+	\item{The fault happens before anything can corrupt memory outside objects that it has access to.}
+	\item{The blast radius is limited to the compartment boundary and things that are explicitly shared.}
+\end{itemize}
+
+This combination means that it's possible to handle the error and gracefully recover.
+Recovery is complicated in a TCP/IP stack because it is multithreaded.
+A crash may happen in the thread where the firewall provides the network stack with new packets.
+It may happen in the thread that handles TCP/IP retransmissions.
+It may also happen in any thread that another compartment uses to call network-stack functions.
+When a crash occurs, the first thing that the error handler needs to do is ensure that all of the threads rendezvous.
+
+The socket structures that the TCP/IP compartment allocates and exposes via sealed capabilities are added to a linked list when they're created.
+When a crash occurs, the error handler walks this list and places the locks in destruction mode.
+In destruction mode, all threads waiting on a lock will wake and fail to acquire the lock.
+This forces any threads that were waiting for the socket lock to return failure.
+
+Next, the error handler does the same to global locks and begins freeing memory.
+This can cause other threads to crash.
+That's fine because they will just enter their error handlers as well.
+The error handlers will check a global variable that tracks the reset state machine to determine whether they need to do anything or just exit.
+
+When a user calls into the TCP/IP compartment, the API functions increment a counter of the number of threads that are present.
+This is then decremented in the error handler, or if they gracefully exit.
+When it reaches zero, the error handler knows that reset is finished.
+
+Other threads may allocate memory during the shutdown process, so the error handler will call \c{heap_free_all} several times during the shutdown process.
+
+Once everything is deallocated, the error handler increments an epoch counter.
+This is a 64-bit counter (and so will never overflow in the plausible lifetime of the device).
+
+Every socket structure contains a copy of the epoch counter from when it was created.
+If a socket is not currently being used, it will have been removed from the list, but the memory won't have been freed because they are allocated with the caller's quota and not the network stack's.
+The next time the socket is used, the send or receive function will compare the epoch of the socket to the current epoch of the TCP/IP stack.
+If they differ then the socket belonged to a previous incarnation of the TCP/IP stack.
+The function will simply report that the connection dropped.
+This can happen asynchronously, after reset.
+
+Shutting down the TCP/IP stack is the difficult but, but not the bit that is useful to users.
+The next step is to restart it.
+First, the error handler resets all of the global variables to their initial states (except the epoch).
+Next, it resumes the IP thread from its initial state and reruns initialisation.
+Most of the time is spent waiting for a DHCP lease, the reset happens very quickly.
+
+If you want to test this, you can use the \c{network_inject_fault} function.
+This is not compiled in by default, you must add \flag{--network-inject-faults=y} to your \command{xmake} \flag{config} line.
+When you call this function, it sets a flag so that the next incoming packet will have incorrect bounds applied.
+This will cause the TCP/IP stack to crash somewhere.
+
+\functiondoc{network_inject_fault}
+
+From your perspective, you should simply see a connection-dropped error.
+If you've written robust networking code, you're handling this anyway.
+Networks are intrinsically unreliable and will sometimes fail for reasons beyond your control.
+When this happens, you need to reconnect.
+
+The TCP/IP compartment crashing is no different, it will appear as if the connection dropped.
+If DHCP is taking its usual amount of time, attempting to reconnect may fail for a second or two, and will then succeed.
+
+The failure will be propagated through any of the other compartments that you're using from the network stack.
+For example, if you're using MQTT then the TLS compartment will have a send or receive fail.
+It will then report that the TLS session has been disconnected to the MQTT compartment.
+This, in turn, will report to you that the MQTT connection has dropped the next time you call publish, subscribe, or run functions.
+
+Try modifying the MQTT example to handle reconnection if any of the later functions report disconnection.
+Remember that MQTT supports reconnection (as opposed to connection) to resume an existing connection if the network went away.
+Change the timeout for one of the \c{mqtt_run} calls so and read a switch or UART to determine when to call \c{network_inject_fault}.
+
+You should be able to make the network stack crash repeatedly without more than intermittent disconnection.
+
+For a more complete example, look at the \href[src=https://github.com/CHERIoT-Platform/cheriot-demos/tree/main/HughTheLightbulb]{Hugh the Lightbulb} demo.
+This is a demo that runs on Sonata and uses an Android app to control the multi-colour LED on the Sonata board via MQTT.
+It also uses the monochrome LEDs to show the network connection state, so you can see each of the stages in the system:
+
+\begin{enumerate}
+	\item{The system has started.}
+	\item{The network stack is initialised.}
+	\item{The clock is synchronised with NTP time.}
+	\item{The connection to the MQTT server is established.}
+	\item{The MQTT subscription to the topic for the controller is registered.}
+\end{enumerate}
+
+If you flip the rightmost DIP switch, it will trigger a crash.
+The LCD shows a CPU usage graph at the top and a heap-memory usage graph at the bottom.
+You'll see a sharp drop in heap usage as all of the TCP/IP state is freed (and then TLS and MQTT state is freed as their respective compartments see the failure).
+Then you'll see a short pause as the TCP/IP stack recovers its DHCP lease.
+Next, you'll see a burst of 100% CPU usage as the TLS session is reestablished.
+
+The whole reset process takes a few seconds, most of which is either waiting for DHCP or reestablishing the TLS connection.
+During this time, all of the other demo functionality (updating the LCD display and the other LEDs) works fine.
+The failure is contained to the compartment with the bug and the reset means that other code can continue to be oblivious to this failure.
