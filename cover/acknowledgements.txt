@@ -1,0 +1,36 @@
+Draft acknowledgement text:
+
+The cats on the cover represent safe, secure, compartmentalisation (what is
+safer or more secure than a cat in a box?).
+Each cat is in a separate, isolated, compartment, in the model for which
+CHERIoT was designed.
+
+The cat photos were contributed by some wonderful people from the Fediverse.
+Starting at the top left, numbered left to right then top to bottom, the photo
+credits are:
+
+
+1, 3, 5, 10:
+Photographer: James (@chongliss@mastodon.ie), Cats: Jiji (1), Luna (3, 5), and
+Felix (10).
+
+2, 11:
+Photographer: Cassian Lodge (@cassolotl@eldritch.cafe), Cat: Rosa
+
+4:
+Photographer: marinbenc (marinbenc@sigmoid.social)
+
+6:
+Photographer: Asta Halkjær From (@ahfrom@fedi.ahfrom.synology.me), Cat: Betty Rambo.
+
+7:
+Photographer: vitaut (vitaut@mastodon.social)
+
+8:
+Photographer: Michael McWilliams (@MichaelMcWilliams@mas.to)
+
+9:
+Photographer: jarkman (@jarkman@chaos.social)
+
+12:
+Photographer: Isaac Freund (@ifreund@hachyderm.io), Cat: Marzipan
