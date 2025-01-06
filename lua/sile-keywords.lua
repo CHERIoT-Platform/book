@@ -17,6 +17,10 @@ local monospace = {
 	"host",
 }
 
+local bold = {
+	"command",
+}
+
 function process(textTree)
 	textTree:match_any(italic, function(textTree)
 		textTree.kind = "font"
@@ -24,6 +28,9 @@ function process(textTree)
 		return { textTree }
 	end)
 	textTree:match_any(monospace, function(textTree)
+		if bold[textTree.kind] then
+			textTree:attribute_set("weight", "700")
+		end
 		textTree.kind = "font"
 		textTree:attribute_set("family", "Hack")
 		textTree:attribute_set("size", "0.8em")
