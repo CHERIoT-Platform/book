@@ -15,6 +15,8 @@ local monospace = {
 	"reg",
 	"lua",
 	"output",
+	"library",
+	"compartment",
 	"host",
 }
 
