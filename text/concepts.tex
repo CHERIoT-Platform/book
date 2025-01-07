@@ -50,6 +50,7 @@ This instruction will check that the capability in \reg{ca1} is a valid capabili
 If, and only if, all of these checks pass, will it do the same load as the original version.
 If any of these fail, the instruction will trap.
 
+
 Most of the time, hopefully, you will not be writing assembly and so this is simply a detail for the compiler to worry about.
 You can think of a CHERI memory capability as a pointer that the hardware understands.
 In C, if you hold a pointer to an object then you are allowed to access the object that it points to.
@@ -82,11 +83,14 @@ In a CHERI system, this can include one component having read access to an objec
 
 \section[label=permissions]{Decomposing permissions in CHERIoT}
 
+
 Any CHERI system provides a set of permissions on capabilities.
-Permissions, along with bounds, are \keyword{capability metadata}.
+Permissions, along with bounds, are \keyword{capability metadata}, as shown in \ref{capabilitylayout}.
 CHERI systems typically use double the size of the platform's native address for capabilities, so all of the metadata needs to fit in the size of one address.
 As well as this metadata, there is a non-addressable \keyword{tag bit}, sometimes called a \keyword{valid bit} that differentiates between capabilities and other data.
 If a memory location or a register has its valid bit set, then it holds a capability and the hardware promises that this was derived from a valid sequence of operations from some more powerful capability.
+
+\figure[label=capabilitylayout,src=figures/CapabilityLayout.svg,alt="A CHERIoT capability contains an address, bounds, a type, and a set of permissions."]{A CHERIoT capability grants access to a range of memory.}
 
 \begin{note}
 The very earliest CHERI research prototypes used a 256-bit capability on a 64-bit architecture.

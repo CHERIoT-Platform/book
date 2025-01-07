@@ -317,6 +317,12 @@ div.figure > img
 	max-width: 100%;
 }
 
+div.figure > object
+{
+	max-width: 100%;
+}
+
+
 p.figure-caption
 {
 	font-size: 0.8em;
