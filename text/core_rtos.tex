@@ -156,3 +156,105 @@ It cannot access globals (or code), held in other compartments and so a compartm
 
 The allocator also provides a rich set of mechanisms (described in \ref{shared_heap}) for two mutually distrusting compartments to ensure that memory is not deallocated at inconvenient times.
 
+\section{Building a C/C++ environment}
+
+So far, this chapter has discussed the components of the system that provide distinct trust domains.
+CHERIoT RTOS also provides several \keyword{shared libraries}.
+Remember that (as discussed in \ref{libraries}), CHERIoT shared libraries do not have private globals, they provide functions that can be invoked from multiple compartments but which has no mutable state of its own.
+
+A C freestanding environment needs a small set of standard-library functions to exist.
+These are \c{memcpy}, \c{memset}, and so on.
+The compiler may insert different calls to these for things like \c{struct} assignment or initialisation and any C code may assume that they exist.
+
+These functions are fairly small (less than 0.5 KiB), but we do not want every compartment that contains them to have to include a copy of them because that small size can add up quickly when you have very large numbers of compartments.
+Instead, the RTOS includes a \library{freestanding} library that includes these functions.
+
+C++ expects slightly more from a freestanding environment.
+CHERIoT RTOS does not provide support for exceptions, but does support thread-safe initialisation of statics.
+In C++, function-local \cxx{static} variables that have non-trivial constructors are initialised lazily, the first time that they are invoked.
+The compiler emits a guard word that is used to mark whether the object is initialised and act as a lock to protect initialisation.
+The compiler also emits a branch on the initialised bit at the point where the variable becomes in scope.
+In the uninitialised case, this inserts a call to \c{__cxa_guard_acquire} to acquire the lock and then a call to \c{__cxa_guard_release} to release the lock.
+The acquire function also checks whether another thread has initialised the variable between the initial check and the call, preventing double initialisation.
+These are provided by the \library{cxxrt} library.
+
+\begin{note}
+In environments that support exceptions, there is a third function for static initialisation.
+The \c{__cxa_guard_abort} function is called when a constructor throws an exception.
+This is not supported on CHERIoT.
+\end{note}
+
+For both C and C++ (and other languages that use the same compiler back end) there are some sequences that compilers prefer to generate as calls to helper functions.
+For example, if you divide one 64-bit number by another, this is a single operator in C.
+On most 64-bit processors, it's a single divide instruction but on 32-bit processors it requires a much longer sequence.
+Similarly, GCC and Clang provide a \keyword{population count} built-in function that counts the number of bits in an integer that are set to one.
+This is a single instruction on most modern application processors, but requires some shifting and masking on microcontrollers.
+
+CHERIoT RTOS provides the \library{crt} library to implement these functions.
+Not every compartment will need all of them, but the library is around 1.5 KiB of code and so duplicating it across every compartment that does need them would be likely to increase code size significantly.
+
+Although the code sizes in this section may look small, moving a function to a separate compartment typically adds only a handful of bytes to the final binary size.
+It's quite feasible to have a compartment that is on the order of a hundred bytes in total size.
+
+\section{Supporting atomic operations}
+
+C11 and C++11 introduced atomic operations.
+In C, these use the \c{_Atomic} qualifier, in C++ they use the \cxx{std::atomic<>} template.
+Recently, these were somewhat unified so that \c{Atomic(T)} can be a macro that expands to \cxx{std::atomic<T>} in C++.
+In both languages, these are often referred to as the C++11 model because the C++ version was introduced first and then ported to C.
+
+Compilers implement these with a set of built-in functions that, on most application cores, are lowered in the back end to atomic instructions.
+Most microcontrollers are single core and so may lack atomic instructions.
+The CHERIoT Ibex, for example, does not implement any atomic instructions.
+This does not matter because atomic instructions need to be atomic only with respect to the CPU core itself.
+
+On single-core systems, atomic operations can be implemented by simply disabling interrupts, performing the read-modify-write sequence, and then enabling interrupts.
+As we saw in \ref{interrupt_sentries}, CHERIoT has a simple mechanism for allowing a single function to run with interrupts disabled, without granting it the power to arbitrarily disable interrupts.
+This mechanism makes it possible to implement the atomic helpers are trivial C functions that just do the non-atomic operations but run with interrupts disabled.
+Each atomic operation on 1, 2, 4, and 8-byte values is defined as a separate function.
+
+On larger cores, these simple helpers are unnecessary, but C and C++ specified that \textem{any} type could be atomic.
+Operations such as load, store, exchange and compare-and-exchange are expected to work even if the object is enormous.
+The compiler expects functions that implement these operations on arbitrary-sized data.
+
+\begin{caution}
+For types larger than a capability, CHERIoT's representations of \c{_Atomic(T)} and \cxx{std::atomic<T>} differ.
+The C version will use the variable-sized atomic helpers that run with interrupts disabled.
+The C++ version uses an inline lock in the object and performs atomic operations by acquiring and releasing the lock as needed.
+This prevents the C++ version from monopolising the CPU and breaking realtime guarantees but breaks interoperability between the two languages.
+
+In general, it is a good idea to avoid \c{_Atomic(T)} for any type that is larger than a pointer in C.
+\end{caution}
+
+Many firmware images use only a small subset of these sizes.
+32-bit atomic values are common, and are the size supported for the futex operations (see \ref{futex}).
+The RTOS provides a family of libraries for implementing atomics.
+The \library{atomic1}, \library{atomic2}, \library{atomic4} and \library{atomic8} libraries each provide atomic operations for one fixed-size type.
+As a convenience, there is also an \library{atomic_fixed} pretend library that simply acts as if you'd depended on all of the fixed-sized versions.
+Finally, there is a general \library{atomic} library, which also introduces the variable-sized types.
+The last of these is very rarely used.
+
+\section{Adding more standard-library functions}
+
+A freestanding C is the minimum for an embedded system but it's far from a pleasant development environment.
+The C \file{strings.h} header contains functions such as \c{strlen} and \c{strcpy}, which do not depend on any operating-system functionality but are also not required by a freestanding environment.
+On CHERIoT RTOS, these are provided by the \library{strings} library.
+
+Similarly, we provide a minimal implementation of a subset of \file{stdio.h} that is useful for debugging via the \library{stdio} library.
+In most C implementations there is a single \file{libc} or similar that provides all of the standard library.
+CHERIoT prefers to decompose this so that firmware images can adopt useful subsets.
+
+Most of the C++ standard library that we provide is header-only, but where shared implementations are useful these will be similarly decomposed.
+
+\section{Exploring other RTOS features}
+
+The \file{lib} directory in the RTOS SDK contains all of the libraries.
+Some of these have been discussed already because they are part of a core environment that you might expect to be available for any compartment to use.
+
+Others are correspond more to operating system features and will be discussed in later chapters.
+For example, those related to locking, message queues, and so on a will be discussed in \ref{threads}.
+The features for debugging are discussed in \ref{debug}.
+
+Others, such as the port of the Microvium JavaScript interpreter are not discussed in the book at all.
+This book does not aim to provide an exhaustive list of everything that the RTOS provides as libraries and more will be added after the book is published.
+Please look in the RTOS repository to see what has been added.

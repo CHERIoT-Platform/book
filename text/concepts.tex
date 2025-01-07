@@ -212,7 +212,7 @@ Sentries are also used as a building block for cross-compartment calls.
 A sentry can point to a region of memory that contains both code and data.
 The data is accessible via PC-relative addressing only after jumping into the code.
 
-\section{Controlling interrupt status with sentries}
+\section[label=interrupt_sentries]{Controlling interrupt status with sentries}
 
 In conventional RISC-V (and most other architectures) the interrupt status is controlled via a special register.
 This register can be modified only in some privileged mode.
@@ -271,7 +271,7 @@ At the start of execution, each compartment has a guarantee that nothing else ca
 If one compartment passes a pointer to one of its globals to another, you now have shared memory.
 This can be useful with restricted permissions for sharing read-only epoch counters and similar.
 
-\section{Sharing code with libraries}
+\section[label=libraries]{Sharing code with libraries}
 
 Invoking reusable components does not always involve a change of security context.
 The CHERIoT software model provides \keyword{shared libraries} for cases where this is the case.

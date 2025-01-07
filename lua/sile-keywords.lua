@@ -14,6 +14,8 @@ local monospace = {
 	"cxx",
 	"lua",
 	"output",
+	"library",
+	"compartment",
 	"host",
 }
 
@@ -22,6 +24,13 @@ local bold = {
 }
 
 function process(textTree)
+	textTree:match("keyword", function(textTree)
+		local index = TextTree.new("indexentry")
+		index:append_text(textTree:text())
+		textTree.kind = "font"
+		textTree:attribute_set("style", "italic")
+		return { index, textTree }
+	end)
 	textTree:match_any(italic, function(textTree)
 		textTree.kind = "font"
 		textTree:attribute_set("style", "italic")

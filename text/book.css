@@ -28,6 +28,8 @@ span.cxx,
 span.reg,
 span.host,
 span.output,
+span.library,
+span.compartment,
 span.lua
 {
 	font-family: "Source Code Pro", monospace;
