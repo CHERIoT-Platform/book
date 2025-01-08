@@ -1,6 +1,8 @@
 \title{CHERIoT Programmers' Guide}
 \author{David Chisnall}
 
+\if[output=sile]{\eject{}\par{}}
+
 This is a public draft of the CHERIoT Programmers' Guide.
 
 \begin{warning}
@@ -56,3 +58,8 @@ SOFTWARE
 \include{adding_a_new_board.tex}
 \include{porting_from_bare_metal.tex}
 \include{porting_from_freertos.tex}
+
+\if[output=sile]{
+\chapter[numbering=false]{Index}
+	\printindex{}}
+
