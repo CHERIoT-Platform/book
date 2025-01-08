@@ -33,7 +33,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: recursive 
       - name: Fetch dev container
         run: |
            docker pull ghcr.io/cheriot-platform/book-build-container:main
