@@ -1,6 +1,6 @@
 \chapter[label=debug]{Features for debug builds}
 
-CHERIoT provides a small set of APIs for use in debug builds in `debug.hh`.
+CHERIoT provides a small set of APIs for use in debug builds in \file{debug.hh}.
 These include:
 
 \begin{itemize}
@@ -9,11 +9,12 @@ These include:
 	\item{Invariants that are checked in release builds but provide debugging help only in release builds}
 \end{itemize}
 
-All of the message-producing aspects of these APIs use direct access to the UART.
+The message-producing aspects of these APIs use direct access to the UART.
 This can cause the messages to be interleaved but ensures that they are generated even if part of the system has crashed or deadlocked.
 
 Access to the UART will show up in the linker report.
-You should ensure that your auditing checks ensure that you have not left debug access to the UART enabled in release builds.
+The implementation of the logging functions is in the \library{debug} library.
+You should typically add an audit check that ensures this compartment is not present in release builds.
 
 \section{Enabling per-component debugging}
 
@@ -32,41 +33,38 @@ If you run \command{xmake config --help} in a firmware build, you will see this 
 
 Each of the core components allows extra debugging modes to be enabled independently, rather than via a global debug-mode switch.
 Adding something similar requires two changes in your \file{xmake.lua} file.
-The first line, at top-level scope, declares the option:
+The first line, at top-level scope, declares the option, as shown in \ref{lst:xmakedebugoption}.
 
-\begin{luasnippet}
-debugOption("myComponent")
-\end{luasnippet}
+\lualisting[filename=examples/debug_helpers/xmake.lua,marker=debug_option,label=lst:xmakedebugoption,caption="Build system code for defining a debug option."]{}
 
-With this, you will get a message in \command{xmake config --help} like the one above, but it won't actually do anything.
-You must also opt your compartment or library into debugging support by adding the corresponding rule in the description of your compartment or library:
+With this, you will get a message in \command{xmake} \flag{config} \flag{--help} like the one above, but it won't actually do anything.
+You can test that this actually works by trying the command:
 
-\begin{luasnippet}
-compartment("myComponent")
-	add_rules("cheriot.component-debug")
-\end{luasnippet}
+\begin{console}
+$ xmake config --help
+...
+        --debug-debug_compartment=[y|n]                      Enable verbose output and assertions in the debug_compartment
+...
+\end{console}
+
+You must also opt your compartment or library into debugging support by adding the corresponding rule in the description of your compartment or library.
+This is shown in \ref{lst:xmakeusedebugoption}, which adds a debug option to an example compartment.
+
+\lualisting[filename=examples/debug_helpers/xmake.lua,marker=use_debug,label=lst:xmakeusedebugoption,caption="Build system code for using a debug option."]{}
 
 By default, this assumes that the \lua{debugOption} that you've provided has the same name as the target.
 Sometimes, it's useful to have a single debug option that enables or disables debugging for multiple components.
-You can set the \lua{cheriot.debug-name} target property in your component to the name that you expect, with a line like this:
+You can set the \lua{cheriot.debug-name} target property in your component to the name that you expect in the \lua{on_load} hook, as shown in \ref{lst:xmakesetdebugoption}.
 
-\begin{luasnippet}
-compartment("myComponent")
-	add_rules("cheriot.component-debug")
-	on_load(function (target)
-		target:set('cheriot.debug-name', "nameOfDebugOption")
-	end)
-\end{luasnippet}
+\lualisting[filename=examples/debug_helpers/xmake.lua,marker=set_debug_option,label=lst:xmakesetdebugoption,caption="Build system code for providing the debug option name explicitly."]{}
 
-Now, your compartment will be compiled with a macro that starts with `DEBUG_` and ends with the name of the debug option in all capitals.
-In the first example above, this would be \c{DEBUG_MYCOMPONENT}.
+Now, the compartment will be compiled with a macro that starts with \c{DEBUG_} and ends with the name of the debug option in all capitals.
+In the first example above, this would be \c{DEBUG_DEBUG_COMPARTMENT}.
 
 This can then be used with the \cxx{ConditionalDebug} class from \file{debug.hh}.
-This is typically used as follows:
+This is typically used with a \cxx{using} directive as shown in \ref{lst:usingdebug} to connect the debug option.
 
-\begin{cxxsnippet}
-using Debug = ConditionalDebug<DEBUG_MYCOMPONENT, "My component">;
-\end{cxxsnippet}
+\codelisting[filename=examples/debug_helpers/example.cc,marker=debug_type,label=lst:usingdebug,caption="Connecting the debug option to a debug type in code"]{}
 
 The first template parameter is a boolean value that indicates whether this component is being debugged.
 The second is a free-form string literal that will be prepended (in magenta) to any debug line.
@@ -95,39 +93,135 @@ If you compile a compartment with \c{CHERIOT_AVOID_CAPRELOCS} defined then enume
 Two other types have rich formatted output.
 \cxx{PermissionSet} objects (see \ref{cheri_capability_cpp}) are printed using the characters from the tables in \ref{permissions}.
 Capabilities (either as raw pointers or instances of the \cxx{CHERI::Capability} class) are printed in full detail.
-Printing a capability will give a block that looks something like this:
+
+\ref{lst:usingdebuglog} shows an example of most of these.
+Note the last two log lines, which print enumeration and capability values.
+
+\codelisting[filename=examples/debug_helpers/example.cc,marker=log,label=lst:usingdebuglog,caption="Printing log messages with the debug log API."]{}
+
+When you run this, the output should look like this:
 
 \begin{console}
-0x2004cc8c (v:1 0x2004cc8c-0x2004cc90 l:0x4 o:0x0 p: G RWcgm- -- ---)
+Debug compartment: Hello world!
+Debug compartment: Here is a C string hello from a C string, A C++ string view hello from a C++ string, an int 52, and an unsigned 64-bit value 0xabcd
+Debug compartment: Here is an enum value: AddressKindIPv4(0x2)
+Debug compartment: Here is a pointer: 0x80000ef8 (v:1 0x80000ef8-0x80000efc l:0x4 o:0x0 p: - RWcgml -- ---)
 \end{console}
 
-This starts with the address and then has the metadata in brackets.
+On the penultimate line, both the name and value of the enumeration are printed.
+This has some limitations.
+It will not work for enumerations that have multiple names for the same values or enumerations with very large numbers of elements.
+
+The capability (pointer) format starts with the address and then has the metadata in brackets.
 The metadata includes the tag (valid) bit, then the range, then the length, object type, and permissions.
+The letters for the permissions are described in \ref{concepts}.
+
+\section{Printing custom types}
+
+The standard formatting machinery in C++ can result in large code.
+The CHERIoT debug logging mechanism is intended to be small and intentionally omits features.
+It does provide a mechanism for pretty printing custom types.
+
+Most of the printing is done in the \library{debug} library, which contains code for printing different primitive types, including capabilities.
+The function from this library takes an array of arguments for printing, where each is identified by two \c{uintptr_t} variables.
+One contains the value, the other the discriminator.
+If the discriminator is untagged, it is treated as an enumeration for the built-in handlers.
+If it is tagged, it is a pointer to a function that knows how to pretty-print the value.
+If you want to print a custom type, you first need to define a function that will print it.
+\ref{lst:usingdebuglogcustomprinter} contains an example of such a function.
+
+This is printing a network address, which is a discriminated union of a 32-bit IPv4 address or a 128-bit IPv6 address.
+
+\codelisting[filename=examples/debug_helpers/example.cc,marker=printer,label=lst:usingdebuglogcustomprinter,caption="Defining a print function for a custom type."]{}
+
+This takes two arguments.
+The first is the value to print, the second is a reference to an object that provides methods for printing individual methods.
+In this example, the value will be a pointer to the real object and must be explicitly cast.
+Remember that, although this is not type safe, it \textem{is} memory safe on a CHERIoT system.
+If the value is not a pointer of the correct size or larger, you will get traps.
+
+The other argument is the writer, which is passed as an abstract class (interface) and provides callbacks into the \library{debug} library.
+This has various overloads of a \cxx{write} method that will print primitive values as if they were passed as arguments to the log function, as well as some with explicit control over formatting.
+
+This function also needs to be accompanied by an adaptor, as shown in \ref{lst:usingdebuglogcustomtypeadaptor} that constructs the pair of \c{uintptr_t}s that will be passed into the library.
+This is simply casting the pointer to a \c{uintptr_t} for the value and providing the helper function (also cast to \c{uintptr_t}) as the type value.
+
+\codelisting[filename=examples/debug_helpers/example.cc,marker=type_adaptor,label=lst:usingdebuglogcustomtypeadaptor,caption="Defining an adaptor for a custom type."]{}
+
+With those in scope, you can now print network addresses using the same APIs.
+\ref{lst:usingdebuglogcustomuse} shows printing an IPv4 and IPv6 address using this API.
+
+\codelisting[filename=examples/debug_helpers/example.cc,marker=custom_log,label=lst:usingdebuglogcustomuse,caption="Printing a custom type with the debug APIs."]{}
+
+This should print:
+
+\begin{console}
+Debug compartment: There's no place like 127.0.0.1
+Debug compartment: There's no place like 00:00:00:00:00:00:00:01
+\end{console}
+
+The second line isn't quite perfect IPv6 output (it should be simply :1), but it's good enough to understand what's happening.
 
 \section{Asserting invariants}
 
 Assertions and invariants use the same formatting infrastructure as lthe log message code.
-In debug mode (for this component), the following two are equivalent:
+The terms are often used interchangeably.
+In builds with the debug option enabled, both behave in the same way.
+They take a condition and a message (including a format string and arguments, as with the logging APIs).
+If the condition is false, they will print the message and then execute a trap instruction.
 
-\begin{cxxsnippet}
-Debug::Invariant(theAnswer == 42, "The answer was {\}, expected 42", theAnswer);
-Debug::Assert(theAnswer == 42, "The answer was {\}, expected 42", theAnswer);
-\end{cxxsnippet}
+If debugging is disabled, assertions do nothing.
+Invariants still perform the check and trap but do not print the message.
+\ref{lst:usingdebugasserts} shows an example of an assertion and an invariant.
+These use the scoped error handlers described in \ref{_using_scoped_error_handling} to catch the failure.
+If they trigger a trap, execution will resume in the \c{CHERIOT_HANDLER} block.
+This uses \c{printf} to print a message independent of the debug mode.
 
-They will both check whether then answer is 42 and, if not, print a message to the UART telling you what the real value was.
-They will then issue an invalid instruction.
-If your compartment does not have an error handler (see \ref{handling_errors}, then this will unwind to the compartment that called you.
-If it does, then you can handle this just like any other error.
+\codelisting[filename=examples/debug_helpers/example.cc,marker=asserts,label=lst:usingdebugasserts,caption="Assertions and invariants with the debugging APIs."]{}
 
-In release builds, assertions are removed entirely.
-Invariants are still checked, but no longer log a message on failure, they just trigger an illegal instruction.
+If you configure this example with the \flag{--debug-debug_compartment=y} flag, this section will output something like the following:
+
+\begin{console}
+example.cc:115 Assertion failure in entry
+Assertion failed, condition is false
+Assertion triggered error handler
+example.cc:122 Invariant failure in entry
+Invariant failed, condition is false
+Invariant triggered error handler
+\end{console}
+
+The first line of each failure is printed by the assertion or invariant itself, the second is the log message.
+The next line is the \c{printf}.
+If you build it with \flag{--debug-debug_compartment=n} then the only line of output from this section should be:
+
+\begin{console}
+Invariant triggered error handler
+\end{console}
+
+The invariant is still checked and is triggering a trap, which leads to an unwind, but no debug APIs are printing messages.
 
 In some cases, you may find that the expression that calculates the assertion condition is expensive and the compiler does not successfully optimise it away in release builds.
-In this case, you can use the version that takes a lambda instead:
-
-\begin{cxxsnippet}
-Debug::Assert([]() { return someExpensiveCheck(); \}, "An expensive check failed");
-\end{cxxsnippet}
-
+If the checks calls functions in other compilation units, for example, or reads from \c{volatile} memory, the compiler cannot remove them even if the result is unused.
+To avoid this, you can replace the condition with a lambda that takes no arguments and returns a \c{bool}.
 The lambda is never executed in release builds and so the compiler will strip it away.
-You can also use this form if you have multiple steps (which may have side effects) leading up to the assertion condition.
+
+\section{Using the debug APIs from C}
+
+The log APIs are designed to be used from C++ but C11's \c{_Generic} keyword made it possible to expose a subset of the functionality into C as well.
+C++ templates allow users to provide their own specialisations.
+This is sadly not possible in C and so the logging APIs can print only primitive types.
+\ref{lst:usingdebugc} shows the C versions of the C++ APIs from this chapter.
+
+\codelisting[filename=examples/debug_helpers/example.c,marker=,label=lst:usingdebugc,caption="Assertions and invariants with the debugging APIs."]{}
+
+Running this will print the following:
+
+\begin{console}
+C example: Printing a number 42 and a string hello from C
+example.c:12 Invariant failure in print_from_c
+Invariant check in C failed: 12
+Invariant triggered unwind in C
+\end{console}
+
+In C++, these are enabled conditionally based on a template parameter.
+In C, the macros are defined in such a way that you can wrap them in your own macros, which provide the context parameter and may be conditional.
