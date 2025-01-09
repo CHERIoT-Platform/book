@@ -239,17 +239,17 @@ The verbs vary because they express the \keyword{guarded manipulation} guarantee
 You can't, for example, arbitrarily set the permissions on a capability, you can only remove permissions.
 Capabilities can be modified with the nouns and verbs listed in \ref{tbl:cap_modification_builtins}.
 
-\begin{table} % W: -> unmatched "\begin{table}"
-	\begin[cols="16%fw 20%fw 64%fw"]{tabular} % W: Use either `` or '' as an alternative to `"'. (18)
-		\tr{ \th{Noun} \th{Modification verb} \th{Operation}} % W: possible unwanted space at "{"
+\begin{table}
+	\begin[cols="16%fw 20%fw 64%fw"]{tabular}
+		\tr{ \th{Noun} \th{Modification verb} \th{Operation}}
 		\tr{\td{\c{address}} \td{\c{set}}             \td{Set the address for the capability.}}
 		\tr{\td{\c{bounds}}  \td{\c{set}}             \td{Sets the base at or below the current address and the length at or above the requested length, as closely as possible to give a valid capability}}
 		\tr{\td{\c{bounds}}  \td{\c{set_exact}}       \td{Sets the base to the current address and the length to the requested length or returns an untagged capability if the result is not representable.}}
 		\tr{\td{\c{perms}}   \td{\c{and}}             \td{Clears all permissions except those provided as the argument.}}
 		\tr{\td{\c{tag}}     \td{\c{clear}}           \td{Invalidates the capability but preserves all other fields.}}
-	\end{tabular} % W: <- unmatched "\end{tabular}"
+	\end{tabular}
 	\caption[label=tbl:cap_modification_builtins]{CHERI capability manipulation builtin functions}
-\end{table} % W: <- unmatched "\end{table}"
+\end{table}
 
 
 Setting the object type is more complex.
