@@ -50,7 +50,7 @@ jobs:
           cp index.html top-copyright-top.html
           for I in adding_a_new_board compartments concepts core_rtos debugging_apis drivers language_extensions memory porting_from_bare_metal porting_from_bare_metal threads ; do cp $I.html top-$I-top.html ;  done
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
 
   # Deployment job
   deploy:
