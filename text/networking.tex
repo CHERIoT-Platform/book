@@ -965,7 +965,7 @@ If you flip the rightmost DIP switch, it will trigger a crash.
 The LCD shows a CPU usage graph at the top and a heap-memory usage graph at the bottom, as you can see in \ref{hughdisplay}.
 You'll see a sharp drop in heap usage as all of the TCP/IP state is freed (and then TLS and MQTT state is freed as their respective compartments see the failure).
 Then you'll see a short pause as the TCP/IP stack recovers its DHCP lease.
-Next, you'll see a burst of 100% CPU usage as the TLS session is reestablished.
+Next, you'll see a burst of 100\% CPU usage as the TLS session is reestablished.
 
 \figure[label=hughdisplay,src=figures/HughDisplay.svg,alt="The Sonata LCD display showing a small CPU usage bar and a larger heap memory usage graph and the text 'Hugh the Lightbulb' and a connection ID.  Below, the Sonata monochrome LEDs showing that the demo is running."]{The Sonata LEDs and LCD display running the Hugh the Lightbuld demo.}
 
