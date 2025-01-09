@@ -19,22 +19,22 @@ void debug_network_address(uintptr_t    value,
 	{
 		for (int i = 0; i < 14; i += 2)
 		{
-			writer.write(uint32_t(address->ipv6[i]));
-			writer.write(uint32_t(address->ipv6[i + 1]));
+			writer.write_hex_byte(address->ipv6[i]);
+			writer.write_hex_byte(address->ipv6[i + 1]);
 			writer.write(':');
 		}
-		writer.write(uint32_t(address->ipv6[14]));
-		writer.write(uint32_t(address->ipv6[15]));
+		writer.write_hex_byte(address->ipv6[14]);
+		writer.write_hex_byte(address->ipv6[15]);
 	}
 	else if (address->kind == NetworkAddress::AddressKindIPv4)
 	{
-		writer.write(int32_t((address->ipv4 >> 0) & 0xff));
+		writer.write_decimal((address->ipv4 >> 0) & 0xff);
 		writer.write('.');
-		writer.write(int32_t((address->ipv4 >> 8) & 0xff));
+		writer.write_decimal((address->ipv4 >> 8) & 0xff);
 		writer.write('.');
-		writer.write(int32_t((address->ipv4 >> 16) & 0xff));
+		writer.write_decimal((address->ipv4 >> 16) & 0xff);
 		writer.write('.');
-		writer.write(int32_t((address->ipv4 >> 24) & 0xff));
+		writer.write_decimal((address->ipv4 >> 24) & 0xff);
 	}
 	else
 	{
