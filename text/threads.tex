@@ -521,6 +521,37 @@ You can probe the number of messages in a queue with \c{queue_items_remaining}.
 
 \functiondoc{queue_items_remaining}
 
+\ref{lst:queuesinglecompartmentalloc} shows how to create a message queue.
+This uses the \cxx{non_blocking} template function.
+This and \cxx{blocking_forever} take advantage of the regularity of CHERIoT APIs (timeouts are always the first parameter) to pass a zero-length and unlimited timeout to a single function.
+The producer thread in this example is creating the queue and is then doing a \c{futex_wake} operation on the global variable where the queue pointer is stored.
+
+\codelisting[filename=examples/producer_consumer/queue.cc,marker=allocate,label=lst:queuesinglecompartmentalloc,caption="Allocating a message queue for use in a single compartment"]{}
+
+The corresponding \c{futex_wait} call is in the consumer, in \ref{lst:queuesinglecompartmentconsumer}.
+This takes advantage of the fact that the global is initialised to zero and the resulting capability after allocation will be non-zero (in both halves, so the choice to use the first address is arbitrary here).
+If the consumer thread runs first, the wait call will block then return after the wake call from \ref{lst:queuesinglecompartmentalloc}.
+If the producer thread runs first then the wait call will return immediately.
+
+The producer in this simple example then just sends 200 integers, one at a time, as shown in \ref{lst:queuesinglecompartmentsend}.
+These will fill up the queue until either the scheduler quantum expires or the queue fills up, then the consumer thread will run.
+
+\codelisting[filename=examples/producer_consumer/queue.cc,marker=queue_send,label=lst:queuesinglecompartmentsend,caption="Sending messages to a message queue."]{}
+
+The consumer thread (\ref{lst:queuesinglecompartmentconsumer}) simply reads each element and prints it.
+Once every expected message has been received, the consumer destroys the queue.
+
+This is a good general pattern.
+This example detects the end of the queue because it knows that it will receive 200 messages but a more realistic system would send an end-of-messages marker through the queue.
+Once this is in the queue, the producer will no longer use the queue and as soon as the receiver reads it the consumer is free to deallocate the queue.
+
+\codelisting[filename=examples/producer_consumer/queue.cc,marker=consumer,label=lst:queuesinglecompartmentconsumer,caption="Receiving messages from a message queue."]{}
+
+This example prints the number of cycles that elapsed at the end.
+Try adjusting the queue size and the priorities of the two threads to see how this affects performance.
+
+\section{Sending messages between compartments}
+
 If you are passing messages between compartments, you should use the versions of these functions with the \c{_sealed} suffix.
 These are provided by the compartmentalised version and so ensure that the queue's internal state is not mutated by its callers.
 
