@@ -177,10 +177,10 @@ These will show up in the audit report looking something like this:
   "contents": "00040000 00000000 00000000 00000000 00000000 00000000",
   "kind": "SealedObject",
   "sealing_type": {
-    "compartment": "alloc",
+    "compartment": "allocator",
     "key": "MallocKey",
     "provided_by": "build/cheriot/cheriot/release/cheriot.allocator.compartment",
-    "symbol": "__export.sealing_type.alloc.MallocKey"
+    "symbol": "__export.sealing_type.allocator.MallocKey"
   \}
 \}
 \end{jsonsnippet}
@@ -192,8 +192,6 @@ The sealing type tells you the compartment and the sealing key that are used to 
 In the \rego{rtos} package, there is a Rego rule that matches imports that are sealed with the correct value:
 
 \regolisting[filename=examples/auditing-rtos/rtos.rego,marker=isallocator,label=lst:isallocatorrego,caption="The Rego rule for matching objects sealed as allocator capabilities"]{}
-
-\fixme{Rename alloc to allocator before we release RTOS v1.0!  Make sure to update this to the other alternative once done!}
 
 This matches every import that refers to a sealed object that is sealed with the correct key, independent of its contents.
 The contents remains an opaque blob.
