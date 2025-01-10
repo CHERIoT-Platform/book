@@ -561,9 +561,30 @@ The queue may still contain malicious or malformed data, but you have guarantees
 
 \functiondoc{queue_create_sealed}
 
+\ref{lst:queuemulticompartmentalloc} shows how to allocate a queue for sharing between compartments.
+This is equivalent to the example from \ref{lst:queuesinglecompartmentalloc}, but with the producer and consumer separated into different compartments.
+In the original, the queue was shared between the producer and consumer by placing it in a (compartment-local) global variable.
+In this version, it needs to be passed to the consumer explicitly by calling the \c{set_queue} function that the consumer exposes.
+
+\codelisting[filename=examples/producer_consumer_compartment/producer.cc,marker=queue_allocate,label=lst:queuemulticompartmentalloc,caption="Allocating a message queue for use in a between compartments."]{}
+
+\ref{lst:queuemulticompartmentsetqueue} shows the implementation of this function.
+This explicitly checks that the queue is valid before keeping it by calling \c{queue_items_remaining_sealed}.
+This function returns zero on success or an error code on failure and needs to unseal the queue to succeed, so this works to check that the sealed pointer really is a queue handle.
+After it has checked that this is a valid queue handle, this function looks much like the code that woke the other thread in the single-compartment case in \ref{lst:queuesinglecompartmentalloc}.
+
+\codelisting[filename=examples/producer_consumer_compartment/consumer.cc,marker=set_queue,label=lst:queuemulticompartmentsetqueue,caption="Receiving a queue endpoint in the consumer compartment."]{}
+
 This queue can be destroyed by calling \c{queue_destroy_sealed}.
 You cannot free an object pointed to by a sealed capability unless you also have the capability that authorises unsealing.
 This means that, unlike the unsealed version, you cannot destroy a queue created with \c{queue_create_sealed} \textem{except} by calling the correct destroy function.
+
+Similarly, you cannot free a sealed object unless you hold the allocation capability that allocated it.
+In the example, the queue is allocated from the producer's allocation capability.
+This means that the consumer cannot free it.
+Instead, the producer waits for the consumer to finish draining the queue and then frees it, in \ref{lst:queuemulticompartmentfree}.
+
+\codelisting[filename=examples/producer_consumer_compartment/producer.cc,marker=queue_cleanup,label=lst:queuemulticompartmentfree,caption="Freeing a message queue once it is empty."]{}
 
 \functiondoc{queue_destroy_sealed}
 
@@ -581,6 +602,12 @@ In many cases, the trust relationship may be asymmetric.
 For example, a compartment may provide a queue that other untrusted compartments can send messages to, but the senders trust the receiving compartment.
 The APIs also support this asymmetric use case, where the trusted compartment keeps the original handle but uses \c{queue_send_handle_create_sealed} to create handles to pass to other compartments.
 
+Try modifying the example to remove the ability from the consumer to send messages.
+This change should not require restructuring the code, only calling \c{queue_receive_handle_create_sealed}.
+Next, try moving queue creation to a separate compartment that sets the endpoint in the consumer and then passes it into the consumer and deallocates it once the producer returns and the queue is empty.
+The producer should receive a restricted handle that can send but not receive.
+Try modifying both the producer and consumer to do the operation that they should not be allowed to do and make sure that it fails.
+
 \section[label=multiwaiter]{Waiting for multiple events}
 
 The multiwaiter API allows waiting for any of a set of independent events.
@@ -590,6 +617,12 @@ Memory is allocated only when a multiwaiter is created, with \c{multiwaiter_crea
 This creates a multiwaiter with space for a fixed number of events.
 
 \functiondoc{multiwaiter_create}
+
+\ref{lst:multiwaitercreate} shows how to create a multiwaiter that can wait for two futexes.
+This is example generalises the producer-consumer example from earlier in this chapter to have two producer threads, each of which writes to a different message queue, but a single consumer that reads both.
+The consumer will use this multiwaiter to block until one or both queues has a message available.
+
+\codelisting[filename=examples/multiwaiter/queue.cc,marker=multiwaiter_create,label=lst:multiwaitercreate,caption="Creating a multiwaiter object."]{}
 
 Each \c{multiwaiter_wait} call is a one-shot operation.
 The call is passed a set of things to wait for and the associated condition via the `events` array and returns the waited status via the same array.
@@ -602,3 +635,15 @@ For example, if you wish to wait for a message queue (see \ref{message_queue}) t
 This event will then fire if the queue becomes non-full.
 The normal caveats about race conditions apply: the queue may become full again if another thread sends messages in between your receiving the notification and sending a message.
 
+\ref{lst:multiwaiterwait} initialises two events, one for each of the queues, and then calls \c{multiwaiter_wait}.
+This will return immediately if an equivalent \c{futex_wait} call on either futex would have done, or will block until one of the queues becomes non-empty.
+The loop then tries to handle one event from each message queue that has events available.
+
+\codelisting[filename=examples/multiwaiter/queue.cc,marker=multiwaiter_use,label=lst:multiwaiterwait,caption="Using a multiwaiter to wait for either of two queues."]{}
+
+Try modifying this to avoid the \c{multiwaiter_wait} call if either of the queues is already non-empty.
+You can do this either by repeating the non-blocking receive and using the multiwaiter only if it fails, or by checking whether the \c{value} field of the event source has been initialised to -1 by \c{multiwaiter_queue_receive_init}.
+Make sure that you don't starve one of then producers by biasing your consumption towards one of the queues.
+
+Remember that the CHERIoT RTOS scheduler also exposes interrupts as futexes.
+This means that the multiwaiter API can wait for multiple hardware and software events, in a single call.
