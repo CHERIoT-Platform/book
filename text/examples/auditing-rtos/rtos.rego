@@ -16,12 +16,6 @@ is_allocator_capability(capability) {
 }
 # isallocator#end
 
-is_allocator_capability(capability) {
-	capability.kind == "SealedObject"
-	capability.sealing_type.compartment == "alloc"
-	capability.sealing_type.key == "MallocKey"
-}
-
 # decodeallocator#begin
 decode_allocator_capability(capability) = decoded {
 	is_allocator_capability(capability)

@@ -79,7 +79,9 @@ Alternatively, you may want to provide an interface that allows individual compa
 
 For more complex devices, such as SPI, Ethernet, or USB, you will want a low-level device driver that provides a generic interface to the device.
 This driver will be wrapped in something that provides a richer interface to other compartments.
-\fixme{Reference networking chapter once it exists}
+
+In the CHERIoT network stack, described in \ref{_networking}, the part of the driver that handles abstraction is wrapped in a compartment that provides a firewall.
+The firewall does more than simply expose the send-packet and receive-packet interfaces of the physical device, it also provides ingress and egress filtering to improve security.
 
 \section{Specifying a device's locations}
 
@@ -139,8 +141,7 @@ Now that you have a pointer to a \c{volatile} object representing the device's M
 Any device can be accessed from any compartment in this way, but that access will appear in the linker audit report.
 
 
-Any compartment that accesses this device will have an entry in the audit report that looks like this:
-\fixme{Cross reference}
+Any compartment that accesses this device will have an entry in the audit report (see \ref{cheriot-audit}) that looks like this:
 
 \begin{jsonsnippet}
         {
