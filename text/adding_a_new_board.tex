@@ -112,7 +112,24 @@ This property is primarily present for benchmarking as all of our targets curren
 The clock rate is configured by two properties.
 The \json{timer_hz} field is the number of timer increments per second, typically the clock speed of the chip (the RISC-V timer is defined in terms of cycles).
 The \json{tickrate_hz} specifies how many scheduler ticks should happen per second.
-\fixme{Link to tick descriptions}
+Ticks were discussed in \ref{timeouts}, they are the minimum unit of scheduling.
+Threads sleep integer numbers of ticks.
+A larger duration here means that a short sleep becomes longer, a smaller duration means that the scheduler will be invoked more often.
+If you have two threads at the same priority then they will be preempted at this frequency, so a 1,000 Hz tick rate will mean that each runs for 1ms.
+That means that the scheduler will run (at least) once every 100,000 cycles on a 100 MHz core.
+With a 100 Hz tick rate, the scheduler will run once every million cycles.
+
+Higher tick rates will (usually) give lower latency, lower tick rates will (usually) give higher throughput.
+
+\begin{warning}
+	It is possible to set the \json{tickrate_hz} to such a high value that ticks are shorter than the context-switch time.
+	This will cause the timer to fire as soon as a new thread starts running, which will prevent forward progress.
+	This is easy to spot because multithreaded firmware images will fail to run on the board.
+	If you see no output from multithreaded firmwares, try reducing this number.
+	For most uses, 100 is a sensible number.
+	This will make one tick take 10 ms.
+	If you require higher precision for sleeping (or have high clock speeds) you may want something a bit higher.
+\end{warning}
 
 \section{Supporting conditional compilation}
 
