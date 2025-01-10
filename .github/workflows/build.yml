@@ -42,6 +42,7 @@ jobs:
           mkdir -p _site/figures
           cp text/book.css _site/
           cp -r text/figures/*.{png,jpg,svg} _site/figures/
+          ls -lah _site/figures
           docker run --mount type=bind,src=$(pwd),target=/mnt --rm ghcr.io/cheriot-platform/book-build-container:main sh -c 'cd /mnt/text && /igk/bin/igk --plugin /igk/lib/libigk-clang.so --plugin /igk/lib/libigk-treesitter.so --lua-directory /igk/share/igk-lua --lua-directory ../lua --file book.tex --pass include --pass if --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass clang-listing --pass ts-listing --pass number-tables --pass html-lua --pass html-listings --pass html-lists --pass html-em --pass html-xref --pass html-keywords --pass html-admonitions --pass html-multipage  --config output_directory=../_site --config output=html' 
           ls -lahR _site
       - name: Create backwards compatibility copies
@@ -62,4 +63,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
