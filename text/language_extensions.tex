@@ -91,7 +91,14 @@ Both work, some people prefer the former because it is more concise, others pref
 
 \codelisting[filename=examples/compartment_annotation/entry.cc,marker=compartment_call,label=lst:passsimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
 
-When you run this example 
+When you run this example, you should see:
+
+\begin{console}
+Counter value: 2
+Counter value: 3
+\end{console}
+
+The callback is invoked in the compartment that implements it and has access to the copy of the counter (passed by value) that the caller provides, but it cannot modify the counter.
 
 \section{Exposing library entry points}
 
