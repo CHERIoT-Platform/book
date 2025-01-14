@@ -31,22 +31,28 @@ function process(textTree)
 		local glyph = glyphs[admonition.kind]
 		admonition.kind = "cell"
 		local table = TextTree.create({
-			kind = "ptable",
-			attributes = { cols = "14%fw 86%fw", cellborder = "0" },
+			kind = "floating",
+			attributes = { width = "100%fw" },
 			children = {
 				{
-					kind = "row",
+					kind = "ptable",
+					attributes = { cols = "14%fw 86%fw", cellborder = "0" },
 					children = {
 						{
-							kind = "cell",
-							attributes = {
-								valign = "center",
-								halign = "center",
-								border = "0 0 0 0.3pt",
+							kind = "row",
+							children = {
+								{
+									kind = "cell",
+									attributes = {
+										valign = "center",
+										halign = "center",
+										border = "0 0 0 0.3pt",
+									},
+									children = { glyph },
+								},
+								admonition,
 							},
-							children = { glyph },
 						},
-						admonition,
 					},
 				},
 			},
