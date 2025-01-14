@@ -1,8 +1,12 @@
-
-
 function visit(textTree)
 	if type(textTree) ~= "string" then
-		if textTree.kind == "tabular" then
+		if textTree.kind == "table" then
+			local parbox = TextTree.new("floating")
+			parbox:attribute_set("width", "100%fw")
+			parbox:append_child(textTree)
+			textTree:visit(visit)
+			return {TextTree.new("goodbreak"), parbox}
+		elseif textTree.kind == "tabular" then
 			textTree.kind = "ptable"
 			textTree:attribute_set("cellborder", "0")
 			local columns = textTree:attribute("cols")
@@ -10,7 +14,7 @@ function visit(textTree)
 				local columnCount = 0
 				textTree:visit(function(row)
 					if columnCount ~= 0 then
-						return {row}
+						return { row }
 					end
 					if type(row) ~= "string" then
 						if row.kind == "tr" then
@@ -22,15 +26,15 @@ function visit(textTree)
 										columnCount = columnCount + 1
 									end
 								end
-								return {cell}
+								return { cell }
 							end)
 						end
 					end
-					return {row}
+					return { row }
 				end)
 				columns = ""
-				for i=1,columnCount do
-					columns = columns .. tostring(100/columnCount) .. "%fw "
+				for i = 1, columnCount do
+					columns = columns .. tostring(100 / columnCount) .. "%fw "
 				end
 			end
 			textTree:visit(function(row)
@@ -47,28 +51,27 @@ function visit(textTree)
 								elseif cell.kind == "td" then
 									cell.kind = "cell"
 								else
-									return {cell}
+									return { cell }
 								end
 								-- Here we know it is some kind of cell
 								local noindent = TextTree.new("noindent")
 								table.insert(cell.children, 1, noindent)
 							end
-							return {cell}
+							return { cell }
 						end)
 					end
 				end
-				return {row}
+				return { row }
 			end)
 			textTree:attribute_set("cols", tostring(columns))
 		else
 			textTree:visit(visit)
 		end
 	end
-	return {textTree}
+	return { textTree }
 end
 
 function process(textTree)
 	textTree:visit(visit)
 	return textTree
 end
-

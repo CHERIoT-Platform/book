@@ -21,6 +21,60 @@ SOURCES=\
 	porting_from_freertos.tex \
 	threads.tex
 
+HTML_PASSES= \
+	--pass include \
+	--pass if \
+	--pass fixme \
+	--pass metadata \
+	--pass clean-empty \
+	--pass begin-end \
+	--pass comment \
+	--pass blank-is-paragraph \
+	--pass autolabel \
+	--pass clang-listing \
+	--pass ts-listing \
+	--pass ts-inlines \
+	--pass number-tables \
+	--pass html-lua \
+	--pass html-listings \
+	--pass html-lists \
+	--pass html-em \
+	--pass html-xref \
+	--pass html-keywords \
+	--pass html-admonitions \
+	--pass html-multipage 
+
+PDF_PASSES= \
+	--pass include \
+	--pass if \
+	--pass fixme \
+	--pass metadata \
+	--pass clean-empty \
+	--pass begin-end \
+	--pass comment \
+	--pass blank-is-paragraph \
+	--pass autolabel \
+	--pass sile-admonitions \
+	--pass clang-listing \
+	--pass ts-listing \
+	--pass ts-inlines \
+	--pass sile-lua \
+	--pass sile-listings \
+	--pass sile-paragraph \
+	--pass sile-keywords \
+	--pass sile-description-lists \
+	--pass sile-tables \
+	--pass sile-figure \
+	--pass sile-note \
+	--pass sile-xref \
+	--pass sile-boilerplate \
+	--pass clean-empty \
+	--pass pdf-ebook-cover \
+	--pass XMLOutputPass
+
+IGK_PLUGINS= \
+	--plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib \
+	--lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua
 
 html: ${SOURCES} Makefile
 	mkdir -p _site/figures
@@ -28,11 +82,15 @@ html: ${SOURCES} Makefile
 	cp figures/*.png _site/figures
 	cp figures/*.jpg _site/figures
 	cp -R figures/*.svg _site/figures
-	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass if --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass clang-listing --pass ts-listing --pass number-tables --pass html-lua --pass html-listings --pass html-lists --pass html-em --pass html-xref --pass html-keywords --pass html-admonitions --pass html-multipage  --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>'
+	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>'
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
-	${IGK_PATH}/igk --plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib --lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua --file book.tex --pass include --pass if --pass fixme --pass metadata --pass clean-empty --pass begin-end --pass comment --pass blank-is-paragraph --pass autolabel --pass sile-admonitions --pass clang-listing --pass ts-listing --pass sile-lua --pass sile-listings --pass sile-paragraph --pass sile-keywords --pass sile-description-lists --pass sile-tables --pass sile-figure --pass sile-note --pass sile-xref --pass sile-boilerplate --pass clean-empty --pass pdf-ebook-cover --pass XMLOutputPass --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;background" --config output=sile > cheriot-programmers-guide.xml 
+	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile > cheriot-programmers-guide.xml 
 	./run_sile.sh cheriot-programmers-guide.xml
+
+cheriot-programmers-guide.print.pdf: ${SOURCES} Makefile
+	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile --config print > cheriot-programmers-guide.print.xml 
+	./run_sile.sh cheriot-programmers-guide.print.xml
 
 validate: html
 	for I in _site/*.html ; do vnu $$I ; done

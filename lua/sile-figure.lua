@@ -10,7 +10,9 @@ end
 
 function process(textTree)
 	textTree:match("figure", function(figure)
-		local figureBlock = TextTree.new("figure")
+		local parbox = TextTree.new("floating")
+		parbox:attribute_set("width", "100%fw")
+		local figureBlock = parbox:new_child("figure")
 		local img = figureBlock:new_child("img")
 		local src = figure:attribute("src")
 		if string.match(src, "%.svg$") then
@@ -28,7 +30,7 @@ function process(textTree)
 			caption:attribute_set("label", figure:attribute("label"))
 		end
 		caption:take_children(figure)
-		return { figureBlock }
+		return { parbox }
 	end)
 	return textTree
 end
