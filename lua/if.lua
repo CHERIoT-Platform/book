@@ -1,6 +1,5 @@
 function visitConditional(ifNode)
 	ifNode:match_any({"if", "else"}, visitConditional)
-	ifNode:dump()
 	local attributes = ifNode:attributes()
 	if #attributes ~= 1 then
 		ifNode:error("if and else nodes must have exactly one attribute")
