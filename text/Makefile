@@ -2,7 +2,7 @@
 
 IGK_PATH?=../../../igk/Build/
 
-all: html cheriot-programmers-guide.pdf
+all: html cheriot-programmers-guide.pdf cheriot-programmers-guide.print.pdf
 
 SOURCES=\
 	audit.tex \
@@ -67,6 +67,7 @@ PDF_PASSES= \
 	--pass sile-figure \
 	--pass sile-note \
 	--pass sile-xref \
+	--pass sile-href \
 	--pass sile-boilerplate \
 	--pass clean-empty \
 	--pass pdf-ebook-cover \
@@ -89,8 +90,11 @@ cheriot-programmers-guide.pdf: ${SOURCES} Makefile
 	./run_sile.sh cheriot-programmers-guide.xml
 
 cheriot-programmers-guide.print.pdf: ${SOURCES} Makefile
-	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile --config print > cheriot-programmers-guide.print.xml 
+	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile --config print=true > cheriot-programmers-guide.print.xml 
 	./run_sile.sh cheriot-programmers-guide.print.xml
+
+cheriot-programmers-guide.print.mono.pdf: cheriot-programmers-guide.print.pdf
+	gs  -sOutputFile=cheriot-programmers-guide.print.mono.pdf  -sDEVICE=pdfwrite  -sColorConversionStrategy=Gray  -dProcessColorModel=/DeviceGray  -dCompatibilityLevel=1.4  -dNOPAUSE  -dBATCH  cheriot-programmers-guide.print.pdf
 
 validate: html
 	for I in _site/*.html ; do vnu $$I ; done
