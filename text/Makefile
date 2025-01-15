@@ -1,6 +1,8 @@
 .PHONY: all validate html
 
 IGK_PATH?=../../../igk/Build/
+IGK_LIB_PATH?=../../../igk/Build/
+IGK_LUA_PATH?=../../../igk/lua
 
 all: html cheriot-programmers-guide.pdf cheriot-programmers-guide.print.pdf
 
@@ -75,8 +77,8 @@ PDF_PASSES= \
 	--pass XMLOutputPass
 
 IGK_PLUGINS= \
-	--plugin ${IGK_PATH}/libigk-clang.dylib --plugin ${IGK_PATH}/libigk-treesitter.dylib \
-	--lua-directory ${IGK_PATH}/../lua/ --lua-directory ../lua
+	--plugin ${IGK_LIB_PATH}/libigk-clang.* --plugin ${IGK_LIB_PATH}/libigk-treesitter.* \
+	--lua-directory ${IGK_LUA_PATH}/ --lua-directory ../lua
 
 html: ${SOURCES} Makefile
 	mkdir -p _site/figures
