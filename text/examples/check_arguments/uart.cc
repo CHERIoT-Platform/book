@@ -20,7 +20,7 @@ int uart_puts(const char *msg)
 	Timeout   t{UnlimitedTimeout};
 	// Make sure that this is not going to be deallocated out
 	// from under us.
-	if (heap_claim_fast(&t, msg) != 0)
+	if (heap_claim_ephemeral(&t, msg) != 0)
 	{
 		return -EINVAL;
 	}

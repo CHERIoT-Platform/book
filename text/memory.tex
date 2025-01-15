@@ -184,30 +184,25 @@ You can pass a capability with bounds that do not cover an entire object to \c{h
 
 \functiondoc{heap_claim}
 
-If you need to ensure that an allocation remains valid for a brief, scoped, period then \c{heap_claim_fast} may be more useful.
+If you need to ensure that an allocation remains valid for a brief, scoped, period then \c{heap_claim_ephemeral} may be more useful.
 This function places an ephemeral claim on one or two objects.
 
-\begin{warning}
-	The \c{heap_claim_fast} function is poorly named (and will probably be renamed something like \c{heap_claim_ephemeral} in a future version).
-	It is not just a fast version of \c{heap_claim}, it is a different function with different guarantees.
-\end{warning}
-
-\functiondoc{heap_claim_fast}
+\functiondoc{heap_claim_ephemeral}
 
 Every thread has two \keyword{hazard slots} that can hold pointers.
-The \c{heap_claim_fast} function manages these two slots.
-These are cleared on every cross-compartment call and can be cleared explicitly by passing \c{NULL} to \c{heap_claim_fast}.
+The \c{heap_claim_ephemeral} function manages these two slots.
+These are cleared on every cross-compartment call and can be cleared explicitly by passing \c{NULL} to \c{heap_claim_ephemeral}.
 
 If a pointer passed to \c{heap_free} is present in the allocator, the allocator will defer freeing the object.
 Writing to the hazard slots is very fast.
 Unlike \c{heap_claim}, this does not require a cross-compartment call.
 
 \begin{caution}
-	Any claim applied with \c{heap_claim_fast} is lost on \textem{any} cross-compartment call.
+	Any claim applied with \c{heap_claim_ephemeral} is lost on \textem{any} cross-compartment call.
 	This includes any blocking operation, which will invoke the scheduler.
-	In general, do not use \c{heap_claim_fast} for anything other than a local read or write of a single object.
+	In general, do not use \c{heap_claim_ephemeral} for anything other than a local read or write of a single object.
 \end{caution}
 
-The \c{heap_claim_fast} API is intended for very brief accesses to objects.
+The \c{heap_claim_ephemeral} API is intended for very brief accesses to objects.
 You can claim two pointers to support the common pattern of \c{memcpy} between two caller-provided (i.e. untrusted) buffers.
 You can claim both and then copy between them.
