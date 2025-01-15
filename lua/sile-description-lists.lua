@@ -26,6 +26,12 @@ visit = function (textTree)
 			textTree.kind = "itemize"
 			textTree:attribute_set("bullet", "")
 			textTree:match("item", itemTitle)
+			textTree:visit(function(child)
+				if type(child) == 'string' then
+					return {}
+				end
+				return {child}
+			end)
 			return { textTree }
 		else
 			textTree:visit(visit)
