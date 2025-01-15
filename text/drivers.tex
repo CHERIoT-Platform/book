@@ -173,7 +173,7 @@ We don't define a C structure that covers every single field for this and instea
 
 Interrupts are asynchronous notifications from devices.
 On most modern systems, including CHERIoT, external interrupts are multiplexed by an \keyword{interrupt controller}.
-The RISC-V \keyword[abbreviation=PLIC]{platform-local interrupt controller} (PLIC) handles all interrupts coming from devices and forwards them to the core.
+The RISC-V \keyword{platform-local interrupt controller} (PLIC) handles all interrupts coming from devices and forwards them to the core.
 When the core is running with interrupts disabled (or, more accurately, \textem{deferred}), interrupts are still received by the PLIC and recorded.
 Similarly, if two interrupts fire at the same time, the PLIC ensures that they are not lost.
 

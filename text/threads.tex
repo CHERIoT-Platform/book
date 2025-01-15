@@ -593,6 +593,7 @@ Sometimes, it's useful to be able to give one compartment the ability to write t
 The queue compartment provides two APIs that let you allocate a handle that is authorised for only sending or receiving, \c{queue_receive_handle_create_sealed} and \c{queue_send_handle_create_sealed}.
 
 \functiondoc{queue_receive_handle_create_sealed}
+
 \functiondoc{queue_send_handle_create_sealed}
 
 With these APIs, you can have an initial setup compartment that creates a queue and then hands the send and receive endpoints to two others.
