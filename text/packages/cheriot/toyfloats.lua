@@ -207,43 +207,53 @@ function buildPage(self)
 			end
 		end
 
-		local extractMoveable = function(maybeMoveable)
-			log("Trying to move", self.state.outputQueue[maybeMoveable])
-			table.insert(
-				moveState.moved,
-				{ entry = table.remove(self.state.outputQueue, maybeMoveable), location = maybeMoveable }
-			)
-			-- If there is any glue after the moved thing, move that as well
-			local glue = 1
-			while (maybeMoveable < #self.state.outputQueue) and self.state.outputQueue[maybeMoveable].is_vglue do
-				log("Also moving glue (after): ", self.state.outputQueue[maybeMoveable])
+		-- Helper function to extract a moveable
+		local extractMoveable = function(movedVBoxIndex)
+			log("Trying to move", self.state.outputQueue[movedVBoxIndex])
+
+			-- Helper to extract a single vbox from the queue.  Takes the
+			-- current location and where it was in the queue before we started
+			-- messing with things as arguments.
+			--
+			-- TODO: I think tablex has a helper that lets us just collect
+			-- indexes and do this as a single extract.
+			local function moveVBox(currentIndex, originalIndex)
 				table.insert(
 					moveState.moved,
-					{ entry = table.remove(self.state.outputQueue, maybeMoveable), location = maybeMoveable + glue }
+					{ entry = table.remove(self.state.outputQueue, currentIndex), location = originalIndex }
 				)
+			end
+			-- Move the moveable box.
+			moveVBox(movedVBoxIndex, movedVBoxIndex)
+			-- If there is any glue after the moved thing, move that as well
+			local glue = 1
+			while (movedVBoxIndex < #self.state.outputQueue) and self.state.outputQueue[movedVBoxIndex].is_vglue do
+				log("Also moving glue (after): ", self.state.outputQueue[movedVBoxIndex])
+				moveVBox(movedVBoxIndex, movedVBoxIndex + glue)
 				glue = glue + 1
 			end
 
-			if maybeMoveable < #self.state.outputQueue then
-				log("First thing after moved box: ", self.state.outputQueue[maybeMoveable])
+			if movedVBoxIndex < #self.state.outputQueue then
+				log("First thing after moved box: ", self.state.outputQueue[movedVBoxIndex])
 			end
+
+			-- If there is any glue before the moved thing, also move that.
 			glue = -1
-			maybeMoveable = maybeMoveable - 1
-			if maybeMoveable >= 1 then
-				while (maybeMoveable < #self.state.outputQueue) and self.state.outputQueue[maybeMoveable].is_vglue do
-					log("Also moving glue (before): ", self.state.outputQueue[maybeMoveable])
-					table.insert(
-						moveState.moved,
-						{ entry = table.remove(self.state.outputQueue, maybeMoveable), location = maybeMoveable + glue }
-					)
+			movedVBoxIndex = movedVBoxIndex - 1
+			if movedVBoxIndex >= 1 then
+				while (movedVBoxIndex < #self.state.outputQueue) and self.state.outputQueue[movedVBoxIndex].is_vglue do
+					log("Also moving glue (before): ", self.state.outputQueue[movedVBoxIndex])
+					moveVBox(movedVBoxIndex, movedVBoxIndex + glue)
 					glue = glue - 1
 				end
 			end
 		end
+
 		-- If we saw an overfull page then we're going to try moving things
 		-- forwards.
 		if result == GlueResult.Overfull then
 			local maybeMoveable = consumed
+			-- Skip backwards over glue at the end of the page.
 			while (maybeMoveable > 0) and self.state.outputQueue[maybeMoveable].is_vglue do
 				maybeMoveable = maybeMoveable - 1
 			end
@@ -254,12 +264,12 @@ function buildPage(self)
 			end
 			extractMoveable(maybeMoveable)
 		else
+			-- If the page is underfull, try to move things from the next page.
 			local maybeMoveable = consumed + 1
+			-- Skip forwards over glue at the start of the next page.
 			while (maybeMoveable <= #self.state.outputQueue) and self.state.outputQueue[maybeMoveable].is_vglue do
 				maybeMoveable = maybeMoveable + 1
 			end
-			-- If the result is overfull, see if the element after the end of
-			-- the page is moveable and move it if so.
 			if maybeMoveable < #self.state.outputQueue then
 				if not isMoveable(self.state.outputQueue[maybeMoveable]) then
 					log("Page is underfull but next item is not moveable", self.state.outputQueue[maybeMoveable])
@@ -278,10 +288,12 @@ end
 
 function package:_init(options)
 	base._init(self)
+	-- Hook into the type setter and replace the build-page logic.
 	SILE.typesetter.buildPage = buildPage
 end
 
 function package:registerCommands()
+	-- Hacky \floating command.  Just wraps a parbox and sets a flag on the ouput.
 	self:registerCommand("floating", function(options, content)
 		local parbox, hlist = parboxPackage:makeParbox(options, content)
 		parbox.moveable = true
