@@ -1,4 +1,7 @@
 function process(textTree)
+	if config.print then
+		return textTree
+	end
 	for i, child in ipairs(textTree.children) do
 		if child.kind ~= "use" then
 			child:dump()
