@@ -1,0 +1,56 @@
+\chapter[numbering=false]{Preface}
+
+The book that you are currently reading is not (yet) the first edition of the CHERIoT Programmers Guide.
+It is a draft that contains most of the content that will go into the first edition, but has not yet completed technical review or copyediting.
+As such, expect it to contain both factual and typographic errors.
+
+We expect to finish technical review around the middle of February and then finish copyediting in March.
+
+This book is intended as a companion to the CHERIoT Platform.
+The latest draft is published on the \href[src=https://cheriot.org/book]{CHERIoT web site} and, after the first edition is published, this will include any errata from the first edition.
+
+\section{Acknowledgements}
+
+A few months ago, this book was less than half its current length.
+Completing it was made possible by a grant from the Discribe Hub, under the umbrella of the Digital Security by Design (DSbD) Industrial Strategy Challenge Fund.
+
+The cats on the cover represent safe, secure, compartmentalisation (what is safer or more secure than a cat in a box?).
+Each cat is in a separate, isolated, compartment, in the model for which CHERIoT was designed.
+
+The cat photos were contributed by some wonderful people from the Fediverse.
+Starting at the top left, numbered left to right then top to bottom, the photo credits are:
+
+\begin{description}
+	\item[tag="1, 3, 5, 10:"]{Photographer: James (@chongliss@mastodon.ie), Cats: Jiji (1), Luna (3, 5), and
+		Felix (10).}
+	\item[tag="2, 11:"]{Photographer: Cassian Lodge (@cassolotl@eldritch.cafe), Cat: Rosa.}
+	\item[tag="4:"]{Photographer: marinbenc (marinbenc@sigmoid.social)}
+	\item[tag="6:"]{Photographer: Asta Halkjær From (@ahfrom@fedi.ahfrom.synology.me), Cat: Betty Rambo.}
+	\item[tag="7:"]{Photographer: vitaut (@vitaut@mastodon.social), Cat: Luna (no relation).}
+	\item[tag="8:"]{Photographer: Michael McWilliams (@MichaelMcWilliams@mas.to).}
+	\item[tag="9:"]{ Photographer: jarkman (@jarkman@chaos.social).}
+	\item[tag="12:"]{ Photographer: Isaac Freund (@ifreund@hachyderm.io), Cat: Marzipan.}
+\end{description}
+
+No generative AI was used in the creation of this image.
+No artists work was appropriated without their consent.
+
+\section{Reading and using examples}
+
+Code listings in this book specify the file that they come from in the book's examples.
+You can find the examples \href[src=https://github.com/CHERIoT-Platform/book/tree/main/text/examples]{in the book's git repository on GitHub}.
+
+\begin{note}
+	Before the first edition is finished, the examples will move to a separate repository, to make it easier to clone them and to include the dev container configuration.
+\end{note}
+
+Example code is pulled in from complete source files to ensure that everything that you see as a listing is valid code that will, at the very least, compile (and hopefully work).
+You should be able to build and run all of the example code in the book yourself.
+
+Listings have line numbers on the left.
+These are the line numbers in the file, so you can read the extracted listings in context.
+
+When you read the files that contain these listings, you will see comments like \c{// something#begin} and \c{// something#end}.
+These are the markers for regions extracted and used in the book.
+
+Syntax highlighting for this book is done by libclang (for C/C++) or TreeSitter (for Lua and Rego).

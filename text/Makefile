@@ -19,6 +19,7 @@ SOURCES=\
 	networking.tex \
 	porting_from_bare_metal.tex \
 	porting_from_freertos.tex \
+	preface.tex \
 	threads.tex
 
 HTML_PASSES= \
