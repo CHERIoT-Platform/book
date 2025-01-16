@@ -141,11 +141,6 @@ function buildPage(self)
 		if self.state.movefloatstate then
 			if math.abs(adjustment) > moveState.bestPenalty then
 				log("Moving floats made things worse, resetting to a previous queue state")
-				-- FIXME: This just puts everything back
-				for _, v in ipairs(moveState.moved) do
-					table.insert(self.state.outputQueue, v.location, v.entry)
-				end
-				consumed = moveState.bestConsumed
 			else
 				log("Moving floats improved layout, had ", moveState.bestPenalty, " now have ", adjustment)
 			end
