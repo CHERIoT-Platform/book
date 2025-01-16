@@ -136,7 +136,6 @@ function buildPage(self)
 	-- Use the current result, or a better one if we have seen one while trying
 	-- to rejig the queue and reset state.
 	local function finish()
-		-- Anything that we've moved goes back on the front of the queue
 		local moveState = self.state.movefloatstate
 		if self.state.movefloatstate then
 			if math.abs(adjustment) > moveState.bestPenalty then
@@ -259,6 +258,14 @@ function buildPage(self)
 			end
 			extractMoveable(maybeMoveable)
 		else
+			-- Hack: If the last thing is a big penalty, assume that we're
+			-- never going to get better by adding more things.
+			local lastVBox = self.state.outputQueue[#self.state.outputQueue]
+			if lastVBox and (lastVBox.is_penalty) and (lastVBox.penalty <= -10000) then
+				finish()
+				return true
+			end
+
 			-- If the page is underfull, try to move things from the next page.
 			local maybeMoveable = consumed + 1
 			-- Skip forwards over glue at the start of the next page.
