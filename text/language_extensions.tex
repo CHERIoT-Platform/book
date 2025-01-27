@@ -47,7 +47,7 @@ error: entry.cc:15:35: error: CHERI compartment entry declared for compartment '
 
 \section[label=cheri_callback]{Passing callbacks to other compartments.}
 
-The \c{cheri_ccallback} attribute specifies a function that can be used as an entry point by compartments that are passed a function pointer to it.
+The \c{cheri_callback} attribute specifies a function that can be used as an entry point by compartments that are passed a function pointer to it.
 This attribute must also be used on the type of function pointers that hold cross-compartment invocations.
 Any time the address of such a function is taken, the result will be a sealed capability that can be used to invoke the compartment and call this function.
 
@@ -69,9 +69,9 @@ For a normal call, the compiler will emit a simple jump-and-link to the address,
 
 Every function that's exposed for cross-compartment invocation has an entry in the compartment's \keyword{export table}, containing the metadata that the switcher will use.
 Every function that is directly called by another compartment will then have an entry in the calling compartment's \keyword{import table} that the loader will initialise with a sealed capability to the export table entry.
-Callback functions work in a similar way, except that the import-table entry is for the compartment that exposes the callback.
+Callback functions work in a similar way, except that the import table entry is for the compartment that exposes the callback.
 
-When you take the address of a callback function, the compiler simply inserts a load of the import-table entry, giving exactly the same kind of sealed capability that you would use for direct cross-compartment calls.
+When you take the address of a callback function, the compiler simply inserts a load of the import table entry, giving exactly the same kind of sealed capability that you would use for direct cross-compartment calls.
 At the call site, the only difference between a direct cross-compartment call and a callback is that the former will contain the load from the import table, whereas the latter will simply move the callback into the register that is used to pass the callee to the switcher.
 
 \codelisting[filename=examples/compartment_annotation/compartment.cc,marker=monotonic,label=lst:monotoniccallbackfn,caption="The body of a function that invokes a cross-compartment callback."]{}
@@ -224,6 +224,7 @@ The \c{DEVICE_EXISTS({name\})} macro can be used to detect whether the current t
 
 The \c{type} parameter is the type used to represent the MMIO region.
 The macro evaluates to a \c{volatile {type\} *}, so \c{MMIO_CAPABILITY(struct UART, uart)} will provide a \c{volatile struct UART *} pointing (and bounded) to the device that the board definition exposes as \c{uart}.
+\phil{ An example, or a pointer to an example, would be good here}
 
 \section{Sealing opaque types}
 
@@ -289,7 +290,8 @@ Capabilities can be modified with the nouns and verbs listed in \ref{tbl:cap_mod
 		\tr{ \th{Noun} \th{Modification verb} \th{Operation}}
 		\tr{\td{\c{address}} \td{\c{set}}             \td{Set the address for the capability.}}
 		\tr{\td{\c{bounds}}  \td{\c{set}}             \td{Sets the base at or below the current address and the length at or above the requested length, as closely as possible to give a valid capability}}
-		\tr{\td{\c{bounds}}  \td{\c{set_exact}}       \td{Sets the base to the current address and the length to the requested length or returns an untagged capability if the result is not representable.}}
+		\tr{\td{\c{bounds}}  \td{\c{set_exact}}       \td{Sets the base to the current address and the length to the requested length or returns an untagged capability if the result is not representable.
+	\phil{ the term "untagged capability" doesn't immediately convey that what you get back is a capability that will fault if you try to use it - i.e. you have to use an is_valid() check on the result to see if the call worked or not. }}}
 		\tr{\td{\c{perms}}   \td{\c{and}}             \td{Clears all permissions except those provided as the argument.}}
 		\tr{\td{\c{tag}}     \td{\c{clear}}           \td{Invalidates the capability but preserves all other fields.}}
 	\end{tabular}
@@ -297,7 +299,7 @@ Capabilities can be modified with the nouns and verbs listed in \ref{tbl:cap_mod
 \end{table}
 
 
-Setting the object type is more complex.
+Setting the object type for sealed capabilities is more complex.
 This is done with \c{__builtin_cheri_seal}, which takes an authorising capability (something with the permit-seal permission) as the second argument and sets the object type of the result to the address of the sealing capability.
 Conversely, \c{__builtin_cheri_unseal} uses a capability with the permit-unseal capability and address matching the object type to restore the original unsealed value.
 
@@ -334,8 +336,9 @@ When you run this example, you should see something like this (the exact address
 
 First, note the difference between the permissions on the stack and heap allocation.
 The heap allocation has global permission: it may be stored anywhere.
-The stack allocation lacks global, but has store-local permission, which allows it to be used to store other capabilities that lack the global permission.
+The stack allocation lacks global, but has store-local permission, which allows it to be used to store other capabilities providing they don't have the global permission.
 This ensures that stack pointers can be stored only on the stack.
+\phil{ Not quite clear which of the two conditions (lacking global or having store-local "This" is referring to).}
 
 The bounds on the original heap allocation are rounded up to a multiple of the heap's allocation granule size.
 The CHERIoT allocator allocates 8-byte chunks, so this is rounded up to 24 (0x18) bytes.
@@ -519,7 +522,7 @@ You can test that the alignment is adequate by doing a bitwise and (C operator: 
 This should leave the value unmodified.
 
 \section[label=cheri_capability_cpp]{Manipulating capabilities with \cxx{CHERI::Capability}}
-
+\phil{ Feels like this would be better right after the section "Manipulating capabilities with C builtins"}
 The raw C builtins can be somewhat verbose.
 CHERIoT RTOS provides a \cxx{CHERI::Capability} class in \file{cheri.hh} to simplify inspecting and manipulating CHERI capabilities.
 

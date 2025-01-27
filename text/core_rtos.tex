@@ -3,15 +3,19 @@
 The core of the RTOS is a set of privilege-separated components.
 Each core component runs with some privileges that mean that it is (at least partially) in the trusted computing base (TCB) for other things.
 
+\phil{ Consider consistent capitalisation of Loader, Switcher, Scheduler, Allocator, etc }
+
 \section{Starting the system with the loader}
 
 The \keyword{loader} runs on system startup.
 It reads the compartment headers and populates each compartment with the set of capabilities that it needs.
+\phil{ reads them from where ?}
 The loader exists so that the system can be started from a firmware image that does not embed capabilities.
 This is a useful property even if a particular target has persistent storage (non-volatile RAM) that \textem{can} hold capabilities because it ensures that there is an on-device \keyword{pointer provenance} flow for the firmware.
 
 If a device has non-volatile storage that holds tags, you will typically run the loader once at install time or on first boot of a new firmware image.
 This ensures that the image contains only capabilities handed to it.
+\phil{ Not sure about the phrasing here, in my head the image is the (read only) thing you're loading from.  Maybe its the loaded instance of the image that gets handed its capabilities ?}
 This, in turn, enables multi-stage boot where some functionality, such as attestation, secure key storage, and so on, are provided by a bootloader.
 These abstractions can all be built from capabilities and so, unlike systems based on protection rings such as TrustZone, an arbitrary number can be nested.
 
@@ -53,23 +57,27 @@ The memory that held loader's code is used for heap memory.
 The \keyword{switcher} is the most privileged component that runs after the system finishes booting.
 It is responsible for transitions between threads (context switches) and between compartments (cross-compartment calls and returns).
 The switcher is a very small amount of code—under 500 instructions—that is expected to be amenable to formal verification.
+\phil{ Seems an odd style point to use hyphons here rather that commas or brackets}
 
 \begin{note}
 Work is underway to formally verify the security properties of the switcher, but is still in early stages.
 \end{note}
+\phil{ I'd lose the "but is still in early stages" - that kind of works in an on-line version that can be easily updated, less so in a book.  A pointer to where that work can be followed would be more useful. }
 
 The switcher is the only component in a running CHERIoT system that has access-system-registers permission.
-It uses this primarily to access a single reserved register that holds the \keyword{trusted stack}.
-The trusted stack is a region of memory containing the register save area for context switches and a small frame for every cross-compartment call that allows safe return even if the callee has corrupted all state that it has access to.
+It uses this primarily to access a single reserved register that holds the capability that defines the \keyword{trusted stack}.
+The trusted stack is a region of memory containing the register save area for context switches and a small frame for every cross-compartment call that allows a safe return even if the callee has corrupted all state that it has access to.
 
 Trusted stacks are set up by the loader.
+\phil{ Is there one Trusted stack, or several Trusted stacks - the jump from singular above to plural here feels a bit uncomfortable.}
 The loader passes the scheduler (see \ref{_time_slicing_with_the_scheduler}) a sealed capability to each of these on initialisation.
 The switcher holds the only permit-unseal capability for the type used to seal trusted stacks.
 
-The context switch path spills all registers to the current trusted stack's save area and then invokes the scheduler, which returns a sealed capability to the next thread to run.
+The context switch path in the Switcher spills all registers to the current trusted stack's save area and then invokes the scheduler, which returns a sealed capability to the next thread to run.
 It then restores the register file from this thread and resumes.
 If the scheduler returns an invalid capability (one not sealed with the correct type) then the switcher will raise a fault.
 If the exception program counter capability on exception entry is within the switcher's capability, the switcher will terminate.
+\phil{ First reference to "exception program counter capability" - its not really clear to me what this sentence is trying to explain.}
 
 On the cross-compartment call path, the switcher is responsible for unsealing the capability that refers to the export table of the callee, clearing unused argument registers, pushing the information about the return to the trusted stack, subsetting the bounds of the stack, and zeroing the part of the stack passed to the callee.
 On return, it zeroes the stack again, zeroes unused return registers, and restores the callee's state.
@@ -80,7 +88,7 @@ This risk is mitigated in several ways:
 
 \begin{itemize}
 	\item{The switcher is small.
-		It contains a similar number of instructions to the amount of unverified code in seL4.}
+		It contains a similar number of instructions compared to the amount of unverified code in seL4.}
 	\item{The switcher is defensive.
 		Most errors simply forcibly unwind to the previous trusted stack frame, so a compartment that attempts to attack the switcher exits to its caller.}
 	\item{Like everything else in the system, it must follow the capability rules.
@@ -117,6 +125,7 @@ The scheduler also exposes other entry points that can be invoked by cross-compa
 These fulfil a role similar to system calls on other operating systems, for example waiting for external events or performing inter-thread communication.
 The scheduler implements blocking operations by moving the current thread from a run queue to a sleep queue and then issuing a software interrupt instruction to branch to the switcher.
 When the switcher then invokes the scheduler to make a scheduling decision, it will discover that the current thread is no longer runnable and pick another.
+\phil{ Not clear is "it" in the previous sentence is the Switcher or the Scheduler}
 Once the thread becomes runnable again, the switcher resumes the thread from the point where it yielded, at which point it can return from the scheduler.
 
 The scheduler is, by definition, in the TCB for availability.
@@ -140,7 +149,7 @@ This narrow interface and clear separation of concerns helps improve overall sys
 
 \section{Sharing memory from the allocator}
 
-The final core component is the memory allocator, which provides the heap, which is used for all dynamic memory allocations.
+The final core component is the memory allocator, which provides the heap used for all dynamic memory allocations.
 This is discussed in detail in \ref{shared_heap}.
 Sharing memory between compartments in CHERIoT requires nothing more than passing pointers (until you start to add availability requirements in the presence of mutual distrust).
 This means that you can allocate objects (or complex object graphs) from a few bytes up to the entire memory of the system and share them with other compartments.
@@ -194,7 +203,8 @@ CHERIoT RTOS provides the \library{crt} library to implement these functions.
 Not every compartment will need all of them, but the library is around 1.5 KiB of code and so duplicating it across every compartment that does need them would be likely to increase code size significantly.
 
 Although the code sizes in this section may look small, moving a function to a separate compartment typically adds only a handful of bytes to the final binary size.
-It's quite feasible to have a compartment that is on the order of a hundred bytes in total size.
+It's quite feasible to have a compartment that is of the order of a hundred bytes in total size.
+\phil{ Compartment or Library - the code before is focused on libraries?}
 
 \section{Supporting atomic operations}
 
@@ -210,7 +220,7 @@ This does not matter because atomic instructions need to be atomic only with res
 
 On single-core systems, atomic operations can be implemented by simply disabling interrupts, performing the read-modify-write sequence, and then enabling interrupts.
 As we saw in \ref{interrupt_sentries}, CHERIoT has a simple mechanism for allowing a single function to run with interrupts disabled, without granting it the power to arbitrarily disable interrupts.
-This mechanism makes it possible to implement the atomic helpers are trivial C functions that just do the non-atomic operations but run with interrupts disabled.
+This mechanism makes it possible to implement the atomic helpers as trivial C functions that just do the non-atomic operations but run with interrupts disabled.
 Each atomic operation on 1, 2, 4, and 8-byte values is defined as a separate function.
 
 On larger cores, these simple helpers are unnecessary, but C and C++ specified that \textem{any} type could be atomic.

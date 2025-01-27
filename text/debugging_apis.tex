@@ -119,6 +119,7 @@ Debug compartment: Here is a C string hello from a C string, A C++ string view h
 Debug compartment: Here is an enum value: AddressKindIPv4(0x2)
 Debug compartment: Here is a pointer: 0x80000ef8 (v:1 0x80000ef8-0x80000efc l:0x4 o:0x0 p: - RWcgml -- ---)
 \end{console}
+\phil{ The code in listing 60 doesn't match this output}
 
 On the penultimate line, both the name and value of the enumeration are printed.
 This has some limitations.
@@ -181,7 +182,7 @@ The second line isn't quite perfect IPv6 output (it should be simply :1), but it
 
 \section{Asserting invariants}
 
-Assertions and invariants use the same formatting infrastructure as lthe log message code.
+Assertions and invariants use the same formatting infrastructure as the log message code.
 The terms are often used interchangeably.
 In builds with the debug option enabled, both behave in the same way.
 They take a condition and a message (including a format string and arguments, as with the logging APIs).

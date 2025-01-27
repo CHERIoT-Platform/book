@@ -66,7 +66,7 @@ As such, there is no equivalent of the FreeRTOS \c{xTaskCreate} function.
 Threads (and their associated stacks and trusted stacks) must be described up front in the build system (see \ref{_defining_threads}).
 In some cases, dynamically created threads can be replaced with thread pools, in the same way that coroutines can.
 
-The compatibility later exposes \c{xTaskCreate} and \c{xTaskCreateStatic} as macros that generate a warning and evaluate to an invalid thread handle.
+The compatibility layer exposes \c{xTaskCreate} and \c{xTaskCreateStatic} as macros that generate a warning and evaluate to an invalid thread handle.
 This is intended to ease porting of code that conditionally uses these APIs.
 
 The best way to replace dynamic thread creation is usually to create the threads declaratively in the build system.
@@ -95,7 +95,7 @@ On memory-constrained systems, dynamic thread creation can easily exhaust memory
 Pushing these as thread-pool tasks provides similar behaviour, with each task taking ownership of the (safely zeroed) stack after the previous one has finished.
 
 \begin{note}
-The RTOS-provided thread pool is very simple.
+The CHERIOT RTOS provided thread pool is very simple.
 You may wish to implement something similar using it as an example, rather than using it as an off-the-shelf component.
 \end{note}
 
@@ -193,6 +193,7 @@ The structure of such a service is similar to that of the thread pool in \file{l
 These should be added to a data structure that keeps them sorted.
 The thread that runs the callbacks should wait on a message queue, with the timeout set to the shortest time timer.
 If this wakes with timeout, it should invoke the first (\c{__cheri_callback}, see \ref{cheri_callback}) callback function in its queue.
+\phil{ The cross reference in the above disrupts the flow of the sentence without adding much.  }
 If it wakes receiving a message, it should add the new callback into the set that it has ready.
 
 There is no generic version of this in CHERIoT RTOS because it is impossible to implement securely in the general case for a system with mutual distrust.
@@ -240,7 +241,7 @@ Disabling interrupts is the simplest way of guaranteeing both on a single-core s
 FreeRTOS provides two APIs for critical sections: \c{taskENTER_CRITICAL} and \c{taskEXIT_CRITICAL}, which disable interrupts, and \c{vTaskSuspendAll} and \c{xTaskResumeAll}, which disable the scheduler.
 CHERIoT RTOS is designed to provide availability guarantees across mutually distrusting components and so does not permit either unbounded disabling of interrupts or turning the scheduler off.
 If mutual exclusion is the only requirement then you can implement these function as acquiring and releasing a lock that is private to your component.
-This is how that are implemented in the compatibility layer.
+This is how they are implemented in the compatibility layer.
 They use distinct locks and these must be defined in your compartment, as shown below:
 
 \begin{cxxsnippet}

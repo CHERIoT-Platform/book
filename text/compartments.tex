@@ -1,6 +1,7 @@
 \chapter[label=compartments]{Compartments and libraries}
 
 Compartments in CHERIoT are somewhere between libraries and processes in mainstream operating systems.
+\phil{I think the comparison to processes might be confusing in the context of compartments being orthogonal to threads.  Might be better to talk about them as being a point in time constrained environment for a thread, or at least providing some view/comment on threads here.   }
 They have private code and globals and constitute a security boundary.
 They can export functions to be called form other compartments and can call functions exported from other compartments.
 
@@ -37,6 +38,7 @@ As mentioned previously, (read-only) globals in a library are hidden in a softwa
 
 You can still use globals to share data but you must explicitly expose them via an accessor function.
 This makes CHERIoT compartments and libraries similar to Smalltalk-style objects, with public methods and private instance variables.
+\phil{ Is this still true now there is support for pre-shared globals ?}
 
 If you expose an interface that returns a pointer to a global, you can use CHERI permissions to restrict access.
 Returning a read-only pointer to a global is a common idiom for building a lightweight broadcast communication channel.
@@ -54,6 +56,8 @@ The inline assembly needs to run at the start of the function because this funct
 \codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
 
 When you run this code, you should see output something like this:
+\phil{  Feels like something is missing here, you've only shown the declarations and body of the called compartment/library, but it's not clear that there are actually two compartments (Entry & Compartment) and thread that starts in Entry and then calls into Library followed by a call into Compartment.}
+\phil{ "CalledCompartment" might be a clearer name, as it is you have "Entry compartment" and "Compartment compartment" }
 
 \begin{console}
 Entry: Stack pointer: 0x80000d30 (v:1 0x80000750-0x80000d50 l:0x600 o:0x0 p: - RWcgml -- ---)
@@ -78,12 +82,14 @@ As previously mentioned, a malicious library can access any globals in the calle
 
 Finally, look at the stack pointers.
 The first thing to note is that the \textem{start} address is 0x80000750 in all cases.
+This is because the stack belongs to the thread and not the compartment. 
 Stacks grow downwards and the \textem{end} of the stack is the same for each.
 The \textem{address} of the stack pointer is different in each because they run at different depths on the stack.
 The initial value is very close to the top of the stack, then the library and compartment calls are deeper.
 A compartment call needs to save more state (two callee-save registers and the old global pointer, which are preserved across normal calls) and so entry to the compartment call is slightly (48 bytes) lower.
 The top of the stack is the most interesting place.
 In the compartment call, the top of the stack is at address 0x80000d10, 64 bytes below its location in the entry compartment and the library.
+Phi> Also worth pointing out that the stack pointer length is smaller in the called compartment, but the same in the library, because libraries have full access to the sack of the caller ?
 Anything above that point is unreachable in the compartment before then.
 
 This may all be easier to understand visually.
@@ -162,6 +168,8 @@ The \lua{firmware} target definition is more complex because it also implicitly 
 If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentation}, simply treat these as if they were \lua{target} definitions.
 \end{note}
 
+\phil{ Somewhere, not sure if it fits in here or section 4, it would be good to mention how you can create a reusable compartment model with includes() of a directory with the files and xmake.lua - as used in the network stack. That feels like a very nice model / practice to promote. }
+
 Once you have defined the rules to build each compartment and library, they need to be combined into a firmware image.
 Any library or compartment that is a direct or indirect dependency of a firmware image will be built and linked into the final image.
 For this example, we show both forms.
@@ -197,8 +205,8 @@ The memory allocator is also written as a safebox, assuming that everything else
 For some operations, the scheduler invokes the allocator.
 The scheduler trusts the allocator to enforce heap memory safety.
 It does not, for example, try to check that the memory allocator is returning disjoint capabilities (it can't see every other caller of \c{heap_allocate}, and so couldn't validate this).
-It is; however, written to assume that other compartments may try to maliciously call allocator APIs to cause it to crash.
-
+It is, however, written to assume that other compartments may try to maliciously call allocator APIs to cause it to crash.
+\phil{ "It" being Scheduler or Allocator ? Reads as its is the Scheduler,but seems odd that would protect malicious calls to the Allocator API. }
 When thinking about trust, it's worth trying to articulate the properties that other code is trusted to enforce or preserve.
 For example, everything in the CHERIoT system trusts the scheduler for availability.
 Most things trust the allocator to enforce spatial and temporal memory safety for the heap.
@@ -289,6 +297,7 @@ If you put the driver in a separate compartment then you are protected in both d
 	\item{The driver is the only thing that can touch the relevant GPIO pin and so, if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.}
 	\item{The driver runs with interrupts disabled but the rest of the application does and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
 \end{itemize}
+\phil{ Should this be "...rest of the application does not ..." ?}
 
 This then gives you something to build on if you decide, for example, that you want to be able to update the lighting patterns from the Internet.
 Now you want to add a network stack to be able to fetch the new patterns and an interpreter to run them.
@@ -305,6 +314,7 @@ TLS packets have cryptographic integrity protection and so anything that comes t
 \section{Validating arguments}
 
 \functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
+\phil{ In this block I didn't follow the point in EnforceStrictPermissions on how it is useful, in particular is the compartment that asking for less permissions that required the one making the check ?  is it more that they require less than might be in present in the pointer they are passed ? }
 
 If a function that is exported from a compartment takes primitive values as arguments, there's little that an attacker can do other than provide invalid values.
 For things like integers, this doesn't matter, for enumerations it's important to ensure that they are valid values.
@@ -329,6 +339,8 @@ It checks that a pointer has (at least) the bounds and permissions that you expe
 If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
+\phil{ Feels like the block describing check pointer might more naturally sit here in the narrative}
+
 \begin{note}
 Checking the pointer is not the only option.
 A CHERI fault will invoke the compartment's error handler (see \ref{handling_errors}) and so it may be possible to recover.
@@ -352,8 +364,8 @@ If this compartment exposed more than one function that used the UART then the l
 
 \codelisting[marker=safe_uart,caption=Checks to ensure that a function does not crash.,label=lst:safeuartchecks, filename=examples/check_arguments/uart.cc]{}
 
-Next, it uses \c{heap_claim_fast} to prevent concurrent deallocation.
-After this, it is safe to use \cxx{check_pointer} to ensure that the permissions are correct and that this pointer does not overlap the current compartment's stack.
+Next, it uses \c{heap_claim_ephemeral} to prevent concurrent deallocation.
+After this, it is safe to use \cxx{check_pointer} to ensure that the permissions are correct and that this pointer does not overlap the current compartment's stack (because of the default value of CheckStack).
 For a C string, this checks only that a single byte is readable.
 The function then gets the length explicitly and prints either the full length of the buffer, or the buffer up to a null terminator, whichever is shorter.
 
@@ -379,6 +391,7 @@ Finally, the non-malicious string is printed correctly, showing that the attacke
 The stack is shared between compartments invoked on the same thread.
 The callee has access to the portion of the stack that its callers have not used.
 This means that a malicious compartment can consume almost all of the stack and then try to force a callee to trap when it tries to use the stack.
+\phil{ Wasn't clear, but I assume that the callee its trying to force to trap is one that the malicious comp is calling ?  Seems a bit confusing as the malicious comp itself is first described as callee, so it sounds as if it could consume the stack, return, and then cause a problem to a "peer callee" }
 
 Before entering a compartment, the switcher will check the amount of stack space against the required amount in the export table.
 By default, the compiler will fill this value with the amount that is required by the function that serves as an entry point.
@@ -387,6 +400,8 @@ This is sufficient for leaf functions, but if your function calls others (and th
 You can specify the stack space required by a function by using the \c{__cheriot_minimum_stack} attribute.
 This is a function attribute that takes a single argument, the number of bytes of stack space that the function requires.
 Using this attribute requires you to know how much stack space the function will use.
+
+\phil{ Not really clear how to use this defensively in the case of the malicious compartment described.   In the chain c1 -> c2 -> c3, where c2 is the malicious compartment does adding this attribute to the function in c3 prevent c2 from calling it ?  If so is it only useful / usable on compartment and library entry points ? }
 
 CHERIoT CPUs include a feature called a stack high-water mark that tracks the amount of stack that is used so that the switcher can avoid zeroing unused portions of the stack.
 The switcher provides a function, \c{stack_lowest_used_address}, that you can call to find the lowest address.
@@ -443,7 +458,7 @@ The stackless variant will be passed the stack capability as it was on entry to 
 Most users will not write these but will instead use one that the platform provides.
 
 \section{Writing rich error handlers}
-
+\phil{ Should this be a subsection of "Handling Errors" ? }
 You can provide a rich error handler by implementing \c{compartment_error_handler} in your compartment.
 
 \functiondoc{compartment_error_handler}
@@ -484,6 +499,7 @@ For example, you may wish to drop locks when an error occurs, or you may wish to
 The \c{heap_free_all} function, discussed in \ref{shared_heap} helps with the latter.
 
 \section{Using scoped error handling}
+\phil{ Should this be a subsection of "Handling Errors" ? }
 
 You are unlikely to ever write a stackless error handler.
 Most of the time, you will want to link the one provided by the \file{unwind_error_handler} target.
@@ -646,6 +662,7 @@ The token APIs look as if they're provided by the allocator, but \c{token_obj_un
 This makes it fast to unseal objects (no cross-compartment call).
 It also removes any dependency on the allocator from things that rely on static sealing.
 
+\phil{ Make it clear the following is a case study / example of using sealed capabilities. Anyone looking to implement one of their own would be advised to look at the malloc code as an example. }
 The allocator uses the static sealing mechanism to define allocation capabilities.
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
@@ -686,6 +703,8 @@ For example:
         target:values_set("shared_objects", { exampleK = 1024, test_word = 4 \}, {expand = false\})
     end)
 \end{luasnippet}
+
+\phil{ Does it have to be defined in each target that shares it, or just one ?}
 
 This is from the test suite and defines a \c{test_word} object that is a single 32-bit value and an \c{exampleK} object that is 1024 bytes.
 Note that the objects are defined as sizes, not as types.

@@ -23,6 +23,8 @@ These do not include the SNTP and MQTT compartments, which we'll see later.
 
 \figure[label=networkstackstructure,src=figures/NetworkStack.svg,alt=An illustration of the compartments in the network stack]{The core compartments in the network stack.}
 
+\phil{ showing in the diagram how only the Firewall has access to the Ethernet hardware would be nice.}
+
 The TCP/IP and TLS stacks are largely existing code, from the FreeRTOS+TCP and BearSSL projects, respectively.
 The BearSSL code has no platform dependencies and so is simply recompiled.
 The FreeRTOS+TCP code, unsurprisingly, assumes that it is running on FreeRTOS and is ported using the compatibility layer described in \ref{from_freertos}.
@@ -82,7 +84,7 @@ The time helpers library is not something that we've looked at so far and you'll
 \lualisting[filename=examples/sntp/xmake.lua,marker=network_stack_deps,label=lst:xmakenetdeps,caption="Build system code for adding dependencies on the network stack."]{}
 
 Finally, you need to create the threads that the network stack uses.
-The thread that starts in the driver handles incoming packets.
+The thread that starts in the Firewall compartment handles incoming packets.
 This calls into the TCP/IP compartment for each packet, to enqueue it for handling.
 The other thread handles TCP retransmissions, keep-alive packets, and so on.
 TCP provides a reliable transport over an unreliable network and so has to buffer each outgoing packet until the receiver acknowledges receipt.
@@ -104,15 +106,16 @@ In a real system, you would probably want to handle the case where the network i
 
 \codelisting[filename=examples/sntp/sntp.cc,marker=sntp_update,label=lst:sntpupdate,caption="Updating the time from the SNTP server."]{}
 
+\phil{ As this is the first message being sent would you not want to mention here the interactions between the SNTP compartment and Network API / Firewall ?    }
+
 Once the current time has been fetched, you can get the current time of day.
 \ref{lst:sntpshowtime} shows a loop that runs roughly every 50 ms and prints the time (as a UNIX epoch timestamp) if the second number of seconds has changed since last time.
 The \c{gettimeofday} function called here is from the time helpers library that mentioned earlier.
 
 \codelisting[filename=examples/sntp/sntp.cc,marker=show_time,label=lst:sntpshowtime,caption="Printing the current UNIX epoch time."]{}
 
-The SNTP compartment and the time helpers library share a pre-shared object (see \ref{_sharing_globals_between_compartments}).
+The SNTP compartment and the time helpers library share a pre-shared object (see \ref{_sharing_globals_between_compartments}) which contains the UNIX timestamp at the time of the last NTP update, the cycle time of the last update, and the current epoch.
 The SNTP compartment has a read-write view of this, the time helpers library a read-only view.
-This contains the UNIX timestamp at the time of the last NTP update, the cycle time of the last update, and the current epoch.
 When the SNTP compartment updates this, it increments the epoch once, writes the new value, and then increments the epoch again.
 The time library can therefore get a consistent snapshot of the values by reading the epoch, reading the other values, and then reading the epoch again to make sure that it hasn't changed.
 If the epoch value is odd, the time helpers library does a futex wait operation to block until the value has changed.
@@ -145,6 +148,7 @@ Try modifying this example to update the time from the NTP server once per minut
 In the traditional Berkeley Sockets model, creating a connected socket is a multi-step operation.
 First, you must create the socket.
 Next, you may (optionally) bind it to a specific local port, though this step is usually omitted to.
+\phil{ "omitted to" ?}
 Finally, you connect it.
 The CHERIoT network stack combines these into a single \c{network_socket_connect_tcp} call.
 
@@ -197,7 +201,7 @@ The TCP/IP compartment will not do this in normal operation but if an attacker m
 This is not a problem for this example, which reads each byte in the returned buffer exactly once.
 \end{caution}
 
-The result of the \c{network_socket_connect_tcp} is a \c{struct NetworkReceiveResult}, which contains two fields.
+The result of the \c{network_socket_receive} is a \c{struct NetworkReceiveResult}, which contains two fields.
 The first field, \c{bytesReceived}, is the number of bytes received, or a negative error code.
 The second, \c{buffer} is the buffer (which will be null in error cases).
 This example uses C++ structured binding to decompose the structure and make it appear as if the function returned two values.
@@ -236,6 +240,7 @@ This is shown in \ref{lst:tcplistencap} and includes the local port number that 
 The second is important for limiting the amount of the TCP/IP compartment's memory you can consume.
 Each unaccepted socket requires some state in the TCP/IP stack.
 For most embedded uses, one or two is adequate.
+\phil{ Maybe "Even sockets in the unaccepted state require ..." }
 
 \codelisting[filename=examples/tcp_echo_server/tcp.cc,marker=server_capability,label=lst:tcplistencap,caption="A static capability that authorises binding to a local port."]{}
 
@@ -433,6 +438,8 @@ Once you have the trust anchors and the hostname and port, you have everything t
 The current implementation of TLS in the CHERIoT network stack uses BearSSL, which avoids heap allocation.
 Unfortunately, this includes all of the big-number arithmetic, which causes it to require very large stacks.
 \ref{lst:xmaketlsbigstack} shows the stack for this example: it is just under 8 KiB.
+\phil{Consider removing the commented out stack_size line}
+
 
 \lualisting[filename=examples/tls/xmake.lua,marker=example_thread,label=lst:xmaketlsbigstack,caption="Build system code for a thread that will use TLS."]{}
 
@@ -472,6 +479,7 @@ This example implements a minimal HTTP client to demonstrate sending and receivi
 The send code is shown in \ref{lst:tlssend}.
 As with the underlying TCP send call, the TLS send call may send less than the requested amount of data.
 This code is therefore called in a loop, which will try if it fails.
+\phil{ Should this be "which will retry if it fails." ?}
 The echo server did not need to handle this case because it only ever sent individual bytes and provided an unlimited timeout, so either the byte entered the TCP socket's send queue or the caller blocked.
 
 This is unnecessary for the example because the amount of sent data is smaller than the TLS socket's internal buffer size, so the loop will never execute, but you can force it to by adding additional headers.
@@ -498,8 +506,10 @@ If you do, you will not impact other TLS flows and the flow that you will impact
 \section[label=mqtt]{Communicating with an MQTT server}
 
 A lot of IoT applications use MQTT (which doesn't stand for anything) as a publish-subscribe protocol for messaging.
+\phil{ Message Queuing Telemetry Transport ?}
 MQTT exposes an abstraction of a tree of nodes, where clients can subscribe to nodes and publish new values to a node.
 When a client publishes a message to a node, a copy is sent to every client that has subscribed to that topic.
+\phil{ Maybe need to explain the relationship betwwen nodes and topics ?}
 The protocol supports multiple levels of \keyword{quality of service} (QoS):
 
 \begin{description}
@@ -507,7 +517,7 @@ The protocol supports multiple levels of \keyword{quality of service} (QoS):
 	If delivery fails, neither the client nor server will do any additional steps.}
 \item[tag=At least once]{The server will attempt to deliver the message and wait for an acknowledgement.
 	If delivery fails, the server will try again until the message is acknowledged.}
-\item[tag=Exactly once]{The server will attempt to deliver the message and use a two-way handshake to ensure that the message arfives exactly once.}
+\item[tag=Exactly once]{The server will attempt to deliver the message and use a two-way handshake to ensure that the message arrives exactly once.}
 \end{description}
 
 The QoS levels are intended to work even if the network breaks.
@@ -534,6 +544,7 @@ This example omits the last parameter, which has a default value of \cxx{false} 
 Setting this to \cxx{true} will cause the library to reconnect, rather than connecting, to the MQTT server.
 
 \codelisting[filename=examples/mqtt/mqtt.cc,marker=connect,label=lst:mqttconnect,caption="Connecting to an MQTT broker."]{}
+\phil{ Example seems to be for disconnect}
 
 As with other networking APIs, all of the state associated with this connection is allocated from the caller's quota.
 This includes the TLS and TCP/IP state that is allocated indirectly.
@@ -810,7 +821,7 @@ data.compartment.shared_object_writeable_allow_list(
 	{"SNTP"\})
 \end{regosnippet}
 
-This takes the name of a shared object as the fist argument and a set of compartments that may hold writeable capabilities to it as the second.
+This takes the name of a shared object as the first argument and a set of compartments that may hold writeable capabilities to it as the second.
 Unlike the prior queries, this does not expand to a complex JSON response, it is a single JSON value: \json{true}.
 
 This is one of the checks performed by the \rego{valid} rule in the \rego{network_stack} package.
@@ -834,7 +845,7 @@ Next, the policy checks that there are exactly two connection capabilities and t
 This is shown in \ref{lst:regomqttconnection_capabilities}.
 The first check uses the \rego{count} operator to ensure that the length of the array containing all capabilities is two.
 The next two checks are more interesting because they use the fact that Rego expressions include JSON.
-Each of these stats with a JSON object literal for the capability that we expect to find (the one that we saw earlier using \command{cheriot-audit} for introspection) and then uses the \rego{in} operator to check that this object is part of the array.
+Each of these starts with a JSON object literal for the capability that we expect to find (the one that we saw earlier using \command{cheriot-audit} for introspection) and then uses the \rego{in} operator to check that this object is part of the array.
 
 JSON is tree structured data with a small number of primitive types and so it is easy to do exact equality comparisons on arbitrary JSON data.
 The \rego{in} operator uses this to operate over a collection (set, array, or object) and return whether the collection contains the requested value.
@@ -918,7 +929,7 @@ If they differ then the socket belonged to a previous incarnation of the TCP/IP 
 The function will simply report that the connection dropped.
 This can happen asynchronously, after reset.
 
-Shutting down the TCP/IP stack is the difficult but, but not the bit that is useful to users.
+Shutting down the TCP/IP stack is the difficult bit, but not the bit that is useful to users.
 The next step is to restart it.
 First, the error handler resets all of the global variables to their initial states (except the epoch).
 Next, it resumes the IP thread from its initial state and reruns initialisation.
