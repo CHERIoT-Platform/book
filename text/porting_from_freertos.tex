@@ -296,3 +296,4 @@ For more complex uses, you may want to allow one component to talk to a command-
 Neither of these components should be able to connect anywhere else and so you probably want to use the software capability model to define a static authorisation to make DNS lookups of a specific domain and then have that return a dynamic authorisation that allows connection to that host (or place both the lookup and connection behind a single interface).
 
 This is more work than is necessary to simply make FreeRTOS code work in a CHERIoT system, but is desirably if you want to take advantage of the security properties that CHERIoT RTOS provides over and above what is possible in FreeRTOS.
+<<review>>
