@@ -11,7 +11,9 @@ end
 function process(textTree)
 	textTree:match_any({ "h1", "h2", "h3", "h4", "p", "pre" }, function(heading)
 		if heading:has_attribute("number") then
-			heading:insert_text(1, heading:attribute("number") .. ". ", 1)
+			if string.sub(heading.kind, 1, 1) == "h" then
+				heading:insert_text(1, heading:attribute("number") .. ". ", 1)
+			end
 			heading:attribute_erase("number")
 		end
 		-- FIXME: Ideally, the HTML output would skip numbering for these.
@@ -85,7 +87,7 @@ function process(textTree)
 		if caption then
 			table.insert(tableTree.children, 1, caption)
 		end
-		return {tableTree}
+		return { tableTree }
 	end)
 
 	-- Remove empty <p>, <span> and <div> tags.
@@ -93,14 +95,14 @@ function process(textTree)
 	repeat
 		changed = false
 		function deleteEmpty(node)
-			node:match_any({"p", "span", "div"}, deleteEmpty)
+			node:match_any({ "p", "span", "div" }, deleteEmpty)
 			if #node.children == 0 then
 				changed = true
 				return {}
 			end
-			return {node}
+			return { node }
 		end
-		textTree:match_any({"p", "span", "div"}, deleteEmpty)
+		textTree:match_any({ "p", "span", "div" }, deleteEmpty)
 	until changed == false
 	return textTree
 end
