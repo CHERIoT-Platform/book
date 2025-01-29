@@ -1,6 +1,7 @@
 \chapter[label=compartments]{Compartments and libraries}
 
 Compartments in CHERIoT are somewhere between libraries and processes in mainstream operating systems.
+Phil>I think the comparison to processes might be confusing in the context of compartments being orthogonal to threads.  Might be better to talk about than as being a point in time constrained environment for a thread, or at least providing some view/comment on threads here.   
 They have private code and globals and constitute a security boundary.
 They can export functions to be called form other compartments and can call functions exported from other compartments.
 
@@ -37,6 +38,7 @@ As mentioned previously, (read-only) globals in a library are hidden in a softwa
 
 You can still use globals to share data but you must explicitly expose them via an accessor function.
 This makes CHERIoT compartments and libraries similar to Smalltalk-style objects, with public methods and private instance variables.
+Phil> Is this still true now there is support for pre-shared globals ?
 
 If you expose an interface that returns a pointer to a global, you can use CHERI permissions to restrict access.
 Returning a read-only pointer to a global is a common idiom for building a lightweight broadcast communication channel.
@@ -54,6 +56,7 @@ The inline assembly needs to run at the start of the function because this funct
 \codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
 
 When you run this code, you should see output something like this:
+Phil>  Feels like something is missing here, you've only shown the declarations and body of the three, but it's not clear if there is a thread in each or an outer compartment that calls into each, etc 
 
 \begin{console}
 Entry: Stack pointer: 0x80000d30 (v:1 0x80000750-0x80000d50 l:0x600 o:0x0 p: - RWcgml -- ---)

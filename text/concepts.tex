@@ -151,7 +151,7 @@ Phil> Also why are "Load Global" and "Load Mutable" not called "Load Global Capa
 		\tr{ \td{c} \td{Load / Store Capability} \td{R / W} \td{May be used to load or store capabilities as well as non-capability data.}}
 		\tr{ \td{g} \td{Load Global} \td{R} \td{May be used to load capabilities with the global permission.}}
 		\tr{ \td{m} \td{Load Mutable} \td{R} \td{May be used to load capabilities with write permission.}}
-		\tr{ \td{l} \td{Store local} \td{W} \td{May be used to store capabilities that do \textem{not} have global permission.}}
+		\tr{ \td{l} \td{Store Local} \td{W} \td{May be used to store capabilities that do \textem{not} have global permission.}}
 		\tr{ \td{a} \td{Access System Registers} \td{X} \td{Code run via this capability may access reserved special registers.}}
 	\end{tabular}
 	\caption[label=tbl:dependent_permissions]{CHERIoT dependent permissions}
@@ -165,7 +165,11 @@ You can't accidentally store a valid pointer into them, and if they already cont
 Load global allows loading capabilities with the global permission.
 Any capability loaded via a capability without this permission will have its global (and load-global) permission stripped.
 It can then be stored only via a capability that has the store-local permission.
-Phil> There's a fair bit of inconsistent in this section of using hyphenated names in the text but not the table. 
+Phil> There's a fair bit of inconsistent in this section of using hyphenated names in the text here and elsewhere in the book rather than the table, which can get a bit confusing when reading.
+Phil> Because the permissions are such a core concept it feels like there should be some consistent notation for referring to them,such as just using the Capitalised Names    
+Phil> For example in "removing load-global gives a deep no-capture" one is referring a permission and one a concept.
+Phil> Maybe instead say "removing the Load Global permission gives a deep no-capture".
+Phil> The use of a hyphenated names also extends into other sections, such as "has access-systems-registers permission", I  
 CHERIoT RTOS provides the store-local permission exclusively to stacks.
 Phil> This line Feels a bit out place between two lines that talk about global and load-global, maybe move it to the end of the para, or it's own para  
 Phil> Its also not clear what "RTOS provides ... exclusively" means as up to this point you haven't explained that new capabilities have to be derived from existing ones, and can only be the same or more restrictive.

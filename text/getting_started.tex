@@ -237,8 +237,10 @@ Using the RTOS build system involves writing an \file{xmake.lua} file that descr
 This starts with some boilerplate:
 
 \lualisting[filename=examples/hello_world/xmake.lua,marker=boilerplate,label=lst:xmakeboilerplate,caption="Build system code for importing the CHERIoT RTOS SDK"]{}
+Phil> Just to note this doesn't seem to render well in the HTML version
 
 The \lua{set_project} call gives a name to the project.
+Phil> Renders as "The call..." in the HTML version
 
 Lines 7–9 import the RTOS SDK.
 This first tries to use the \command{CHERIOT_SDK} environment variable and, if not, tries a relative file.
@@ -258,7 +260,7 @@ This exposes a \flag{--board} option at the configure stage, we'll see how this 
 
 \lualisting[filename=examples/hello_world/xmake.lua,marker=board,label=lst:xmakeboardselect,caption="Build system code for allowing the board to be selected at configure time"]{}
 
-You can set a default and we use \lua{"sail"} here for the simulator build from our Sail formal model of the ISA.
+You can set a default and we use \lua{"sail"} here the simulator build from our Sail formal model of the ISA.
 This refers to a board description file (see \ref{new_board}).
 If you're usually targeting a particular hardware platform, setting the default here allows users to avoid specifying it manually on every build.
 If you're \textem{always} targeting a particular hardware platform then you can avoid this entirely.
@@ -275,8 +277,9 @@ One is our entry point, the other is a function that we'll use as a simple examp
 	If they do not match, the compiler will raise an error that a function is defined in the wrong compartment.
 \end{caution}
 
-This example is going to do a cross-compartment call and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
+This example is going to make a cross-compartment call from the "hello" comparment to the "example_compartment" compartment and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
 The cross-compartment call is exposed from \file{hello.h} as shown in \ref{lst:helloexport}.
+Phil> Seems odd to me that hello.h defines the interface to compartment.cc - elsewhere that would be compartment.h ? 
 The only difference between this and a normal C/C++ function prototype is the \c{__cheri_compartment} macro.
 This is explained in detail in \ref{exporting_functions}.
 
@@ -308,6 +311,7 @@ This is where, if you don't need to support multiple targets, you could directly
 \lualisting[filename=examples/hello_world/xmake.lua,marker=firmware,label=lst:xmakefirmware,caption="Build system code for linking the final firmware image"]{}
 
 The \lua{"threads"} property is set to an array (as a Lua array literal) of thread descriptions.
+Phil> Renders in html as "The property" - \lua seems to become invisible
 Each thread must set five properties:
 
 \begin{description}
@@ -319,6 +323,7 @@ Each thread must set five properties:
 	\item[tag=stack_size]{ The number of bytes of stack space that this thread has allocated.}
 	\item[tag=trusted_stack_frames]{ The number of trusted stack frames.
 		Each cross-compartment call pushes a new frame onto this stack and so this defines the maximum number of compartments call depth (including the entry point) for this thread.}
+Phil> "maximum number of ... depth" doesn't sound right somehow - maximum number of nested cross-compartment calls", or "max cross-compatment call depth" maybe
 \end{description}
 
 \section{Running firmware images}
@@ -350,7 +355,7 @@ The run script provided for Sonata looks for the \file{SONATA} device in some co
 If you are working in the dev container, the host filesystems are not automatically available and must be explicitly added.
 You can add extra mount locations can be added to the \file{.devcontainer/devcontainer.json} file.
 If you're on macOS, the \file{SONATA} filesystem will be mounted in \file{/Volumes}, so you can add the following snippet to expose it to the container:
-
+Phil> Maybe with adding that this has to be at the top level of the JSON (I know that's implied by the indentation, but its silently ignored if you get it inside says customizations)
 \begin{jsonsnippet}
   "mounts": [
     "source=/Volumes/SONATA,target=/mnt/SONATA,type=bind"
