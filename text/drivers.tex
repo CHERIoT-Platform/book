@@ -178,7 +178,7 @@ When the core is running with interrupts disabled (or, more accurately, \textem{
 Similarly, if two interrupts fire at the same time, the PLIC ensures that they are not lost.
 
 When the PLIC delivers an interrupt to the core, it will trigger the \keyword{switcher} to save the current process's state.
-The switcher will then invoke the \keyword{scheduler}, which will query the PLIC to see which interrupts have fired and wake more any threads that were waiting for them.
+The switcher will then invoke the \keyword{scheduler}, which will query the PLIC to see which interrupts have fired and wake any threads that were waiting for them.
 
 CHERIoT has a unified event model, where the \keyword{futexes} are the \textem{only} event source that can block.
 This means that the same waiting mechanism is used for both hardware- and software-generated events.

@@ -51,6 +51,7 @@ Rego programs run by \command{cheriot-audit} can also produce longer output.
 Rather than simply telling you that a policy has been matched, they can create a JSON output that describes some properties of a firmware image.
 
 \section{Running \command{cheriot-audit}}
+Phil> \command tag in the section title seems unnecessary
 
 The \command{cheriot-audit} command takes three mandatory inputs, provided as command-line arguments:
 
@@ -260,7 +261,7 @@ Here's the output of running it on one of the network stack examples:
 This shows that (in this specific build) the TCP/IP compartment can allocate 64 KiB of heap memory, the Firewall compartment 4 KiB and the SNTP compartment 16 KiB.
 Importantly, nothing else can allocate memory.
 You might care about what the maximum amount of heap space that all compartments are able to allocate is.
-A similar comprehnesion can extract the \json{quota} field from the decoded capabilities and then the built-in \rego{sum} function can add all of these together:
+A similar comprehension can extract the \json{quota} field from the decoded capabilities and then the built-in \rego{sum} function can add all of these together:
 
 \begin{regosnippet}
 sum([ data.rtos.decode_allocator_capability(c).quota |
