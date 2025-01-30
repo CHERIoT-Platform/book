@@ -4,8 +4,10 @@ function process(textTree)
 	textTree:match("lua", function(lua)
 		return luaBuilder:process_string(lua:text(), ""):extract_children()
 	end)
-	textTree:match("rego", function(rego)
-		return regoBuilder:process_string(rego:text(), ""):extract_children()
-	end)
+	-- The tree sitter rego plugin generates nonsense for incomplete parses, so
+	-- give up on it for now.
+	--textTree:match("rego", function(rego)
+	--	return regoBuilder:process_string(rego:text(), ""):extract_children()
+	--end)
 	return textTree
 end
