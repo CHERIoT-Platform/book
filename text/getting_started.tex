@@ -260,7 +260,7 @@ This exposes a \flag{--board} option at the configure stage, we'll see how this 
 
 \lualisting[filename=examples/hello_world/xmake.lua,marker=board,label=lst:xmakeboardselect,caption="Build system code for allowing the board to be selected at configure time"]{}
 
-You can set a default and we use \lua{"sail"} here the simulator build from our Sail formal model of the ISA.
+You can set a default and we use \lua{"sail"} here for the simulator build from our Sail formal model of the ISA.
 This refers to a board description file (see \ref{new_board}).
 If you're usually targeting a particular hardware platform, setting the default here allows users to avoid specifying it manually on every build.
 If you're \textem{always} targeting a particular hardware platform then you can avoid this entirely.
