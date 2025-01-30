@@ -1,3 +1,4 @@
+apt update
 echo | apt-get install -y software-properties-common
 add-apt-repository -y ppa:sile-typesetter/sile
 apt update
