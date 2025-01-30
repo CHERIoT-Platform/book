@@ -32,8 +32,10 @@ span.library,
 span.compartment,
 span.lua
 {
+	font-size: 0.8rem;
 	font-family: "Source Code Pro", monospace;
 }
+
 span.command
 {
 	font-weight: bold;
@@ -260,6 +262,7 @@ span.listing-origin:after
 
 span.code
 {
+	font-size: 0.8rem;
 	font: SourceCodePro;
 	font-family: monospace;
 }

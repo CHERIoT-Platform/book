@@ -1,10 +1,11 @@
 function process(textTree)
-	local builder = LuaTextBuilder.new()
+	local luaBuilder = LuaTextBuilder.new()
+	local regoBuilder = RegoTextBuilder.new()
 	textTree:match("lua", function(lua)
-		return {TextTree.new("code"):take_children(builder:process_string(lua:text(), ""))}
+		return luaBuilder:process_string(lua:text(), ""):extract_children()
 	end)
-	textTree:match("rego", function(lua)
-		return {TextTree.new("code"):take_children(builder:process_string(lua:text(), ""))}
+	textTree:match("rego", function(rego)
+		return regoBuilder:process_string(rego:text(), ""):extract_children()
 	end)
 	return textTree
 end
