@@ -296,8 +296,7 @@ If you put the driver in a separate compartment then you are protected in both d
 
 \begin{itemize}
 	\item{The driver is the only thing that can touch the relevant GPIO pin and so, if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.}
-	\item{The driver runs with interrupts disabled but the rest of the application does and so you can audit the driver code to ensure
-	that it doesn't cause problems for anything else that the microcontroller is doing.}
+	\item{The driver runs with interrupts disabled but the rest of the application does and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
 \end{itemize}
 Phil> "...rest of the application does not ..." ?
 
