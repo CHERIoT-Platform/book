@@ -25,13 +25,13 @@ Capabilities can be delegated.
 The building manager may loan their key to someone else to unlock a door.
 The key and the door don't care who is holding them.
 
-Phil> Might be a good place to introduce the concept of creating derived capabilities - You can make copies of a key that ether unlocks the same or a subset of the locks, but you can't create a key from nothing. 
+Phil> Might be a good place to introduce the concept of creating derived capabilities - You can make copies of a key that ether unlocks the same or a subset of the locks, but you can't create a key from something that just happens to look like a key. 
 Some kinds of capabilities can also be \keyword{revoked}.
 This is traditionally the hardest operation to perform on capabilities.
 Someone may perform an audit of all of the keys and remove some of them from people that shouldn't have them.
 This is often solved in capabilities by adding a layer of indirection; you hold a capability that authorises you to do something with a capability in some table and your rights can be removed by deleting the capability from the table.
 
-Phil> I was expecting this to go on and mention how capabilities are tagged as being valid or not ?
+Phil> I was expecting this to go on and mention how some capabilities can be tagged as being valid or not ?
 
 On a CHERI system, capabilities are used to authorise access to memory.
 Any instruction that takes an address in a conventional architecture takes a \keyword{CHERI capability} as the operand instead.
@@ -88,15 +88,10 @@ Capability systems do not imply hierarchical trust models.
 Two components may hold disjoint or overlapping sets of capabilities that allow each to perform some set of actions that the other cannot.
 In a CHERI system, this can include one component having read access to an object and another write access, or two components having access to different fields of the same structure.
 
-Phil> a bit of a nit, but "Different fields" kind of implies that a capability could refer to several disjoint areas, like the first and third field.
-Phil> Maybe "different parts" ?   
-
 \section[label=permissions]{Decomposing permissions in CHERIoT}
 
 
 Any CHERI system provides a set of permissions on capabilities.
-Phil> Are they permissions on capabilities, or permissions within capabilities ?
-
 Permissions, along with bounds, are \keyword{capability metadata}, as shown in \ref{capabilitylayout}.
 CHERI systems typically use double the size of the platform's native address for capabilities, so all of the metadata needs to fit in the size of one address.
 As well as this metadata, there is a non-addressable \keyword{tag bit}, sometimes called a \keyword{valid bit} that differentiates between capabilities and other data.
@@ -136,13 +131,14 @@ Phil> Feels odd that Global is the only one not described in this para
 
 The dependent permissions (listed in \ref{tbl:dependent_permissions}) provide more fine-grained control.
 
-Phil> I've always struggled with this section a bit - what is it that they depend on ?
+Phil> I've always struggled with this section a bit and the concept of "dependent permissions" - what is it that they depend on ?
 Phil> Is it that their meaning changes and/or they can only be interpreted in conjunction with a primary permission ?  
-Phil> Maybe say that they defining what you can do with other capabilities stored in the memory referred to by the capability. 
+Phil> It feels like, with the exception of Access System Registers, that they defining what you can do with other capabilities stored in the memory referred to by the capability that holds them - so maybe "capability permissions" would be a better description.
 
 For many of these, it's more useful to think about what can't be done if you lack the permission than to think about what can be done if you have it.
 Phil> It might be, but that's not what is then described in the table
-Phil> Why are "Load Global" and "Load Mutable" not called "Load Global Capability" and "Load Mutable Capability" to match ?  
+Phil> Why are "Load Global" and "Load Mutable" not called "Load Global Capability" and "Load Mutable Capability" to match "Load / Store Capability"?
+Phil> "Store Local" would be better as "Store Local Only"  
 
 \begin{table}
 	\begin[cols="13%fw 25%fw 15%fw 47%fw"]{tabular}
@@ -170,12 +166,10 @@ Phil> For example in "removing load-global gives a deep no-capture" one is refer
 Phil> Maybe instead say "removing the Load Global permission gives a deep no-capture".
 Phil> The use of a hyphenated names also extends into other sections, such as "has access-systems-registers permission", I  
 CHERIoT RTOS provides the store-local permission exclusively to stacks.
-Phil> This line Feels a bit out place between two lines that talk about global and load-global, maybe move it to the end of the para, or it's own para  
-Phil> Its also not clear what "RTOS provides ... exclusively" means as up to this point you haven't explained that new capabilities have to be derived from existing ones, and can only be the same or more restrictive.
-This means that removing the primary global permission gives a shallow no-capture pointer (code that it is passed to can store it in registers and on the stack but nowhere else), removing load-global gives a deep no-capture (not even objects loaded by an arbitrary amount of pointer chasing can be captured).
-Similarly, the load-mutable permission allows loading capabilities with writable permissions and if not set will strip write and load-mutable permissions from any capability that is loaded.
+This means that while removing the primary global permission gives a shallow no-capture pointer (code that it is passed to can store it in registers and on the stack but nowhere else), also removing load-global gives a deep no-capture (not even objects loaded by an arbitrary amount of pointer chasing can be captured).
 
-Removing the primary write permission will give a shallow immutability (the object pointed to by this capability cannot be modified), also removing load-mutable will give a deep immutability.
+Similarly, the load-mutable permission allows loading capabilities with writable permissions and if not set will strip write and load-mutable permissions from any capability that is loaded.
+Removing the write permission will give a shallow immutability (the object pointed to by this capability cannot be modified), also removing load-mutable will give a deep immutability.
 The latter can be used for read-only sharing of complex data structures.
 
 The access-system-registers permission controls access to a small number of privileged registers and is never handed out to code other than a tiny amount of TCB.
@@ -202,7 +196,7 @@ This means protecting objects such that code from a different security context c
 The hardware provides tools for enforcing all of these properties but it's up to the compiler and the RTOS to cooperate to use them correctly.
 For example, in the CHERIoT ABI, each compartment has a single capability in a register that spans all of its globals and a single capability that grants access to its entire stack.
 The compiler will derive capabilities from these that are bounded to individual globals or on-stack objects.
-Inline assembly that references the global-pointer or stack-pointer registers directly can bypass spatial memory safety for these objects, but only from within the same compartment and only for objects within the same compartment.
+Inline assembly that references the global-pointer or stack-pointer registers directly can bypass spatial memory safety for these objects, but only from within the same compartment.
 None of the properties relating to heap objects make sense in the absence of a heap.
 CHERIoT RTOS provides a shared heap (see \ref{shared_heap}) which enforces spatial and temporal safety for heap objects.
 
@@ -213,10 +207,10 @@ Sealing a capability transforms it from something that conveys rights and can be
 It can be transformed back with the converse unseal operation.
 
 A sealed capability has an \keyword{object type} associated with it.
-This is taken from the value (the part that would be the address in a memory capability) in the capability that has the Seal permission to authorises sealing.
+This is taken from the value (the part that would be the address in a memory capability) in the capability that has the Seal permission to authorise sealing.
 It can then be unsealed only with a capability that has the same value and the unseal permission.
 
-If you attempt to unseal a capability that is not sealed with the value of the unseal capability then you will get back an untagged value.
+If you attempt to unseal a capability that is not sealed with the value of the permit-unseal capability then you will get back an untagged value.
 Sealed capabilities can therefore be used as trusted handles that can be shared with untrusted code.
 If the untrusted code tries to modify the value in any way, you can detect the tampering.
 Phil> "can detect" sounds as if it's by inspecting the capability (like a signature) - maybe say explicitly that it causes a trap ? 
@@ -266,7 +260,7 @@ These abstractions were designed with the assumption that they ran independent w
 Gradually, communication mechanisms have been added on top.
 
 CHERIoT starts from a fundamental assumption that *isolation is easy, (safe) sharing is hard*.
-Phil> Are the *'s meant to be a MD command ?
+Phil> Are the *'s meant to be a Markdown command ?
 Particularly in the embedded space, it's easy to provide a separate core and SRAM if you want strong isolation without sharing.
 Most useful workloads involve communication between distrusting entities.
 For example, if you want to connect an IoT device to a back-end service, your ethernet driver needs to communicate with the TCP/IP stack, which needs to communicate with the TLS stack, which needs to communicate with a higher-level protocol stack such as MQTT, which needs to communicate with your device-specific logic.

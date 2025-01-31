@@ -51,7 +51,7 @@ These both depend on a revocation bitmap, a shadow memory space that stores one 
 When an object is freed, the allocator paints the bits associated with it.
 
 The \keyword{load filter} then ensures that any pointer to the object will have its tag cleared when it is loaded.
-Phil> Might be just me, but took me a while to grok what "when it is loaded" means in this context (was thinking about the Load permission).  So any attempt to put the capability into a register so it can be used will clear the tag if (some ?) of its range is set in the corresponding area of the revocation bit map ?  
+Phil> Might be just me, but took me a while to grok what the load-filter is and "when it is loaded" means in this context (was thinking about the Load permission).  So any attempt to put the capability into a register so it can be used will clear the tag if (some ?) of its range is set in the corresponding area of the revocation bit map ?  
 This gives deterministic use-after-free protection; any attempt to use a pointer to a deallocated object will trap.
 The object is then placed in \keyword{quarantine}.
 
@@ -190,7 +190,7 @@ If you need to ensure that an allocation remains valid for a brief, scoped, peri
 This function places an ephemeral claim on one or two objects.
 
 \functiondoc{heap_claim_ephemeral}
-Phil> Should the first line of text in the function doc be "interfac eto the ephemeral claims mechanism"
+Phil> Should the first line of text in the function doc be "interface to the ephemeral claims mechanism" rather that "fast claims mechanism" ?
 
 Every thread has two \keyword{hazard slots} that can hold pointers.
 The \c{heap_claim_ephemeral} function manages these two slots.

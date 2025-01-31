@@ -237,10 +237,8 @@ Using the RTOS build system involves writing an \file{xmake.lua} file that descr
 This starts with some boilerplate:
 
 \lualisting[filename=examples/hello_world/xmake.lua,marker=boilerplate,label=lst:xmakeboilerplate,caption="Build system code for importing the CHERIoT RTOS SDK"]{}
-Phil> Just to note this doesn't seem to render well in the HTML version
 
 The \lua{set_project} call gives a name to the project.
-Phil> Renders as "The call..." in the HTML version
 
 Lines 7–9 import the RTOS SDK.
 This first tries to use the \command{CHERIOT_SDK} environment variable and, if not, tries a relative file.
@@ -311,7 +309,6 @@ This is where, if you don't need to support multiple targets, you could directly
 \lualisting[filename=examples/hello_world/xmake.lua,marker=firmware,label=lst:xmakefirmware,caption="Build system code for linking the final firmware image"]{}
 
 The \lua{"threads"} property is set to an array (as a Lua array literal) of thread descriptions.
-Phil> Renders in html as "The property" - \lua seems to become invisible
 Each thread must set five properties:
 
 \begin{description}
@@ -355,7 +352,7 @@ The run script provided for Sonata looks for the \file{SONATA} device in some co
 If you are working in the dev container, the host filesystems are not automatically available and must be explicitly added.
 You can add extra mount locations can be added to the \file{.devcontainer/devcontainer.json} file.
 If you're on macOS, the \file{SONATA} filesystem will be mounted in \file{/Volumes}, so you can add the following snippet to expose it to the container:
-Phil> Maybe with adding that this has to be at the top level of the JSON (I know that's implied by the indentation, but its silently ignored if you get it inside says customizations)
+Phil> Maybe with adding that this has to be at the top level of the JSON (I know that's implied by the indentation, but its silently ignored if you get it inside the customizations block)
 \begin{jsonsnippet}
   "mounts": [
     "source=/Volumes/SONATA,target=/mnt/SONATA,type=bind"

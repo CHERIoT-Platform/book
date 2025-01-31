@@ -23,7 +23,7 @@ These do not include the SNTP and MQTT compartments, which we'll see later.
 
 \figure[label=networkstackstructure,src=figures/NetworkStack.svg,alt=An illustration of the compartments in the network stack]{The core compartments in the network stack.}
 
-Phil> showing how on only the Firewall has access to the Ethernet hardware would be nice.
+Phil> showing in the diagram how only the Firewall has access to the Ethernet hardware would be nice.
 
 The TCP/IP and TLS stacks are largely existing code, from the FreeRTOS+TCP and BearSSL projects, respectively.
 The BearSSL code has no platform dependencies and so is simply recompiled.
@@ -114,7 +114,7 @@ The \c{gettimeofday} function called here is from the time helpers library that 
 
 \codelisting[filename=examples/sntp/sntp.cc,marker=show_time,label=lst:sntpshowtime,caption="Printing the current UNIX epoch time."]{}
 
-The SNTP compartment and the time helpers library share a pre-shared object (see \ref{_sharing_globals_between_compartments}), contains the UNIX timestamp at the time of the last NTP update, the cycle time of the last update, and the current epoch.
+The SNTP compartment and the time helpers library share a pre-shared object (see \ref{_sharing_globals_between_compartments}) which contains the UNIX timestamp at the time of the last NTP update, the cycle time of the last update, and the current epoch.
 The SNTP compartment has a read-write view of this, the time helpers library a read-only view.
 When the SNTP compartment updates this, it increments the epoch once, writes the new value, and then increments the epoch again.
 The time library can therefore get a consistent snapshot of the values by reading the epoch, reading the other values, and then reading the epoch again to make sure that it hasn't changed.
@@ -479,7 +479,7 @@ This example implements a minimal HTTP client to demonstrate sending and receivi
 The send code is shown in \ref{lst:tlssend}.
 As with the underlying TCP send call, the TLS send call may send less than the requested amount of data.
 This code is therefore called in a loop, which will try if it fails.
-Phil> "which will retry if it fails." ?
+Phil> Should this be "which will retry if it fails." ?
 The echo server did not need to handle this case because it only ever sent individual bytes and provided an unlimited timeout, so either the byte entered the TCP socket's send queue or the caller blocked.
 
 This is unnecessary for the example because the amount of sent data is smaller than the TLS socket's internal buffer size, so the loop will never execute, but you can force it to by adding additional headers.

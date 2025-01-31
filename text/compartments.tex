@@ -1,7 +1,7 @@
 \chapter[label=compartments]{Compartments and libraries}
 
 Compartments in CHERIoT are somewhere between libraries and processes in mainstream operating systems.
-Phil>I think the comparison to processes might be confusing in the context of compartments being orthogonal to threads.  Might be better to talk about than as being a point in time constrained environment for a thread, or at least providing some view/comment on threads here.   
+Phil>I think the comparison to processes might be confusing in the context of compartments being orthogonal to threads.  Might be better to talk about them as being a point in time constrained environment for a thread, or at least providing some view/comment on threads here.   
 They have private code and globals and constitute a security boundary.
 They can export functions to be called form other compartments and can call functions exported from other compartments.
 
@@ -56,7 +56,7 @@ The inline assembly needs to run at the start of the function because this funct
 \codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
 
 When you run this code, you should see output something like this:
-Phil>  Feels like something is missing here, you've only shown the declarations and body of called compartment/library, but it's not clear that there are actually two compartments (Entry & Compartment) and thread that starts in Entry and then calls into Library followed by a call into Compartment.
+Phil>  Feels like something is missing here, you've only shown the declarations and body of the called compartment/library, but it's not clear that there are actually two compartments (Entry & Compartment) and thread that starts in Entry and then calls into Library followed by a call into Compartment.
 Phil> "CalledCompartment" might be a clearer name, as it is you have "Entry compartment" and "Compartment compartment" 
 
 \begin{console}
@@ -168,8 +168,7 @@ The \lua{firmware} target definition is more complex because it also implicitly 
 If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentation}, simply treat these as if they were \lua{target} definitions.
 \end{note}
 
-Phil> Somewhere, not sure if it fits in here or section 4, it would be good to mention how you can create a reusable compartment model with includes() of a directory with the files and xmake.lua - as used in the network stack.
-Phil> That feels like a very nice model / practice to promote. 
+Phil> Somewhere, not sure if it fits in here or section 4, it would be good to mention how you can create a reusable compartment model with includes() of a directory with the files and xmake.lua - as used in the network stack. That feels like a very nice model / practice to promote. 
 
 Once you have defined the rules to build each compartment and library, they need to be combined into a firmware image.
 Any library or compartment that is a direct or indirect dependency of a firmware image will be built and linked into the final image.
@@ -207,7 +206,7 @@ For some operations, the scheduler invokes the allocator.
 The scheduler trusts the allocator to enforce heap memory safety.
 It does not, for example, try to check that the memory allocator is returning disjoint capabilities (it can't see every other caller of \c{heap_allocate}, and so couldn't validate this).
 It is, however, written to assume that other compartments may try to maliciously call allocator APIs to cause it to crash.
-Phil> It being Scheduler or Allocator ? Reads as its is the Scheduler,but seems odd that would protect malicious calls to the Allocator API. 
+Phil> "It" being Scheduler or Allocator ? Reads as its is the Scheduler,but seems odd that would protect malicious calls to the Allocator API. 
 When thinking about trust, it's worth trying to articulate the properties that other code is trusted to enforce or preserve.
 For example, everything in the CHERIoT system trusts the scheduler for availability.
 Most things trust the allocator to enforce spatial and temporal memory safety for the heap.
@@ -298,7 +297,7 @@ If you put the driver in a separate compartment then you are protected in both d
 	\item{The driver is the only thing that can touch the relevant GPIO pin and so, if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.}
 	\item{The driver runs with interrupts disabled but the rest of the application does and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
 \end{itemize}
-Phil> "...rest of the application does not ..." ?
+Phil> Should this be "...rest of the application does not ..." ?
 
 This then gives you something to build on if you decide, for example, that you want to be able to update the lighting patterns from the Internet.
 Now you want to add a network stack to be able to fetch the new patterns and an interpreter to run them.
@@ -340,7 +339,7 @@ It checks that a pointer has (at least) the bounds and permissions that you expe
 If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
-Phil> Feels like the block describing check pointer might more naturally sit here in the flow
+Phil> Feels like the block describing check pointer might more naturally sit here in the narrative
 
 \begin{note}
 Checking the pointer is not the only option.
@@ -392,7 +391,7 @@ Finally, the non-malicious string is printed correctly, showing that the attacke
 The stack is shared between compartments invoked on the same thread.
 The callee has access to the portion of the stack that its callers have not used.
 This means that a malicious compartment can consume almost all of the stack and then try to force a callee to trap when it tries to use the stack.
-Phil> "force another callee" ? 
+Phil> Wasn't clear, but I assume that the callee its trying to force to trap is one that the malicious comp is calling ?  Seems a bit confusing as the malicious comp itself is first described as callee, so it sounds as if it could consume the stack, return, and then cause a problem to a "peer callee" 
 
 Before entering a compartment, the switcher will check the amount of stack space against the required amount in the export table.
 By default, the compiler will fill this value with the amount that is required by the function that serves as an entry point.
@@ -663,7 +662,7 @@ The token APIs look as if they're provided by the allocator, but \c{token_obj_un
 This makes it fast to unseal objects (no cross-compartment call).
 It also removes any dependency on the allocator from things that rely on static sealing.
 
-Phil> Make it clear the following is a case study / example of using sealed capabilities. Anyone looking to implement one of their own would be advised to look at the malloc code. 
+Phil> Make it clear the following is a case study / example of using sealed capabilities. Anyone looking to implement one of their own would be advised to look at the malloc code as an example. 
 The allocator uses the static sealing mechanism to define allocation capabilities.
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
@@ -705,9 +704,10 @@ For example:
     end)
 \end{luasnippet}
 
+Phil> Does it have to be defined in each target that shares it, or just one ?
+
 This is from the test suite and defines a \c{test_word} object that is a single 32-bit value and an \c{exampleK} object that is 1024 bytes.
 Note that the objects are defined as sizes, not as types.
 The type cannot be enforced by CHERI and depends on the compartment that imports the object.
 If a single compartment has write access to an object then that compartment forms the TCB for type safety of that object.
 
-Phil> Since a shared global is mapped into several compartments, and allocated in a dedicated memory region, what is the need/impact of defining it in a specific target ?

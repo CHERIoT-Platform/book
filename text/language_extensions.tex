@@ -253,7 +253,7 @@ Capabilities can be modified with the nouns and verbs listed in \ref{tbl:cap_mod
 		\tr{\td{\c{address}} \td{\c{set}}             \td{Set the address for the capability.}}
 		\tr{\td{\c{bounds}}  \td{\c{set}}             \td{Sets the base at or below the current address and the length at or above the requested length, as closely as possible to give a valid capability}}
 		\tr{\td{\c{bounds}}  \td{\c{set_exact}}       \td{Sets the base to the current address and the length to the requested length or returns an untagged capability if the result is not representable.}}
-Phil> the term "untagged capability" doesn't immediately convey that what you get back is a capability that will fault if you try to use it - i.e. you have to use an is_valid() check on the result to see if teh call worked or not. 
+Phil> the term "untagged capability" doesn't immediately convey that what you get back is a capability that will fault if you try to use it - i.e. you have to use an is_valid() check on the result to see if the call worked or not. 
 		\tr{\td{\c{perms}}   \td{\c{and}}             \td{Clears all permissions except those provided as the argument.}}
 		\tr{\td{\c{tag}}     \td{\c{clear}}           \td{Invalidates the capability but preserves all other fields.}}
 	\end{tabular}

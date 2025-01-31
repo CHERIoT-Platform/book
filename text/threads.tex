@@ -6,7 +6,7 @@ There are a small number of scheduler APIs that allow threads to block; higher-l
 
 Remember that, in most respects, the scheduler is just another compartment.
 It doesn't run with elevated privileges, it makes a decision about which thread to run next but it is not able to see the stacks or register states associated with threads.
-Phil> Maybe picky, but as a compartment the Scheduler doesn't run at all, but different threads may enter and run in the Scheduler compartment.  
+Phil> Maybe picky, but as a compartment the Scheduler doesn't run at all, but different threads may enter and run in the Scheduler compartment.  Keeping the distinction between compartments and threads seems important.
 
 \section{Defining threads}
 
@@ -65,7 +65,7 @@ This can be used to size data structures that are indexed by thread ID.
 
 \functiondoc{thread_count}
 
-Phil> So thread_get_id is not a cross-compartment call (because it just reads from the register area of the current thread), but thread-count() is, an so has bigger impact (like it could release an ephemeral heal claim ?)
+Phil> So thread_get_id is not a cross-compartment call (because it just reads from the register area of the current thread), but thread-count() is, and so has bigger impact (like it could release an ephemeral heap claim ?)
 
 The \file{current_thread} example shows calling these functions.
 The entry point function for this is shown in \ref{lst:currentthread} and the thread definitions from the \file{xmake.lua} file in \ref{lst:currentthreadxmake}.
@@ -115,7 +115,7 @@ At that point, the high-priority thread is runnable and so will be scheduled.
 
 The timeout structure captures the amount of time that is allowed to block and the number of ticks for which it has blocked.
 Each subsequent call that is passed the same timeout structure may increase the amount of slept time and decrease the remaining time.
-Phil> Something that wasn't obvious to me, and doesn't really come across here is that when you create timeout of n ticks it means "n ticks from when it was created" - I can't for example create a timeout once fo 10 ticks and pass it to an API every time I want to wait for another 10 ticks. 
+Phil> Something that wasn't obvious to me, and doesn't really come across here is that when you create timeout of n ticks it means "n ticks from when it was created" - I can't for example create a timeout once of 10 ticks and pass it to an API every time I want to wait for another 10 ticks. 
 
 \begin{note}
 A thread may block for more than the permitted limit if it is sleeping while a higher-priority thread runs.

@@ -65,13 +65,12 @@ Work is underway to formally verify the security properties of the switcher, but
 Phil> I'd lose the "but is still in early stages" - that kind of works in an on-line version that can be easily updated, less so in a book.  A pointer to where that work can be followed would be more useful. 
 
 The switcher is the only component in a running CHERIoT system that has access-system-registers permission.
-It uses this primarily to access a single reserved register that holds the \keyword{trusted stack}.
-Phil> Holds the capability that defines the trusted stack area?
+It uses this primarily to access a single reserved register that holds the capability that defines the \keyword{trusted stack}.
 The trusted stack is a region of memory containing the register save area for context switches and a small frame for every cross-compartment call that allows a safe return even if the callee has corrupted all state that it has access to.
 
 Trusted stacks are set up by the loader.
 Phil> Is there one Trusted stack, or several Trusted stacks - the jump from singular above to plural here feels a bit uncomfortable.
-The loader passes the scheduler (see \ref{_time_slicing_with_the_scheduler}) a sealed capability to a trusted stack for each thread on initialisation.
+The loader passes the scheduler (see \ref{_time_slicing_with_the_scheduler}) a sealed capability to each of these on initialisation.
 The switcher holds the only permit-unseal capability for the type used to seal trusted stacks.
 
 The context switch path in the Switcher spills all registers to the current trusted stack's save area and then invokes the scheduler, which returns a sealed capability to the next thread to run.
@@ -204,8 +203,8 @@ CHERIoT RTOS provides the \library{crt} library to implement these functions.
 Not every compartment will need all of them, but the library is around 1.5 KiB of code and so duplicating it across every compartment that does need them would be likely to increase code size significantly.
 
 Although the code sizes in this section may look small, moving a function to a separate compartment typically adds only a handful of bytes to the final binary size.
-It's quite feasible to have a compartment that is on the order of a hundred bytes in total size.
-Phil> Compartment or Library ?
+It's quite feasible to have a compartment that is of the order of a hundred bytes in total size.
+Phil> Compartment or Library - the code before is focused on libraries?
 
 \section{Supporting atomic operations}
 
