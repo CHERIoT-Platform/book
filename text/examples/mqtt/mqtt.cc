@@ -107,10 +107,10 @@ void __cheri_compartment("mqtt_example") example()
 
 	// connect#begin
 	Debug::log("Connecting to MQTT broker...");
-	SObj handle =
+	auto handle =
 	  mqtt_connect(&t,
 	               STATIC_SEALED_VALUE(mqttTestMalloc),
-	               STATIC_SEALED_VALUE(MosquittoOrgMQTT),
+	               CONNECTION_CAPABILITY(MosquittoOrgMQTT),
 	               publishCallback,
 	               ackCallback,
 	               TAs,
