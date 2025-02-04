@@ -3,5 +3,6 @@
 
 #include <compartment.h>
 #include <cstdlib>
+#include <queue.h>
 
-void __cheri_compartment("consumer") set_queue(SObjStruct *queueHandle);
+void __cheri_compartment("consumer") set_queue(CHERI_SEALED(MessageQueue *) queueHandle);

@@ -12,13 +12,13 @@
 using Debug = ConditionalDebug<true, "Consumer">;
 
 // The queue that we will wait on.
-SObj queue;
+CHERI_SEALED(MessageQueue *) queue;
 
 /**
  * Set the queue that the thread in this compartment will
  * use.
  */
-void set_queue(SObj newQueue)
+void set_queue(CHERI_SEALED(MessageQueue *) newQueue)
 {
 	// set_queue#begin
 	// Check that this is a valid queue
