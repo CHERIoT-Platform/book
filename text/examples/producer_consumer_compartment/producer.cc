@@ -19,7 +19,7 @@ void __cheri_compartment("producer") run()
 {
 	// queue_allocate#begin
 	// Allocate the queue
-	SObj queue;
+	CHERI_SEALED(MessageQueue *) queue;
 	non_blocking<queue_create_sealed>(
 	  MALLOC_CAPABILITY, &queue, sizeof(int), 16);
 	// Pass the queue handle to the consumer.
