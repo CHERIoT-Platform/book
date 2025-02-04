@@ -1,6 +1,0 @@
-[submodule "rtos-source"]
-	path = rtos-source
-	url = https://github.com/microsoft/cheriot-rtos
-[submodule "network-stack"]
-	path = network-stack
-	url = https://github.com/CHERIoT-Platform/network-stack
