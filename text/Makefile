@@ -91,6 +91,7 @@ html: ${SOURCES} Makefile
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
 	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile > cheriot-programmers-guide.xml 
 	./run_sile.sh cheriot-programmers-guide.xml
+	./run_sile.sh cheriot-programmers-guide.xml
 
 cheriot-programmers-guide.print.pdf: ${SOURCES} Makefile
 	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile --config print=true > cheriot-programmers-guide.print.xml 
