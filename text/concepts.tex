@@ -2,6 +2,58 @@
 
 The CHERIoT platform is an embedded environment that provides a number of low-level features via a mixture of hardware and software features.
 
+\section{Introducing memory safety}
+
+Memory in a modern computer is usually arranged as a flat set of storage locations.
+At the lowest level, you may do a load or store operation on addresses in this space.
+Every location in memory is identified by a number and locations are treated as adjacent if their addresses are one apart.
+When you start a process or a virtual machine, this abstraction is preserved and \keyword{virtual memory} lets you pretend that you have a (very large) flat address space.
+
+When you use a programming language that's higher-level than assembly, memory looks a little bit different.
+Rather than being a flat set of one-byte storage locations, the language exposes memory as \keyword{objects}.
+An object may be something simple, such as an integer, or something large such as an array of complex structures.
+On most hardware, this is purely a software abstraction.
+You may specify that you have an on-stack array of twelve integers, or a heap allocation containing a buffer for a network packet, but the compiled program will use numbers referring to locations in a flat memory space to represent these locations.
+
+The term \keyword{memory safety} applies to a variety of properties.
+It is somewhat difficult to define because the problems arise when you \textem{don't} have memory safety.
+When you do have memory safety, things simply work as you expect them to.
+It's therefore easier to think about \keyword{memory unsafety}.
+
+Memory safety is usually split into two subcategories: \keyword{temporal memory safety} and \keyword{spatial memory safety}.
+When you don't have spatial memory safety, you can think that you are accessing one object, you may be accessing an adjacent one.
+For example, if you allocate a 12-byte on-stack buffer and then try to write 16 bytes into it, a memory-safe system will raise some kind of error.
+An unsafe system will instead let you write four bytes over some adjacent location, possibly a return address.
+This is the simplest example of how a \keyword{buffer overflow} can lead to arbitrary-code execution.
+If an attacker can overwrite the return address on the stack then they can cause the function to return somewhere else.
+They can chain several of these together to build rich exploits.
+
+When you don't have temporal memory safety (sometimes called \keyword{lifetime safety}) it is possible to access (read or write) an object after its lifetime ends.
+In most language implementations, memory is \textem{reused} and so accessing an object after its lifetime really means accessing an unrelated object that happens to be stored at the same place in memory.
+
+Languages such as C and C++ are typically categorised as memory-unsafe but this really means that they \textem{allow unsafe implementations}.
+In both languages, violations of memory safety are specified as \keyword{undefined behavior}.
+This means that an implementation is allowed to do anything if they happen.
+The language specifications allow this because, on most conventional hardware, dynamically checking that there are no memory-safety violations is too expensive.
+It is completely valid for an implementation to decide to provide reliable, deterministic, error reporting when these happen, and that's what CHERI C and C++ do.
+
+Higher-level languages usually impose some constraints that make it easier to efficiently guarantee memory safety.
+For example, Java references are usually implemented as simple numerical addresses just like C pointers, but the language doesn't allow you to do arithmetic on them.
+This means that you can't ever do some arithmetic to turn a Java reference into a reference to another object.
+Similarly, it means that the Java Virtual Machine can accurately locate all references to objects.
+This makes it possible to implement \keyword{automatic garbage collection} in Java, finding all of the objects that are not reachable and deleting them rather than relying on the programmer to explicitly deallocate them.
+
+In most C and C++ implementations there are a lot of ways of violating memory safety.
+For example, you can manufacture pointers from arbitrary integers that happen to match addresses and access \textem{any} object.
+
+The lack of memory safety is responsible for around 70\% of critical security vulnerabilities.
+Memory-safety errors are usually the worst kinds of bug because it is impossible to reason about their impacts from the program source code.
+By definition, you are accessing some memory that you don't think that you're accessing.
+This memory may be an object that's completely unrelated to the running code or even something that's part of the implementation of the language and not normally directly accessible from within the language.
+
+Attackers usually find it easy to use memory-safety vulnerabilities for arbitrary-code execution attacks.
+At this point, the program that is running is no longer the program that you thought you had started, but something different and under the attacker's control.
+
 \section{Understanding CHERI capabilities}
 
 \keyword{CHERI} (pronounced 'cherry') defines an abstract set of features that can be applied to a base architecture, such as AArch64, x86, or RISC-V, to provide fine-grained memory safety that can be used as a building block for compartmentalisation.
