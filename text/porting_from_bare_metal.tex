@@ -1,6 +1,6 @@
 \chapter{Porting from bare metal}
 
-If you have existing code that runs happily bare metal, you may consider CHERIoT for a variety of reasons, for example:
+If you have existing code that runs happily on bare metal, you may consider CHERIoT for a variety of reasons, for example:
 
 \begin{itemize}
 	\item{You want to add network connectivity and so need to isolate network communication.}
@@ -62,6 +62,7 @@ As discussed in \ref{interrupt_waiting}, this kind of mechanism would violate th
 You can implement your own dispatcher in a CHERIoT environment by waiting on multiple interrupts with the multiwaiter APIs (see \ref{multiwaiter}) and then calling the interrupt routines yourself.
 
 // TODO: Example here.
+Phil> Do you need an example here, the ref to Section 7.12 feels like it would be enough
 
 If interrupts are marked as edge-triggered in the board description then they are implicitly acknowledged in the interrupt controller by the scheduler.
 If not, then you must explicitly acknowledge them before they can fire again.
