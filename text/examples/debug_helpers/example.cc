@@ -84,7 +84,7 @@ using Debug = ConditionalDebug<DEBUG_DEBUG_COMPARTMENT,
 
 __cheri_compartment("debug_compartment") int entry()
 {
-	// log#begin
+	// builtin_log#begin
 	Debug::log("Hello world!");
 	Debug::log("Here is a C string {}, A C++ string view {}, "
 	           "an int {}, and an unsigned 64-bit value {}",
@@ -96,7 +96,7 @@ __cheri_compartment("debug_compartment") int entry()
 	Debug::log("Here is an enum value: {}", enumValue);
 	int x;
 	Debug::log("Here is a pointer: {}", &x);
-	// log#end
+	// builtin_log#end
 
 	// custom_log#begin
 	NetworkAddress addr;

@@ -25,13 +25,16 @@ You can see this in the core components.
 If you run \command{xmake config --help} in a firmware build, you will see this at the end of the output:
 
 \begin{console}
+--debug-allocator=DEBUG-ALLOCATOR Specify verbose output level (none|information|warning|error|critical) in the allocator (default: none)
 --debug-token_library=[y|n] Enable verbose output and assertions in the token_library
---debug-allocator=[y|n]     Enable verbose output and assertions in the allocator
 --debug-loader=[y|n]        Enable verbose output and assertions in the loader
 --debug-scheduler=[y|n]     Enable verbose output and assertions in the scheduler
 \end{console}
 
 Each of the core components allows extra debugging modes to be enabled independently, rather than via a global debug-mode switch.
+Note that most of these are simply binary choices but the allocator allows selecting a level for debugging.
+We'll return to that difference later.
+
 Adding something similar requires two changes in your \file{xmake.lua} file.
 The first line, at top-level scope, declares the option, as shown in \ref{lst:xmakedebugoption}.
 
@@ -66,8 +69,17 @@ This is typically used with a \cxx{using} directive as shown in \ref{lst:usingde
 
 \codelisting[filename=examples/debug_helpers/example.cc,marker=debug_type,label=lst:usingdebug,caption="Connecting the debug option to a debug type in code"]{}
 
-The first template parameter is a boolean value that indicates whether this component is being debugged.
+The first template parameter can be a boolean value that indicates whether this component is being debugged.
+It can also be a threshold, specified as a \cxx{DebugLevel} enumeration value.
+Recall that the allocator's output allowed choosing different debugging levels.
+The allocator uses warnings for API misuse and information for internal consistency checks.
+If you opt into warnings then you will get debug messages if you use the allocator incorrectly.
+If you use \lua{debugLevelOption} instead of \lua{debugOption}, the build system will provide the level, rather than a simple binary option.
+
 The second is a free-form string literal that will be prepended (in magenta) to any debug line.
+There are two other template arguments that you can use if you are using debug levels.
+In the simple case, the boolean parameter controls whether log messages are shown, whether assertions are checked and whether invariants report a verbose message on failure.
+By default, the latter two will happen if the threshold is set to warning or lower but the last two template parameters allow users to override this default.
 
 The rest of this chapter will assume that the \cxx{Debug} type has been defined in this way.
 
@@ -97,7 +109,7 @@ Capabilities (either as raw pointers or instances of the \cxx{CHERI::Capability}
 \ref{lst:usingdebuglog} shows an example of most of these.
 Note the last two log lines, which print enumeration and capability values.
 
-\codelisting[filename=examples/debug_helpers/example.cc,marker=log,label=lst:usingdebuglog,caption="Printing log messages with the debug log API."]{}
+\codelisting[filename=examples/debug_helpers/example.cc,marker=builtin_log,label=lst:usingdebuglog,caption="Printing log messages with the debug log API."]{}
 
 When you run this, the output should look like this:
 
@@ -115,6 +127,11 @@ It will not work for enumerations that have multiple names for the same values o
 The capability (pointer) format starts with the address and then has the metadata in brackets.
 The metadata includes the tag (valid) bit, then the range, then the length, object type, and permissions.
 The letters for the permissions are described in \ref{concepts}.
+
+The \cxx{log} method takes an optional debug level as a template parameter.
+If you are using the variant of \cxx{ConditionalDebug} with a \cxx{DebugLevel} template parameter then you disable some log messages based their severity.
+Try changing the \lua{debugOption} to \lua{debugLevelOption} in the build system and modifying this example to print some of the log messages only at higher thresholds.
+Note that you may need to delete your \file{.xmake} and \file{build} before doing this to avoid stale caches of the value as a different type causing problems.
 
 \section{Printing custom types}
 
