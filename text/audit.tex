@@ -13,8 +13,19 @@ Any code running in the compartment (unless explicitly constrained) has read-exe
 Any access outside of this region requires an explicit capability to be provided to the compartment's \keyword{import table} by the loader.
 The loader, in turn, will provide such a capability if, and only if, the linker has created metadata instructing it to.
 This means that the system \textem{fails closed}.
+
+When a security system fails, it will unintentionally enter either a secure or insecure state.
+If you have a keypad connected to a door lock and the lock receives an invalid message, it can either open or close the door.
+Should a failure open or close the door?
+The right choice is very different if the door is a bank vault or a fire escape.
+Failing closed means that the failure leaves the system in the secured state (the door closed in this example).
+This is an important property for a security system.
+If an attacker wants to break a system that fails open then they simply need to induce a fault of some kind and the failure mode will grant them the access that they require.
+
 The linker creates the audit report and also creates the instructions for the loader.
 If these instructions are omitted, the loader will not provide the compartment with a capability and so, even if the compartment gains knowledge of some address, it does not gain rights to access any memory.
+If an attacker manages to sneak something into object code that is linked into some firmware and this does not show up in the audit report then it should also not be used in the metadata that the linker generates to instruct the loader to provision capabilities.
+This approach is intended to ensure that hiding things from the audit report does not result in increased rights (failing closed).
 
 There are a lot of different kinds of capabilities that can end up in a compartment's import table.
 These include:
