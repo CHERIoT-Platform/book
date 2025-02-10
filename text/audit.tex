@@ -156,7 +156,7 @@ This is because the example prefers to give useful error messages in case of fai
 This header provides an error handler (see \ref{_writing_rich_error_handlers}) that logs a message to the UART and exits the simulator if a CHERI exception occurs.
 If you comment out that header, the example will meet its compartmentalisation objective.
 Again, this is the kind of thing that's useful to have in a policy.
-It's useful to includes this kind of feature in debug builds, but you want to make sure that you don't leave them enabled in builds that you deploy to end users.
+It's useful to include this kind of feature in debug builds, but you want to make sure that you don't leave them enabled in builds that you deploy to end users.
 
 \section{Decoding software-defined capabilities}
 
@@ -165,7 +165,7 @@ Software capabilities are implemented as objects that are passed around as \keyw
 Some of these are dynamically allocated, others are baked into the firmware image.
 Unless you have the sealing capability that permits unsealing a given type, these are just opaque pointers.
 
-Sealed objects that are baked into the firmware are accessible to one compartment as an opque pointer but can be unsealed by another compartment to access their contents.
+Sealed objects that are baked into the firmware are accessible to one compartment as an opaque pointer but can be unsealed by another compartment to access their contents.
 The compartment that unseals them will trust their contents.
 You can make them \textem{trustworthy} by auditing their contents at link time.
 
@@ -260,7 +260,7 @@ Here's the output of running it on one of the network stack examples:
 This shows that (in this specific build) the TCP/IP compartment can allocate 64 KiB of heap memory, the Firewall compartment 4 KiB and the SNTP compartment 16 KiB.
 Importantly, nothing else can allocate memory.
 You might care about what the maximum amount of heap space that all compartments are able to allocate is.
-A similar comprehnesion can extract the \json{quota} field from the decoded capabilities and then the built-in \rego{sum} function can add all of these together:
+A similar comprehension can extract the \json{quota} field from the decoded capabilities and then the built-in \rego{sum} function can add all of these together:
 
 \begin{regosnippet}
 sum([ data.rtos.decode_allocator_capability(c).quota |
