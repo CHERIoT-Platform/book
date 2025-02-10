@@ -38,7 +38,11 @@ The \command{cheriot-audit} tool is intended to work with both of these approach
 It runs a \keyword{Rego} program over the input.
 Rego is \href[src=https://www.openpolicyagent.org/docs/latest/policy-language/]{a language from the OpenPolicyAgent} project that is designed for writing policies over JSON documents.
 It inherits some ideas from JavaScript, Python, and Prolog, but broadly is intended to be a modular language for writing mostly-declarative policies that run over one or more JSON documents.
-Most commonly, a Rego policy is a program that evaluates to true if the policy holds.
+
+Rego is a rich language and we'll see in this chapter that it can be used for introspection over firmware in a number of ways.
+When used for enforcement, a Rego policy is usually a program that evaluates to true if the policy holds.
+This may be checked automatically on your build infrastructure to ensure that your security goals are met before pushing firmware to the next stage in testing.
+It may be checked later before signing firmware, to ensure that only firmware images that match your security policy are signed.
 
 \begin{note}
 	In Prolog, predicates are true if they are satisfied (i.e. there is a logical derivation chain that can be used to prove that they are true) or fail if they cannot be proven.
