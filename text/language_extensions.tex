@@ -225,6 +225,44 @@ The \c{DEVICE_EXISTS({name\})} macro can be used to detect whether the current t
 The \c{type} parameter is the type used to represent the MMIO region.
 The macro evaluates to a \c{volatile {type\} *}, so \c{MMIO_CAPABILITY(struct UART, uart)} will provide a \c{volatile struct UART *} pointing (and bounded) to the device that the board definition exposes as \c{uart}.
 
+\section{Sealing opaque types}
+
+Sealed capabilities were introduced in \ref{sealing_intro}.
+They provide a simple hardware-enforced mechanism for providing type-safe \keyword{opaque types}.
+
+You normally implement opaque types in C/C++ by forward-declaring a \c{struct} type and then handing out pointers to that type.
+For example, you might write something like this:
+
+\begin{cxxsnippet}
+struct MyType;
+MyType *create_my_type();
+\end{cxxsnippet}
+
+This function will return a new instance of some type, but the caller can't see the implementation details.
+They can, of course, cast it to a \c{char*} or similar and read and write the underlying data.
+The opaque type is a software-engineering boundary telling the caller that they should not depend on the representation of this type.
+
+Sealing on CHERIoT makes it easy to turn that software-engineering boundary into a security boundary.
+The same interface can be written for CHERIoT as:
+
+\begin{cxxsnippet}
+struct MyType;
+MyType *__sealed_capability create_my_type();
+\end{cxxsnippet}
+
+The returned value is marked as being tamper proof.
+The hardware ensures that the caller cannot modify the underlying object.
+If the caller casts this to a \c{char*} and tries to modify it then they will get a run-time trap.
+The \c{__sealed_capability} qualifier ensures that callers don't do this accidentally.
+The compiler will error if you try to dereference a sealed capability.
+
+You can implicitly cast the \c{MyType *__sealed_capability} to \c{void*} but not to a \c{MyType *}.
+You can explicitly cast away the \c{__sealed_capability} qualifier but that just lets you compile things that will trap at run time.
+
+The builtins for sealing and unsealing respect these types as do the RTOS APIs (\ref{token_apis}) that use them.
+This means that you can write a function that expects a \c{MyType *__sealed_capability} and preserve type safety throughout your code and untrusted code.
+When a caller gives you back this kind of pointer and you unseal it, you will get a \c{MyType *} that is either a valid value or untagged.
+
 \section{Manipulating capabilities with C builtins}
 
 The compiler provides a set of built-in functions for manipulating capabilities.
