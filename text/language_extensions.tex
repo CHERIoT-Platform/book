@@ -224,7 +224,7 @@ The \c{DEVICE_EXISTS({name\})} macro can be used to detect whether the current t
 
 The \c{type} parameter is the type used to represent the MMIO region.
 The macro evaluates to a \c{volatile {type\} *}, so \c{MMIO_CAPABILITY(struct UART, uart)} will provide a \c{volatile struct UART *} pointing (and bounded) to the device that the board definition exposes as \c{uart}.
-Phil> An example, or a pointer to an example, would be good here
+\phil{ An example, or a pointer to an example, would be good here}
 
 \section{Manipulating capabilities with C builtins}
 
@@ -253,7 +253,7 @@ Capabilities can be modified with the nouns and verbs listed in \ref{tbl:cap_mod
 		\tr{\td{\c{address}} \td{\c{set}}             \td{Set the address for the capability.}}
 		\tr{\td{\c{bounds}}  \td{\c{set}}             \td{Sets the base at or below the current address and the length at or above the requested length, as closely as possible to give a valid capability}}
 		\tr{\td{\c{bounds}}  \td{\c{set_exact}}       \td{Sets the base to the current address and the length to the requested length or returns an untagged capability if the result is not representable.}}
-Phil> the term "untagged capability" doesn't immediately convey that what you get back is a capability that will fault if you try to use it - i.e. you have to use an is_valid() check on the result to see if the call worked or not. 
+\phil{ the term "untagged capability" doesn't immediately convey that what you get back is a capability that will fault if you try to use it - i.e. you have to use an is_valid() check on the result to see if the call worked or not. }
 		\tr{\td{\c{perms}}   \td{\c{and}}             \td{Clears all permissions except those provided as the argument.}}
 		\tr{\td{\c{tag}}     \td{\c{clear}}           \td{Invalidates the capability but preserves all other fields.}}
 	\end{tabular}
@@ -300,7 +300,7 @@ First, note the difference between the permissions on the stack and heap allocat
 The heap allocation has global permission: it may be stored anywhere.
 The stack allocation lacks global, but has store-local permission, which allows it to be used to store other capabilities providing they don't have the global permission.
 This ensures that stack pointers can be stored only on the stack.
-Phil> Not quite clear which of the two conditions (lacking global or having store-local "This" is referring to).
+\phil{ Not quite clear which of the two conditions (lacking global or having store-local "This" is referring to).}
 
 The bounds on the original heap allocation are rounded up to a multiple of the heap's allocation granule size.
 The CHERIoT allocator allocates 8-byte chunks, so this is rounded up to 24 (0x18) bytes.
@@ -484,7 +484,7 @@ You can test that the alignment is adequate by doing a bitwise and (C operator: 
 This should leave the value unmodified.
 
 \section[label=cheri_capability_cpp]{Manipulating capabilities with \cxx{CHERI::Capability}}
-Phil> Feels like this would be better right after the section "Manipulating capabilities with C builtins"
+\phil{ Feels like this would be better right after the section "Manipulating capabilities with C builtins"}
 The raw C builtins can be somewhat verbose.
 CHERIoT RTOS provides a \cxx{CHERI::Capability} class in \file{cheri.hh} to simplify inspecting and manipulating CHERI capabilities.
 

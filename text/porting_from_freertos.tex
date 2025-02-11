@@ -193,7 +193,7 @@ The structure of such a service is similar to that of the thread pool in \file{l
 These should be added to a data structure that keeps them sorted.
 The thread that runs the callbacks should wait on a message queue, with the timeout set to the shortest time timer.
 If this wakes with timeout, it should invoke the first (\c{__cheri_callback}, see \ref{cheri_callback}) callback function in its queue.
-Phil> The cross reference in the above disrupts the flow of the sentence without adding much.  
+\phil{ The cross reference in the above disrupts the flow of the sentence without adding much.  }
 If it wakes receiving a message, it should add the new callback into the set that it has ready.
 
 There is no generic version of this in CHERIoT RTOS because it is impossible to implement securely in the general case for a system with mutual distrust.

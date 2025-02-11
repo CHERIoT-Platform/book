@@ -25,13 +25,13 @@ Capabilities can be delegated.
 The building manager may loan their key to someone else to unlock a door.
 The key and the door don't care who is holding them.
 
-Phil> Might be a good place to introduce the concept of creating derived capabilities - You can make copies of a key that ether unlocks the same or a subset of the locks, but you can't create a key from something that just happens to look like a key. 
+\phil{ Might be a good place to introduce the concept of creating derived capabilities - You can make copies of a key that ether unlocks the same or a subset of the locks, but you can't create a key from something that just happens to look like a key. }
 Some kinds of capabilities can also be \keyword{revoked}.
 This is traditionally the hardest operation to perform on capabilities.
 Someone may perform an audit of all of the keys and remove some of them from people that shouldn't have them.
 This is often solved in capabilities by adding a layer of indirection; you hold a capability that authorises you to do something with a capability in some table and your rights can be removed by deleting the capability from the table.
 
-Phil> I was expecting this to go on and mention how some capabilities can be tagged as being valid or not ?
+\phil{ I was expecting this to go on and mention how some capabilities can be tagged as being valid or not ?}
 
 On a CHERI system, capabilities are used to authorise access to memory.
 Any instruction that takes an address in a conventional architecture takes a \keyword{CHERI capability} as the operand instead.
@@ -61,8 +61,8 @@ If you do some pointer arithmetic that goes out of bounds, C says that this is u
 CHERI says more concretely that it will trap: you are not authorised to access that memory \textem{with this capability}.
 If you hold two pointers to objects that are adjacent in memory, then you may be authorised to access the memory, but not with the pointer that you are using.
 
-Phil> Being adjacent hints pointers are unique, when they could of course be overlapping .
-Phil> So I would say "If you have multiple pointers to overlapping areas in memory ..."  
+\phil{ Being adjacent hints pointers are unique, when they could of course be overlapping .}
+\phil{ So I would say "If you have multiple pointers to overlapping areas in memory ..."  }
 
 This highlights the two key security principles that capability systems are able to enforce:
 
@@ -127,18 +127,18 @@ If you use the CHERIoT RTOS logging support (described in \ref{debug}) to print 
 Read and write permission allow the capability to be used as an operand to load and store instructions, respectively.
 Execute allows the capability to be used as a jump target, where it will end up installed as the \keyword{program counter capability} and used for instruction fetch.
 We'll cover the sealing and unsealing permissions later.
-Phil> Feels odd that Global is the only one not described in this para
+\phil{ Feels odd that Global is the only one not described in this para}
 
 The dependent permissions (listed in \ref{tbl:dependent_permissions}) provide more fine-grained control.
 
-Phil> I've always struggled with this section a bit and the concept of "dependent permissions" - what is it that they depend on ?
-Phil> Is it that their meaning changes and/or they can only be interpreted in conjunction with a primary permission ?  
-Phil> It feels like, with the exception of Access System Registers, that they defining what you can do with other capabilities stored in the memory referred to by the capability that holds them - so maybe "capability permissions" would be a better description.
+\phil{ I've always struggled with this section a bit and the concept of "dependent permissions" - what is it that they depend on ?}
+\phil{ Is it that their meaning changes and/or they can only be interpreted in conjunction with a primary permission ?  }
+\phil{ It feels like, with the exception of Access System Registers, that they defining what you can do with other capabilities stored in the memory referred to by the capability that holds them - so maybe "capability permissions" would be a better description.}
 
 For many of these, it's more useful to think about what can't be done if you lack the permission than to think about what can be done if you have it.
-Phil> It might be, but that's not what is then described in the table
-Phil> Why are "Load Global" and "Load Mutable" not called "Load Global Capability" and "Load Mutable Capability" to match "Load / Store Capability"?
-Phil> "Store Local" would be better as "Store Local Only"  
+\phil{ It might be, but that's not what is then described in the table}
+\phil{ Why are "Load Global" and "Load Mutable" not called "Load Global Capability" and "Load Mutable Capability" to match "Load / Store Capability"?}
+\phil{ "Store Local" would be better as "Store Local Only"  }
 
 \begin{table}
 	\begin[cols="13%fw 25%fw 15%fw 47%fw"]{tabular}
@@ -160,11 +160,11 @@ You can't accidentally store a valid pointer into them, and if they already cont
 Load global allows loading capabilities with the global permission.
 Any capability loaded via a capability without this permission will have its global (and load-global) permission stripped.
 It can then be stored only via a capability that has the store-local permission.
-Phil> There's a fair bit of inconsistent in this section of using hyphenated names in the text here and elsewhere in the book rather than the table, which can get a bit confusing when reading.
-Phil> Because the permissions are such a core concept it feels like there should be some consistent notation for referring to them,such as just using the Capitalised Names    
-Phil> For example in "removing load-global gives a deep no-capture" one is referring a permission and one a concept.
-Phil> Maybe instead say "removing the Load Global permission gives a deep no-capture".
-Phil> The use of a hyphenated names also extends into other sections, such as "has access-systems-registers permission", I  
+\phil{ There's a fair bit of inconsistent in this section of using hyphenated names in the text here and elsewhere in the book rather than the table, which can get a bit confusing when reading.}
+\phil{ Because the permissions are such a core concept it feels like there should be some consistent notation for referring to them,such as just using the Capitalised Names    }
+\phil{ For example in "removing load-global gives a deep no-capture" one is referring a permission and one a concept.}
+\phil{ Maybe instead say "removing the Load Global permission gives a deep no-capture".}
+\phil{ The use of a hyphenated names also extends into other sections, such as "has access-systems-registers permission", I  }
 CHERIoT RTOS provides the store-local permission exclusively to stacks.
 This means that while removing the primary global permission gives a shallow no-capture pointer (code that it is passed to can store it in registers and on the stack but nowhere else), also removing load-global gives a deep no-capture (not even objects loaded by an arbitrary amount of pointer chasing can be captured).
 
@@ -213,13 +213,13 @@ It can then be unsealed only with a capability that has the same value and the u
 If you attempt to unseal a capability that is not sealed with the value of the permit-unseal capability then you will get back an untagged value.
 Sealed capabilities can therefore be used as trusted handles that can be shared with untrusted code.
 If the untrusted code tries to modify the value in any way, you can detect the tampering.
-Phil> "can detect" sounds as if it's by inspecting the capability (like a signature) - maybe say explicitly that it causes a trap ? 
+\phil{ "can detect" sounds as if it's by inspecting the capability (like a signature) - maybe say explicitly that it causes a trap ? }
 
 The CHERIoT encoding has space for only three bits of object type (in contrast with 'big CHERI' systems such as Morello that typically have 18 bits).
 This is sufficient for a small number of core parts of the ABI but not enough for general-purpose use.
 To mitigate this limitation, the memory allocator provides a set of APIs (see \ref{token_apis}) that virtualise the sealing mechanism.
 The same mechanism is also used to build software-defined capabilities.
-Phil> Would it be more accurate to say this the other way round - CHERIoT provides a set APIs to virtualise this, and the memory allocator is an example of using them ?
+\phil{ Would it be more accurate to say this the other way round - CHERIoT provides a set APIs to virtualise this, and the memory allocator is an example of using them ?}
 
 The object type in a CHERIoT capability is interpreted differently depending on whether the sealed capability is executable or not.
 For executable capabilities, most of the object types are reserved for sealed entry (\keyword{sentry}) capabilities.
@@ -260,7 +260,7 @@ These abstractions were designed with the assumption that they ran independent w
 Gradually, communication mechanisms have been added on top.
 
 CHERIoT starts from a fundamental assumption that *isolation is easy, (safe) sharing is hard*.
-Phil> Are the *'s meant to be a Markdown command ?
+\phil{ Are the *'s meant to be a Markdown command ?}
 Particularly in the embedded space, it's easy to provide a separate core and SRAM if you want strong isolation without sharing.
 Most useful workloads involve communication between distrusting entities.
 For example, if you want to connect an IoT device to a back-end service, your ethernet driver needs to communicate with the TCP/IP stack, which needs to communicate with the TLS stack, which needs to communicate with a higher-level protocol stack such as MQTT, which needs to communicate with your device-specific logic.
@@ -306,7 +306,7 @@ This mechanism doesn't clear the stack or registers.
 
 Using a CHERIoT shared library is conceptually equivalent to copying the code that implements it into every compartment that uses it.
 Unlike simple copying, shared libraries are independently auditable and require only a single copy of the code in memory.
-Phil> This is the first mention of auditing as a concept I think - might need a forward reference ? 
+\phil{ This is the first mention of auditing as a concept I think - might need a forward reference ? }
 All entry points exported from a shared library are invoked via sentries.
 This means that they can enable or disable interrupts for the duration of the call.
 

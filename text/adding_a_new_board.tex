@@ -145,7 +145,7 @@ The driver headers use \c{#include_next} to include more generic files and so it
 
 The RTOS has some special behaviour for simulation platforms.
 If you implement a provide a simulation-exit driver (or rely on the generic RISC-V one) in a \file{platform-simulation_exit.hh} file, the RTOS will exit the simulator after the last thread has exited.
-Phil> Something wrong with the start of this sentence - maybe just "If you implement a simulation-exit driver ..." ?
+\phil{ Something wrong with the start of this sentence - maybe just "If you implement a simulation-exit driver ..." ?}
 
 The short-spin APIs also behave differently in simulation, where time may not be real.
 These treat short sleeps as elapsing immediately.
