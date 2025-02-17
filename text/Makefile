@@ -33,6 +33,7 @@ HTML_PASSES= \
 	--pass begin-end \
 	--pass comment \
 	--pass blank-is-paragraph \
+	--pass review \
 	--pass autolabel \
 	--pass clang-listing \
 	--pass ts-listing \
@@ -55,6 +56,7 @@ PDF_PASSES= \
 	--pass clean-empty \
 	--pass begin-end \
 	--pass comment \
+	--pass review \
 	--pass blank-is-paragraph \
 	--pass autolabel \
 	--pass sile-admonitions \

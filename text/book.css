@@ -346,3 +346,7 @@ tr:nth-child(even)
 	background-color: #e8e8e7;
 }
 
+span.review
+{
+	color: blue;
+}
