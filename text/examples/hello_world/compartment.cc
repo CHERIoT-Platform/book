@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // all#begin
-#include "hello.h"
+#include "compartment.hh"
 
 int exported_function()
 {
