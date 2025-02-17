@@ -1,7 +1,7 @@
 // Copyright Microsoft and CHERIoT Contributors.
 // SPDX-License-Identifier: MIT
 
-#include "hello.h"
+#include "compartment.hh"
 #include <stdio.h>
 
 // entry#begin
