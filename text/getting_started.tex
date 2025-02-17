@@ -276,12 +276,11 @@ One is our entry point, the other is a function that we'll use as a simple examp
 \end{caution}
 
 This example is going to make a cross-compartment call from the "hello" comparment to the "example_compartment" compartment and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
-The cross-compartment call is exposed from \file{hello.h} as shown in \ref{lst:helloexport}.
-\phil{ Seems odd to me that hello.h defines the interface to compartment.cc - elsewhere that/ would be compartment.h ? }
+The cross-compartment call is exposed from \file{compartment.hh} as shown in \ref{lst:helloexport}.
 The only difference between this and a normal C/C++ function prototype is the \c{__cheri_compartment} macro.
 This is explained in detail in \ref{exporting_functions}.
 
-\codelisting[filename=examples/hello_world/hello.h,marker=export,label=lst:helloexport,caption="Exporting a function for use by other compartments"]{}
+\codelisting[filename=examples/hello_world/compartment.hh,marker=export,label=lst:helloexport,caption="Exporting a function for use by other compartments"]{}
 
 The implementation of this function is trivial (see \ref{lst:toycompartmentcall}), it just returns \c{42}.
 Note that, aside from the annotation from the function prototype, we don't need any changes to expose this for use from other compartments.
@@ -319,8 +318,7 @@ Each thread must set five properties:
 		Higher numbers indicate higher priorities.}
 	\item[tag=stack_size]{ The number of bytes of stack space that this thread has allocated.}
 	\item[tag=trusted_stack_frames]{ The number of trusted stack frames.
-		Each cross-compartment call pushes a new frame onto this stack and so this defines the maximum number of compartments call depth (including the entry point) for this thread.
-\phil{ "maximum number of ... depth" doesn't sound right somehow - maximum number of nested cross-compartment calls", or "max cross-compatment call depth" maybe}}
+		Each cross-compartment call pushes a new frame onto this stack and so this defines the maximum cross-compartment call depth (including the entry point) for this thread.
 \end{description}
 
 \section{Running firmware images}
@@ -351,8 +349,8 @@ The run script provided for Sonata looks for the \file{SONATA} device in some co
 
 If you are working in the dev container, the host filesystems are not automatically available and must be explicitly added.
 You can add extra mount locations can be added to the \file{.devcontainer/devcontainer.json} file.
-If you're on macOS, the \file{SONATA} filesystem will be mounted in \file{/Volumes}, so you can add the following snippet to expose it to the container:
-\phil{ Maybe with adding that this has to be at the top level of the JSON (I know that's implied by the indentation, but its silently ignored if you get it inside the customizations block)}
+If you're on macOS, the \file{SONATA} filesystem will be mounted in \file{/Volumes}, so you can add the following snippet (in the top-level object in the JSON file) to expose it to the container:
+
 \begin{jsonsnippet}
   "mounts": [
     "source=/Volumes/SONATA,target=/mnt/SONATA,type=bind"
