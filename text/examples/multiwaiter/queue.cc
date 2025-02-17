@@ -83,7 +83,7 @@ void __cheri_compartment("queue") consumer()
 	// multiwaiter_create#begin
 	// Create the multiwaiter object in the scheduler with
 	// space for two event sources.
-	MultiWaiter *multiwaiter;
+	MultiWaiter multiwaiter;
 	blocking_forever<multiwaiter_create>(
 	  MALLOC_CAPABILITY, &multiwaiter, 2);
 	// multiwaiter_create#end
