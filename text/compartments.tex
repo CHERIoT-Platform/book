@@ -1,11 +1,14 @@
 \chapter[label=compartments]{Compartments and libraries}
 
-Compartments in CHERIoT are somewhere between libraries and processes in mainstream operating systems.
-\phil{I think the comparison to processes might be confusing in the context of compartments being orthogonal to threads.  Might be better to talk about them as being a point in time constrained environment for a thread, or at least providing some view/comment on threads here.   }
-They have private code and globals and constitute a security boundary.
-They can export functions to be called form other compartments and can call functions exported from other compartments.
+In most conventional operating systems, you share code with shared libraries and you isolate running code with processes.
+Compartments in CHERIoT are somewhere between these two abstractions.
+Unlike a process, they do not own threads, which are an independent concept in CHERIoT, described more in \ref{threads}.
 
-Libraries are a lightweight way of reusing code without duplicating it into different compartments.
+Communication between compartments looks a lot more like communication between shared libraries than like inter-process communication (IPC).
+They can export functions to be called form other compartments and can call functions exported from other compartments.
+Like a shared library, they have code and globals associated with them, but a \keyword{cross-compartment call} crosses a security boundary, in the same way that an IPC message would.
+
+CHERIoT shared libraries are a lightweight way of reusing code without duplicating it into different compartments.
 Calling a library function does not involve crossing a security boundary.
 Libraries contain code and read-only data but do not have mutable globals.
 It is possible for libraries to hold secrets but, unless library functions are written in very careful assembly, they should assume that any (immutable) globals in the library can leak to callers.
@@ -36,9 +39,9 @@ For very large globals, this may also increase code size significantly.
 As mentioned previously, (read-only) globals in a library are hidden in a software-engineering sense, but may be leaked to callers and should not be considered private in a security sense.
 \end{note}
 
-You can still use globals to share data but you must explicitly expose them via an accessor function.
+You can still use a compartment's globals to share data but you must explicitly expose them via an accessor function.
 This makes CHERIoT compartments and libraries similar to Smalltalk-style objects, with public methods and private instance variables.
-\phil{ Is this still true now there is support for pre-shared globals ?}
+You can also create globals that are shared between compartments (see \ref{_sharing_globals_between_compartments}) but these are not part of any compartment.
 
 If you expose an interface that returns a pointer to a global, you can use CHERI permissions to restrict access.
 Returning a read-only pointer to a global is a common idiom for building a lightweight broadcast communication channel.
@@ -49,15 +52,16 @@ To see the differences, \ref{lst:exportcompartmentandlib} shows a header that ex
 \codelisting[filename=examples/library_or_compartment/interface.h,marker=exports,label=lst:exportcompartmentandlib,caption="A header defining library and compartment exports."]{}
 
 The exported functions both contain the implementation shown in \ref{lst:printcompartmentregisters}, which uses the debug APIs (see \ref{debug}) to print the capabilities in three registers.
-These show the stack, code, and globals regions, respectively.
+This listing shows the version in the library but the code in the compartment is identical.
+There are two compartments in this example, the entry compartment and the compartment that it calls.
+
+The exported (library and compartment) functions will print the stack, code, and globals regions, respectively.
 The compiler provides builtin functions to copy two of these (the program counter and stack capabilities) but the third, the globals pointer, requires some inline assembly.
 The inline assembly needs to run at the start of the function because this function does not reference any globals and so the compiler will otherwise spill this register to use it as a temporary.
 
 \codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
 
 When you run this code, you should see output something like this:
-\phil{  Feels like something is missing here, you've only shown the declarations and body of the called compartment/library, but it's not clear that there are actually two compartments (Entry & Compartment) and thread that starts in Entry and then calls into Library followed by a call into Compartment.}
-\phil{ "CalledCompartment" might be a clearer name, as it is you have "Entry compartment" and "Compartment compartment" }
 
 \begin{console}
 Entry: Stack pointer: 0x80000d30 (v:1 0x80000750-0x80000d50 l:0x600 o:0x0 p: - RWcgml -- ---)
@@ -73,9 +77,9 @@ Compartment: Globals pointer: 0x800061fe (v:1 0x800061fc-0x80006200 l:0x4 o:0x0 
 
 Ignore the exact memory addresses, these may change depending on where you run the example.
 First, note that the program counter capability (the capability used for instruction fetch) is different in all three cases and the bounds do not overlap.
-In this particular built, the example compartment is placed in code memory immediately after the entry compartment, so the address 0x80005df8 is the boundary between the two.
+In this particular build, the called compartment is placed in code memory immediately after the entry compartment, so the address 0x80005df8 is the boundary between the two.
 
-Next, observe that the globals pointer is different between the two compartments.
+Next, observe that the globals pointer is different between the entry compartment and the one that is called in the last three lines of the output.
 This example includes a single \c{int} global, to make sure that these are non-zero (two compartments may have the same zero-length capabilities for globals if they have no globals).
 In contrast, the library prints the same globals pointer as the caller.
 As previously mentioned, a malicious library can access any globals in the caller.
@@ -89,8 +93,9 @@ The initial value is very close to the top of the stack, then the library and co
 A compartment call needs to save more state (two callee-save registers and the old global pointer, which are preserved across normal calls) and so entry to the compartment call is slightly (48 bytes) lower.
 The top of the stack is the most interesting place.
 In the compartment call, the top of the stack is at address 0x80000d10, 64 bytes below its location in the entry compartment and the library.
-Phi> Also worth pointing out that the stack pointer length is smaller in the called compartment, but the same in the library, because libraries have full access to the sack of the caller ?
 Anything above that point is unreachable in the compartment before then.
+The length shows this truncation another way.
+The original had 0x600 bytes of stack but this is reduced to 0x5c0 after the cross-compartment call.
 
 This may all be easier to understand visually.
 \ref{compartmentcallregisters} shows the memory ranges that each compartment points to, in each of the three places.
@@ -205,8 +210,7 @@ The memory allocator is also written as a safebox, assuming that everything else
 For some operations, the scheduler invokes the allocator.
 The scheduler trusts the allocator to enforce heap memory safety.
 It does not, for example, try to check that the memory allocator is returning disjoint capabilities (it can't see every other caller of \c{heap_allocate}, and so couldn't validate this).
-It is, however, written to assume that other compartments may try to maliciously call allocator APIs to cause it to crash.
-\phil{ "It" being Scheduler or Allocator ? Reads as its is the Scheduler,but seems odd that would protect malicious calls to the Allocator API. }
+It is, however, written to assume that other compartments may try to maliciously call allocator APIs to cause it to crash, for example by freeing memory that the scheduler is using.
 When thinking about trust, it's worth trying to articulate the properties that other code is trusted to enforce or preserve.
 For example, everything in the CHERIoT system trusts the scheduler for availability.
 Most things trust the allocator to enforce spatial and temporal memory safety for the heap.
@@ -295,9 +299,8 @@ If you put the driver in a separate compartment then you are protected in both d
 
 \begin{itemize}
 	\item{The driver is the only thing that can touch the relevant GPIO pin and so, if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.}
-	\item{The driver runs with interrupts disabled but the rest of the application does and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
+	\item{The driver runs with interrupts disabled but the rest of the application runs with interrupts enabled and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
 \end{itemize}
-\phil{ Should this be "...rest of the application does not ..." ?}
 
 This then gives you something to build on if you decide, for example, that you want to be able to update the lighting patterns from the Internet.
 Now you want to add a network stack to be able to fetch the new patterns and an interpreter to run them.
@@ -312,9 +315,6 @@ The TLS stack will decode complete messages and forward them to the interpreter 
 TLS packets have cryptographic integrity protection and so anything that comes through this path is probably safe, unless the TLS compartment is compromised, but putting the interpreter in a separate compartment ensures that invalid interpreter code can provide different colours to the LEDs but can't damage the LEDs and can't launch attacks over the network.
 
 \section{Validating arguments}
-
-\functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
-\phil{ In this block I didn't follow the point in EnforceStrictPermissions on how it is useful, in particular is the compartment that asking for less permissions that required the one making the check ?  is it more that they require less than might be in present in the pointer they are passed ? }
 
 If a function that is exported from a compartment takes primitive values as arguments, there's little that an attacker can do other than provide invalid values.
 For things like integers, this doesn't matter, for enumerations it's important to ensure that they are valid values.
@@ -339,7 +339,7 @@ It checks that a pointer has (at least) the bounds and permissions that you expe
 If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
-\phil{ Feels like the block describing check pointer might more naturally sit here in the narrative}
+\functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
 
 \begin{note}
 Checking the pointer is not the only option.
@@ -390,18 +390,19 @@ Finally, the non-malicious string is printed correctly, showing that the attacke
 
 The stack is shared between compartments invoked on the same thread.
 The callee has access to the portion of the stack that its callers have not used.
-This means that a malicious compartment can consume almost all of the stack and then try to force a callee to trap when it tries to use the stack.
-\phil{ Wasn't clear, but I assume that the callee its trying to force to trap is one that the malicious comp is calling ?  Seems a bit confusing as the malicious comp itself is first described as callee, so it sounds as if it could consume the stack, return, and then cause a problem to a "peer callee" }
+This is most important when a compartment is called by an untrusted caller.
+In this case, a malicious caller may try to consume almost all of the stack before calling a victim compartment.
+The victim would then trap in a place under the attacker's control.
 
 Before entering a compartment, the switcher will check the amount of stack space against the required amount in the export table.
 By default, the compiler will fill this value with the amount that is required by the function that serves as an entry point.
 This is sufficient for leaf functions, but if your function calls others (and they are not inlined) then this will be insufficient.
 
-You can specify the stack space required by a function by using the \c{__cheriot_minimum_stack} attribute.
+You can specify the stack space required by an exported function by using the \c{__cheriot_minimum_stack} attribute.
 This is a function attribute that takes a single argument, the number of bytes of stack space that the function requires.
+Setting this attribute ensures that the switcher will not invoke the exported function unless at least the required amount of stack space is available.
+The malicious caller from the previous example would see a return value if \c{-ENOTENOUGHSTACK} and your code would not be invoked.
 Using this attribute requires you to know how much stack space the function will use.
-
-\phil{ Not really clear how to use this defensively in the case of the malicious compartment described.   In the chain c1 -> c2 -> c3, where c2 is the malicious compartment does adding this attribute to the function in c3 prevent c2 from calling it ?  If so is it only useful / usable on compartment and library entry points ? }
 
 CHERIoT CPUs include a feature called a stack high-water mark that tracks the amount of stack that is used so that the switcher can avoid zeroing unused portions of the stack.
 The switcher provides a function, \c{stack_lowest_used_address}, that you can call to find the lowest address.
@@ -458,7 +459,7 @@ The stackless variant will be passed the stack capability as it was on entry to 
 Most users will not write these but will instead use one that the platform provides.
 
 \section{Writing rich error handlers}
-\phil{ Should this be a subsection of "Handling Errors" ? }
+
 You can provide a rich error handler by implementing \c{compartment_error_handler} in your compartment.
 
 \functiondoc{compartment_error_handler}
@@ -499,7 +500,6 @@ For example, you may wish to drop locks when an error occurs, or you may wish to
 The \c{heap_free_all} function, discussed in \ref{shared_heap} helps with the latter.
 
 \section{Using scoped error handling}
-\phil{ Should this be a subsection of "Handling Errors" ? }
 
 You are unlikely to ever write a stackless error handler.
 Most of the time, you will want to link the one provided by the \file{unwind_error_handler} target.
@@ -662,8 +662,8 @@ The token APIs look as if they're provided by the allocator, but \c{token_obj_un
 This makes it fast to unseal objects (no cross-compartment call).
 It also removes any dependency on the allocator from things that rely on static sealing.
 
-\phil{ Make it clear the following is a case study / example of using sealed capabilities. Anyone looking to implement one of their own would be advised to look at the malloc code as an example. }
-The allocator uses the static sealing mechanism to define allocation capabilities.
+The allocator provides an example in the RTOS of how you can use this feature.
+When you allocate memory, you pass the allocator a static sealed object that represents your allocation capability, which authorises allocating memory up to a quota.
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
 
@@ -704,9 +704,8 @@ For example:
     end)
 \end{luasnippet}
 
-\phil{ Does it have to be defined in each target that shares it, or just one ?}
-
-This is from the test suite and defines a \c{test_word} object that is a single 32-bit value and an \c{exampleK} object that is 1024 bytes.
+You don't need to define this on every compartment that imports the object, a single definition is all that is necessary.
+This example is from the test suite and defines a \c{test_word} object that is a single 32-bit value and an \c{exampleK} object that is 1024 bytes.
 Note that the objects are defined as sizes, not as types.
 The type cannot be enforced by CHERI and depends on the compartment that imports the object.
 If a single compartment has write access to an object then that compartment forms the TCB for type safety of that object.
