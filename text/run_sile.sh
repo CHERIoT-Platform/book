@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # This sets LUA_PATH and LUA_CPATH...
 eval $(luarocks --lua-version 5.1 --tree lua_modules path)
