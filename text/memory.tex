@@ -50,8 +50,9 @@ The CHERIoT platform provides two additional features for temporal safety.
 These both depend on a revocation bitmap, a shadow memory space that stores one bit per eight bytes of heap memory.
 When an object is freed, the allocator paints the bits associated with it.
 
-The \keyword{load filter} then ensures that any pointer to the object will have its tag cleared when it is loaded.
-\phil{ Might be just me, but took me a while to grok what the load-filter is and "when it is loaded" means in this context (was thinking about the Load permission).  So any attempt to put the capability into a register so it can be used will clear the tag if (some ?) of its range is set in the corresponding area of the revocation bit map ?  }
+The \keyword{load filter} is part of a CHERIoT core.
+When a capability is loaded from memory into a register, the load filter checks the revocation bit associated with the base of the capability and clears the tag bit if the capability points to freed memory (filtering out dangling pointers).
+The load filter ensures that you cannot load, and therefore cannot try to use, any dangling pointers.
 This gives deterministic use-after-free protection; any attempt to use a pointer to a deallocated object will trap.
 The object is then placed in \keyword{quarantine}.
 
@@ -109,7 +110,6 @@ Defining \c{CHERIOT_NO_NEW_DELETE} will disable the global C++ operator \c{new} 
 Defining these does not prevent memory allocation, you can still define non-default allocator capabilities and use them directly, but it prevents accidental allocation.
 
 \section{Defining custom allocation capabilities for \c{malloc} and \c{free}}
-\phil{ ct tags in the section title look messy and seem unnecessary }
 
 If you simply wish to change the quota that is available to \c{malloc} and \c{free} then you can define \c{MALLOC_QUOTA} when compiling your compartment.
 If you require more control, such as controlling the compilation unit that contains the definition of the allocator capability, then you can define \c{CHERIOT_CUSTOM_DEFAULT_MALLOC_CAPABILITY}.
@@ -190,7 +190,6 @@ If you need to ensure that an allocation remains valid for a brief, scoped, peri
 This function places an ephemeral claim on one or two objects.
 
 \functiondoc{heap_claim_ephemeral}
-\phil{ Should the first line of text in the function doc be "interface to the ephemeral claims mechanism" rather that "fast claims mechanism" ?}
 
 Every thread has two \keyword{hazard slots} that can hold pointers.
 The \c{heap_claim_ephemeral} function manages these two slots.
