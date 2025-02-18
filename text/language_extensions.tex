@@ -300,8 +300,10 @@ Capabilities can be modified with the nouns and verbs listed in \ref{tbl:cap_mod
 
 
 Setting the object type for sealed capabilities is more complex.
-This is done with \c{__builtin_cheri_seal}, which takes an authorising capability (something with the permit-seal permission) as the second argument and sets the object type of the result to the address of the sealing capability.
-Conversely, \c{__builtin_cheri_unseal} uses a capability with the permit-unseal capability and address matching the object type to restore the original unsealed value.
+This is done with \c{__builtin_cheri_seal}, which takes an authorising capability (something with the permit-seal permission) as the second argument and sets the object type of the result to the value of the sealing capability.
+\hugo{ Using address here is confusing. Could alternatively use 'the value of the address field', but this is a mouthful. }
+Conversely, \c{__builtin_cheri_unseal} uses a capability with the permit-unseal permission and address matching the object type to restore the original unsealed value.
+\hugo{ Using permission over capablity here, makes it slightly easier to follow. }
 
 Most of the time, C code will avoid using the builtins directly and instead use the wrappers defined in \file{cheri-builtins.h}.
 This file contains a set of macros that wrap the builtins to remove the \c{__builtin_} prefix.
@@ -489,6 +491,7 @@ This is a slightly simplified version of the original CHERI scheme, which simpli
 Future versions of CHERIoT are likely to support slightly more expressive formats on longer pipelines.
 Other CHERI systems make different trade offs.
 \end{note}
+\hugo{ It's hard to gauge, but can pipelines be assumed knowledge for embedded engineers? }
 
 
 Calculating the length can be non-trivial and can vary across CHERI systems.

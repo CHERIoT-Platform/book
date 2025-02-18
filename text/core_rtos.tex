@@ -12,6 +12,7 @@ It reads the compartment headers and populates each compartment with the set of 
 \phil{ reads them from where ?}
 The loader exists so that the system can be started from a firmware image that does not embed capabilities.
 This is a useful property even if a particular target has persistent storage (non-volatile RAM) that \textem{can} hold capabilities because it ensures that there is an on-device \keyword{pointer provenance} flow for the firmware.
+\hugo{Why does on device pointer provenance matter? Possibly doesn't need to be answered here, but this question did pop to mind when reading.}
 
 If a device has non-volatile storage that holds tags, you will typically run the loader once at install time or on first boot of a new firmware image.
 This ensures that the image contains only capabilities handed to it.
@@ -19,13 +20,14 @@ This ensures that the image contains only capabilities handed to it.
 This, in turn, enables multi-stage boot where some functionality, such as attestation, secure key storage, and so on, are provided by a bootloader.
 These abstractions can all be built from capabilities and so, unlike systems based on protection rings such as TrustZone, an arbitrary number can be nested.
 
-If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise pointer by deriving a capability from one out of the compartment's code or data capabilities.
+If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise the pointer by deriving a capability from one out of the compartment's code or data capabilities.
 Again, this enforces provenance properties, this time within a firmware image.
 A malicious compartment may provide a relocation that points to a global outside its own memory, but the loader will attempt to derive the capability only from the compartment's initial \reg{pcc} (code) and \reg{cgp} (globals) regions and so will fail.
 
 The loader must also provide all capabilities to compartments that allow them to communicate outside of their own private space.
 This includes access to \keyword{memory-mapped I/O} (MMIO) regions, capabilities for pre-shared objects, for software-defined capabilities, and any capabilities for calling entry points exposed by other compartments or libraries.
 The loader also creates the stacks and trusted stacks for each thread and creates their initial entry points.
+\hugo{nit: MMIO abbreviation has been used before this declaration}
 
 The loader is the most privileged component in the system.
 When a CHERIoT CPU boots, it will have a small set of \keyword{root capabilities} in registers.
@@ -81,6 +83,7 @@ If the exception program counter capability on exception entry is within the swi
 
 On the cross-compartment call path, the switcher is responsible for unsealing the capability that refers to the export table of the callee, clearing unused argument registers, pushing the information about the return to the trusted stack, subsetting the bounds of the stack, and zeroing the part of the stack passed to the callee.
 On return, it zeroes the stack again, zeroes unused return registers, and restores the callee's state.
+\hugo{ FYI: On my first read through, I wanted to know how it knew which arguments are unused. This is explained later, so probably no change needed. }
 
 This means that the switcher is the only component that has access to either two threads', or two compartments', state at the same time.
 As such, it is in the TCB for both compartment and thread isolation.
@@ -182,7 +185,7 @@ C++ expects slightly more from a freestanding environment.
 CHERIoT RTOS does not provide support for exceptions, but does support thread-safe initialisation of statics.
 In C++, function-local \cxx{static} variables that have non-trivial constructors are initialised lazily, the first time that they are invoked.
 The compiler emits a guard word that is used to mark whether the object is initialised and act as a lock to protect initialisation.
-The compiler also emits a branch on the initialised bit at the point where the variable becomes in scope.
+The compiler also emits a branch on the initialised bit at the point where the variable comes into scope.\hugo{ nit, do ignore if you prefer the previous version }
 In the uninitialised case, this inserts a call to \c{__cxa_guard_acquire} to acquire the lock and then a call to \c{__cxa_guard_release} to release the lock.
 The acquire function also checks whether another thread has initialised the variable between the initial check and the call, preventing double initialisation.
 These are provided by the \library{cxxrt} library.
@@ -193,7 +196,7 @@ The \c{__cxa_guard_abort} function is called when a constructor throws an except
 This is not supported on CHERIoT.
 \end{note}
 
-For both C and C++ (and other languages that use the same compiler back end) there are some sequences that compilers prefer to generate as calls to helper functions.
+For both C and C++ (and other languages that use the same compiler back end), there are some sequences that compilers prefer to generate as calls to helper functions.
 For example, if you divide one 64-bit number by another, this is a single operator in C.
 On most 64-bit processors, it's a single divide instruction but on 32-bit processors it requires a much longer sequence.
 Similarly, GCC and Clang provide a \keyword{population count} built-in function that counts the number of bits in an integer that are set to one.
@@ -211,6 +214,10 @@ It's quite feasible to have a compartment that is of the order of a hundred byte
 C11 and C++11 introduced atomic operations.
 In C, these use the \c{_Atomic} qualifier, in C++ they use the \cxx{std::atomic<>} template.
 Recently, these were somewhat unified so that \c{Atomic(T)} can be a macro that expands to \cxx{std::atomic<T>} in C++.
+\hugo{
+Does this mean: "so that _Atomic(T) can be a macro that expands to std::atomic<T> in C++"
+or "so that Atomic(T) can be a macro that expands to std::atomic<T> in C++ and _Atomic(T) in C"?
+}
 In both languages, these are often referred to as the C++11 model because the C++ version was introduced first and then ported to C.
 
 Compilers implement these with a set of built-in functions that, on most application cores, are lowered in the back end to atomic instructions.
