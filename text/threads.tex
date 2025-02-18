@@ -6,7 +6,7 @@ There are a small number of scheduler APIs that allow threads to block; higher-l
 
 Remember that, in most respects, the scheduler is just another compartment.
 It doesn't run with elevated privileges, it makes a decision about which thread to run next but it is not able to see the stacks or register states associated with threads.
-\phil{ Maybe picky, but as a compartment the Scheduler doesn't run at all, but different threads may enter and run in the Scheduler compartment.  Keeping the distinction between compartments and threads seems important.}
+When another thread calls into the scheduler (for example, to sleep or to wake other threads), the call is just like any other cross-compartment call and uses the same mechanism.
 
 \section{Defining threads}
 
@@ -18,7 +18,8 @@ Allowing stack creation would violate that: at least the memory allocator would 
 It would be possible to allocate stacks from a separate pool, but that's not really different from allocating stacks up front and having a small compartment that switches them from one use to another or implements a thread pool.
 There is an example thread pool in \file{lib/thread_pool} and \file{thread_pool.h} that you can either use directly or use as inspiration for your own design, if you want to create new thread-like contexts.
 
-\phil{Worth noting that although they can't be dynamically created they can exit (although this doesn't free their stack)}
+If a thread entry point returns then the thread exits but, importantly, this does \textem{not} free the thread's stack or trusted stack.
+The memory owned by a thread is assigned to that thread as long as the system runs.
 
 Threads in CHERIoT RTOS are constructed with four properties:
 
@@ -65,7 +66,11 @@ This can be used to size data structures that are indexed by thread ID.
 
 \functiondoc{thread_count}
 
-\phil{ So thread_get_id is not a cross-compartment call (because it just reads from the register area of the current thread), but thread-count() is, and so has bigger impact (like it could release an ephemeral heap claim ?)}
+\begin{caution}
+	Somewhat counter intuitively, \c{thread_id_get} is faster than \c{thread_count} to call.
+	The former is a libcall that that switcher implements, the latter is a cross-compartment call into the scheduler.
+	This is not normally a problem because the result of \c{thread_count} does not change and so can be cached in a compartment, whereas the result of \c{thread_id_get} depends on the current thread and so cannot be cached.
+\end{caution}
 
 The \file{current_thread} example shows calling these functions.
 The entry point function for this is shown in \ref{lst:currentthread} and the thread definitions from the \file{xmake.lua} file in \ref{lst:currentthreadxmake}.
@@ -87,8 +92,8 @@ Current thread: 1 of 2
 The higher-priority thread is running until it exist.
 Normally, a higher-priority thread would \keyword{yield} to allow another thread to run, as we'll see later in this chapter.
 
-\section[label=timeouts]{Using the \c{Timeout} structure}
-\phil{ The \c Tag looks a bit messy in the section header}
+\section[label=timeouts]{Limiting blocking with timeouts}
+
 Several RTOS APIs have timeouts.
 These are expressed as a pointer to a \c{Timeout} structure.
 This design is intended to allow a single timeout to be passed down a chain of operations.
@@ -115,7 +120,9 @@ At that point, the high-priority thread is runnable and so will be scheduled.
 
 The timeout structure captures the amount of time that is allowed to block and the number of ticks for which it has blocked.
 Each subsequent call that is passed the same timeout structure may increase the amount of slept time and decrease the remaining time.
-\phil{ Something that wasn't obvious to me, and doesn't really come across here is that when you create timeout of n ticks it means "n ticks from when it was created" - I can't for example create a timeout once of 10 ticks and pass it to an API every time I want to wait for another 10 ticks. }
+This means that a timeout is \textem{stateful}.
+If you pass a pointer to the same timeout to multiple APIs, they will all consume the ticks that were set when the timeout structure was initialised.
+This is normally useful because it means that a function that calls multiple functions that block can have a timeout parameter and forward it to each of the functions that it calls, but it means that you can't just create one timeout at the start of your thread and keep using it (unless you initialise it to the unlimited timeout value).
 
 \begin{note}
 A thread may block for more than the permitted limit if it is sleeping while a higher-priority thread runs.
@@ -137,7 +144,6 @@ Sleeping for a bounded number of ticks is the simplest form of blocking availabl
 The \c{thread_sleep} call causes the caller to yield until a certain number of ticks have run.
 
 \functiondoc{thread_sleep}
-\phil{ There is a bit in the 3rd para of the above that reads ".. of yieldyield and so .." - not sure if that's a typo or not}
 As with other calls that take a \c{Timeout}, the number of ticks that have elapsed during the call can be checked by reading the \c{elapsed} field of the timeout structure.
 
 Sleeping in a system with an RTOS scheduler conflates two concepts:
@@ -219,8 +225,6 @@ This does not quite apply on a CHERIoT system, where there is no userspace, but 
 A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-sleep (\c{futex_timed_wait}) and notify (\c{futex_wake}) operations.
 
 \functiondoc{futex_timed_wait}
-\phil{ Would be useful if the available flags were included }
-\phil{ Bullets at the end look odd - "This returns" shouldn't be part of the first list item.  }
 
 \functiondoc{futex_wake}
 
@@ -262,8 +266,7 @@ Note that the decrement operator on \cxx{std::atomic} is an atomic decrement, so
 The thread that set the counter to zero then notifies any waiting threads to wake.
 Other threads, as they arrive, will sit using the \cxx{wait} method, which is a thin wrapper around \c{futex_wait}.
 
-The loop on line 26 is important.
-\phil{ Seems to be line 23 ?}
+The loop on line 23 is important.
 Imagine that one thread decrements the counter to one and is then preempted.
 Then another thread decrements it to zero and does the \cxx{notify_all} (\c{futex_wake}) call.
 The first thread, when it resumes will try to wait on the futex, but the value has now changed.
@@ -572,7 +575,7 @@ The queue may still contain malicious or malformed data, but you have guarantees
 
 \ref{lst:queuemulticompartmentalloc} shows how to allocate a queue for sharing between compartments.
 This is equivalent to the example from \ref{lst:queuesinglecompartmentalloc}, but with the producer and consumer separated into different compartments.
-\phil{ And the queue itself being in a third compartment, the "queue compartment". (You use that term later but its not defined)}
+The queue is protected from both by being managed in the queue compartment, which is provided by the RTOS.
 In the original, the queue was shared between the producer and consumer by placing it in a (compartment-local) global variable.
 In this version, it needs to be passed to the consumer explicitly by calling the \c{set_queue} function that the consumer exposes.
 
