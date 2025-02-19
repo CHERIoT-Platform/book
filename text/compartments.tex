@@ -173,7 +173,11 @@ The \lua{firmware} target definition is more complex because it also implicitly 
 If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentation}, simply treat these as if they were \lua{target} definitions.
 \end{note}
 
-\phil{ Somewhere, not sure if it fits in here or section 4, it would be good to mention how you can create a reusable compartment model with includes() of a directory with the files and xmake.lua - as used in the network stack. That feels like a very nice model / practice to promote. }
+\begin{note}
+	If your \file{xmake.lua} file contains compartment or library definitions but no firmware, then it can be reused.
+	Each of the optional libraries and compartments shipped with the RTOS is defined like this, they are in a separate \file{xmake.lua} that is then included.
+	As long as the components are set as non-default, they will simply be available for firmware to add as dependencies.
+\end{note}
 
 Once you have defined the rules to build each compartment and library, they need to be combined into a firmware image.
 Any library or compartment that is a direct or indirect dependency of a firmware image will be built and linked into the final image.

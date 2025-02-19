@@ -105,7 +105,7 @@ void __cheri_compartment("mqtt_example") example()
 	  clientID.size() - clientIDPrefix.size());
 	// client_id#end
 
-	// connect#begin
+	// connecting#begin
 	Debug::log("Connecting to MQTT broker...");
 	auto handle =
 	  mqtt_connect(&t,
@@ -126,7 +126,7 @@ void __cheri_compartment("mqtt_example") example()
 		Debug::log("Failed to connect.");
 		return;
 	}
-	// connect#end
+	// connecting#end
 
 	Debug::log("Connected to MQTT broker!");
 

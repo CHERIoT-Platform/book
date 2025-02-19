@@ -45,7 +45,6 @@ firmware("https")
         priority = 1,
         entry_point = "example",
         -- TLS requires *huge* stacks!
-        --stack_size = 8160,
         stack_size = 6144,
         trusted_stack_frames = 6
       },

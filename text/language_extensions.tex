@@ -26,7 +26,6 @@ The \command{xmake} provided by CHERIoT RTOS will set the compiler flags for you
 The body of this function is then shown in \ref{lst:incrementfn}.
 Note that this does not require the attribute, it is inherited from the prototype.
 If you forget to include the header, you will see a linker error about a missing symbol.
-\fixme{I thought we now had a better linker error but I can't reproduce it.}
 
 \codelisting[filename=examples/compartment_annotation/compartment.cc,marker=increment,label=lst:incrementfn,caption="The body of a function that is exposed for cross-compartment calls."]{}
 
@@ -151,7 +150,7 @@ Don't forget to modify the \file{xmake.lua} file to change the \lua{library} tar
 
 \section{Interrupt state control}
 
-The \c{cheri_interrupt_state} attribute (commonly used as a C++11 / C23 attribute spelled \c{cheri::interrupt_state}) is applied to functions and takes an argument that is one of the following:
+The \c{cheri_interrupt_state} attribute (commonly used as a C++11 / C23 attribute spelled \c{cheriot::interrupt_state}) is applied to functions and takes an argument that is one of the following:
 \fixme{Should probably rename this cheriot in the compiler}
 
 \begin{description}
