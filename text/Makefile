@@ -73,6 +73,7 @@ PDF_PASSES= \
 	--pass sile-note \
 	--pass sile-xref \
 	--pass sile-href \
+	--pass sile-cleanup \
 	--pass sile-boilerplate \
 	--pass clean-empty \
 	--pass pdf-ebook-cover \
