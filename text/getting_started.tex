@@ -241,9 +241,11 @@ This starts with some boilerplate:
 The \lua{set_project} call gives a name to the project.
 
 Lines 7–9 import the RTOS SDK.
+\hugo{ Looks like this should be lines 6-8 }
 This first tries to use the \command{CHERIOT_SDK} environment variable and, if not, tries a relative file.
 The \lua{sdkdir} variable should point to the location of the \file{sdk} directory from the RTOS repository.
 Finally, line 11 selects the CHERIoT toolchain.
+\hugo{ line 10 }
 Ideally this line would not be needed, but \command{xmake}'s scoping rules require it to be provided here.
 
 This boilerplate snipped will exist at the top of most \file{xmake.lua} files for CHERIoT.
@@ -253,7 +255,8 @@ The SDK file provides rules for building the various kinds of CHERIoT components
 These libraries include the core definitions for a freestanding C implementation (\c{memcpy} and friends), the atomic helpers for cores without atomic instructions, and the C runtime things that are called from compiler builtins.
 See the \file{lib} directory in the SDK for a full list.
 
-If you want your firmware built to support running on more than one CHERIoT implementation then you will typically want to make the board to target an option, as shown in \ref{lst:xmakeboardselect}.
+If you want your firmware built to support running on more than one CHERIoT implementation then you will typically want to make the board to target a build option, as shown in \ref{lst:xmakeboardselect}.
+\hugo{ "board to target an option" was hard to follow }
 This exposes a \flag{--board} option at the configure stage, we'll see how this is used later.
 
 \lualisting[filename=examples/hello_world/xmake.lua,marker=board,label=lst:xmakeboardselect,caption="Build system code for allowing the board to be selected at configure time"]{}
@@ -343,7 +346,7 @@ SUCCESS
 \end{note}
 
 In some cases, these commands may depend on external configuration.
-For example, Sonata has a nice mBed-inspired loader that runs on a Raspberry Pi 2040 that configures the FPGA and loads firmware images.
+For example, Sonata has a nice mBed-inspired loader that runs on a Raspberry Pi 2040 that configures the FPGA and loads firmware images. \hugo{ Remove double 'that' }
 This exposes the flash filesystem so that you can just copy a firmware file into the \file{SONATA} device and the 2040 will reboot the FPGA and load the firmware.
 The run script provided for Sonata looks for the \file{SONATA} device in some common mount locations and, if that fails, simply prints the location of the file and tells you to copy it yourself.
 
@@ -383,6 +386,7 @@ Either of these approaches will mount the SONATA filesystem as \file{/mnt/SONATA
 The run command typically provides a convenient default.
 Some simulators provide various options if you invoke them directly.
 For example, both the Sail and SAFE simulators provide instruction-level tracing
+\hugo{ There's also the Sonata simulator. It can do instruction-level tracing, but maybe better to suggest only for people who want to test run Sonata software on their computer. (If at all.) }
 
 The Sail simulator is installed in the dev container as \file{/cheriot-tools/bin/cheriot_sim}.
 This will directly run an ELF binary, so you can recreate the behaviour of the \command{xmake run} command like this:

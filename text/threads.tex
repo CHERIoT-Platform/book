@@ -17,6 +17,7 @@ The only store-local capabilities that a thread ever has access to are derived f
 Allowing stack creation would violate that: at least the memory allocator would have access to multiple stacks at once.
 It would be possible to allocate stacks from a separate pool, but that's not really different from allocating stacks up front and having a small compartment that switches them from one use to another or implements a thread pool.
 There is an example thread pool in \file{lib/thread_pool} and \file{thread_pool.h} that you can either use directly or use as inspiration for your own design, if you want to create new thread-like contexts.
+\hugo{ Was it mentioned that the reader should assume paths (unless specified) are are relative to cheriot-rtos/sdk? }
 
 If a thread entry point returns then the thread exits but, importantly, this does \textem{not} free the thread's stack or trusted stack.
 The memory owned by a thread is assigned to that thread as long as the system runs.
@@ -44,7 +45,8 @@ The priority of threads matters only in relative terms.
 Like FreeRTOS (and unlike UNIX), higher numbers mean higher priorities.
 The scheduler has some data structures whose size depends on the number of priorities, so compiling with fewer priorities can make the scheduler smaller.
 
-The entry point is a compartment entry point.
+The entry point property is a compartment's entry point.
+\hugo{ Felt like a self referential definition. }
 It must be exposed as described in \ref{compartments}.
 Thread entry points take no arguments and return no arguments.
 
@@ -88,6 +90,8 @@ Current thread: 2 of 2
 Current thread: 1 of 2
 Current thread: 1 of 2
 \end{console}
+
+\hugo{ I would have understood this example faster, if an ', Iteration: \%d' appended to each print. }
 
 The higher-priority thread is running until it exist.
 Normally, a higher-priority thread would \keyword{yield} to allow another thread to run, as we'll see later in this chapter.
@@ -164,12 +168,14 @@ The tick abstraction remains as a convenient way of expressing time to the sched
 By default, if \c{0} is passed as the \c{flags} argument to \c{thread_sleep}, the sleep operation is treated as a \keyword{yield}.
 This is a way for the running thread to communicate to the scheduler that it is happy for other (lower or equal-priority) threads to run for up to the specified number of ticks.
 The scheduler may wake the yielding thread if no other thread is going to be runnable within that number of ticks.
-This allows a high-priority threads to allow other threads to run, but continue using the CPU is no other thread is runnable.
+This allows high-priority threads to allow other threads to run, but continue using the CPU if no other thread is runnable.
 
 In some cases, you really want to sleep.
 For example, if you're updating a clock display, you will want to run once a second or once a minute to update a display.
 The same applies if you're sending keep-alive packets or periodically monitoring some other component.
 Even if no other threads are runnable, you have no useful work to do for a bit.
+\hugo{In both cases, even if no other threads are runnable, you have no useful work to do for a bit.}
+\hugo{ nitpick }
 You can pass \c{ThreadSleepNoEarlyWake} as the \c{flags} argument to \c{thread_sleep} to indicate that you really want to sleep.
 
 You can see the effect of sleeping in the \file{thread_sleep} example, as shown in \ref{lst:thread_sleep}.
