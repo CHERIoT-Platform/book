@@ -86,12 +86,14 @@ Some kinds of capabilities can also be \keyword{revoked}.
 This is traditionally the hardest operation to perform on capabilities.
 Someone may perform an audit of all of the keys and remove some of them from people that shouldn't have them.
 This is often solved in capabilities by adding a layer of indirection; you hold a capability that authorises you to do something with a capability in some table and your rights can be removed by deleting the capability from the table.
+\hugo{Took me a second pass not to muddle the capabilities. This suggestion may differentiate them a little}
 
 
 On a CHERI system, capabilities are used to authorise access to memory.
 Any instruction that takes an address in a conventional architecture takes a \keyword{CHERI capability} as the operand instead.
 The CHERI capability both describes a location in memory and grants access to it.
 For example, the following RISC-V snippet loads a word from offset eight relative to the address in register \reg{a1} and places the result in \reg{s0}.
+\hugo{nit: It may make sense use 4 bytes instead of a word. Some may be coming from other ISAs where a word is a different number of bytes, and so will have to engage brain a little more than necessary when bytes are discussed below.}
 
 \begin{asmsnippet}
 	lw	s0, 8(a1)
@@ -108,11 +110,12 @@ This instruction will check that the capability in \reg{ca1} is a valid capabili
 If, and only if, all of these checks pass, will it do the same load as the original version.
 If any of these fail, the instruction will trap.
 The next section explains what it means for a capability to be valid and what permissions a capability can hold.
+\hugo{nit: The registers are rendered uppercase (i.e. CA1) inline but lowercase in the code blocks.}
 
 Most of the time, hopefully, you will not be writing assembly and so this is simply a detail for the compiler to worry about.
 You can think of a CHERI memory capability as a pointer that the hardware understands.
 In C, if you hold a pointer to an object then you are allowed to access the object that it points to.
-If you do some pointer arithmetic that goes out of bounds, C says that this is undefined behaviour.
+If you do some pointer arithmetic that goes out of bounds of the object, C says that this is undefined behaviour.
 CHERI says more concretely that it will trap: you are not authorised to access that memory \textem{with this capability}.
 If you hold two pointers to objects that are adjacent in memory, then you may be authorised to access the memory, but not with the pointer that you are using.
 
@@ -140,6 +143,15 @@ Capability systems do not imply hierarchical trust models.
 Two components may hold disjoint or overlapping sets of capabilities that allow each to perform some set of actions that the other cannot.
 In a CHERI system, this can include one component having read access to an object and another write access, or two components having access to different fields of the same structure.
 
+\hugo{
+  Currently, the first time the bounds encoding and it's implications are discussed is section 5.9,
+  with it hinted at in section 5.7 ('bounds set exact' built in).
+  Similarly to how the permissions being compressed is briefly mentioned below,
+  I think it would be nice to mention the bounds being compressed and with a link to find more information in section 5.9.
+
+  In the past, bugs due to in-exact bounds were the ones that took collogues new to the project the longest to debug.
+}
+
 \section[label=permissions]{Decomposing permissions in CHERIoT}
 
 
@@ -164,6 +176,8 @@ This guarantees that you can't write part of a capability and some data to the s
 
 
 \figure[label=capabilitylayout,src=figures/CapabilityLayout.svg,alt="A CHERIoT capability contains an address, bounds, a type, and a set of permissions."]{A CHERIoT capability grants access to a range of memory.}
+
+\hugo{nit: Labelling the start and end bits of the fields in the diagram would make the engineer in me happy. But not needed for explanation.}
 
 \begin{note}
 The very earliest CHERI research prototypes used a 256-bit capability on a 64-bit architecture.
@@ -225,6 +239,7 @@ Any capability loaded via a capability without this permission will have its glo
 It can then be stored only via a capability that has the store-local permission.
 CHERIoT RTOS provides the store-local permission exclusively to stacks.
 This means that while removing the primary global permission gives a shallow no-capture pointer (code that it is passed to can store it in registers and on the stack but nowhere else), also removing load-global gives a deep no-capture (not even objects loaded by an arbitrary amount of pointer chasing can be captured).
+\hugo{I think a few more words here goes along way in avoiding confusion around global vs load-global.}
 
 Similarly, the load-mutable permission allows loading capabilities with writable permissions and if not set will strip write and load-mutable permissions from any capability that is loaded.
 Removing the write permission will give a shallow immutability (the object pointed to by this capability cannot be modified), also removing load-mutable will give a deep immutability.
@@ -267,6 +282,15 @@ It can be transformed back with the converse unseal operation.
 A sealed capability has an \keyword{object type} associated with it.
 This is taken from the value (the part that would be the address in a memory capability) in the capability that has the Seal permission to authorise sealing.
 It can then be unsealed only with a capability that has the same value and the unseal permission.
+\hugo{
+The concept of sealing is really well explained, but the implementation is a little hard to follow.
+I would dedicate a sentence to where the sealing and unsealing capabilities hold their value.
+Changing out the last two sentences to something like:
+
+Both sealing and unsealing capabilities have values where an ordinary memory capability would have an address.
+When a capability is sealed, it's object type is set to the value of the sealing capability.
+It can then can only be unsealed by an unseal capability with a matching value.
+}
 
 If you attempt to unseal a capability that is not sealed with the value of the permit-unseal capability then you will get back an untagged value.
 Sealed capabilities can therefore be used as trusted handles that can be shared with untrusted code.
@@ -353,6 +377,7 @@ This can be useful with restricted permissions for sharing read-only epoch count
 
 Invoking reusable components does not always involve a change of security context.
 The CHERIoT software model provides \keyword{shared libraries} for cases where this is the case.
+\hugo{The CHERIoT software model provides \keyword{shared libraries} for cases where a change of context isn't required.}
 
 Unlike compartments, shared libraries do not have mutable globals.
 They are reusable code and read-only data, nothing else.
@@ -390,4 +415,4 @@ This allows automated build time auditing of various high-level security policie
 For example, you can check that a single compartment, containing a known binary (for example, one that has been approved by regulators), is the only thing that is able to access a specified device.
 You can require that nothing runs with interrupts disabled except a specific set of permitted library functions.
 Or you can say that users can provide their own logic for controlling their IoT device, but only your code may connect to the network stack if you want to sign the image with a key that authorises release of a private key.
-
+\hugo{Or you can say that users can provide their own logic for controlling their IoT device, but only your code may connect to the network stack if users want to sign the image with a key that authorises the release of a private key.}

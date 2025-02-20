@@ -1,5 +1,5 @@
 function process(textTree)
-	textTree:match_any({ "phil" }, function(review)
+	textTree:match_any({ "phil" , "hugo" }, function(review)
 		if not config.review then
 			return {}
 		end

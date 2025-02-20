@@ -21,6 +21,7 @@ As such, you should assume that anything processed in a library written in a com
 This is not normally a problem because most libraries just exist as an alternative to compiling the same functions into multiple compartments.
 For example, the functions that implement locks on top of futexes (see \ref{futex}) are in a library to reduce overall code size, but simply copying the implementations of these functions into each caller would have no security implications.
 \end{warning}
+\hugo{ "most libraries just exist as an alternative to compiling the same functions into multiple compartments" is a really good desciption of what libraries are for. Maybe this should be promoted out of the warning and into the main section text above it. }
 
 \section{Compartments and libraries export functions}
 
@@ -115,6 +116,7 @@ The full structure is more complex and is shown in \ref{compartmentstructure}.
 
 \figure[label=compartmentstructure,src=figures/CompartmentStructure.svg,alt="The structure of a compartment.  The PCC register points a code region that contains code, read-only globals, and an import table.  The CGP register points to the read-write globals region.  An export table is not directly reachable."]{The structure of a compartment.}
 
+\hugo{ It's not clear as it could be that PCC points to all three of the top boxes as oppose to just 'code and read-only data' in the diagram. }
 
 \begin{note}
 A future version of the ABI may move read-only globals out of the program counter capability region but this requires some ISA changes to be efficient and so will likely not happen before CHERIoT 2.0.
@@ -144,6 +146,8 @@ This contains the PCC and CGP for the compartment and a small amount of metadata
 	\item{How many argument registers are used (conversely, how many are unused and should be zeroed).}
 \end{itemize}
 
+\hugo{ It may be nice to briefly mention which fields a library's tables would never have. }
+
 This is all of the information that the switcher needs to transition from one compartment to another.
 
 Extracting code and moving it to a new compartment adds a very small amount of memory overhead, on the order of a dozen words for a typical compartment.
@@ -153,6 +157,7 @@ Extracting code and moving it to a new compartment adds a very small amount of m
 The build system makes adding compartments trivial.
 An \command{xmake} build file (\file{xmake.lua}) uses a declarative Lua-like syntax at the top level.
 This defines targets as sections.
+\hugo{ nitpick }
 \ref{lst:xmakeaddcompartmenttargets} shows the build system logic for the example compartments and libraries from earlier.
 Defining a new target implicitly ends the definition of the previous one.
 This example implicitly ends the library and entry targets, but uses \lua{target_end()} to explicitly end the compartment target.
@@ -173,6 +178,12 @@ The \lua{firmware} target definition is more complex because it also implicitly 
 If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentation}, simply treat these as if they were \lua{target} definitions.
 \end{note}
 
+\hugo{
+  Noticed on my second read through with the book:
+  The xmake href footnote is on the wrong page in the draft book.
+  The lua text isn't being rendered.
+}
+
 \begin{note}
 	If your \file{xmake.lua} file contains compartment or library definitions but no firmware, then it can be reused.
 	Each of the optional libraries and compartments shipped with the RTOS is defined like this, they are in a separate \file{xmake.lua} that is then included.
@@ -182,7 +193,7 @@ If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentati
 Once you have defined the rules to build each compartment and library, they need to be combined into a firmware image.
 Any library or compartment that is a direct or indirect dependency of a firmware image will be built and linked into the final image.
 For this example, we show both forms.
-The entry compartment calls the library and the example compartment and so lists them as explicit dependencies.
+The entry compartment lists both the library and the example compartment as explicit dependencies because it calls both of them.
 In the firmware definition (\ref{lst:xmakeaddcompartmentdeps}) adds the entry compartment as an explicit dependency, which then pulls in the other two.
 This firmware also depends on two libraries from the core RTOS, the freestanding library, which provides the core of the C run-time environment, and the debug library which is pretty-printing the debug messages.
 
@@ -199,6 +210,7 @@ There are three trust models that are commonly applied to compartments:
 		Typically, a sandbox will trust values passed to it as arguments to exported functions or return values from functions that it calls in other compartments.}
 		\item[tag=Safebox]{ A safebox is a compartment that holds some secret or sensitive data that must be protected from the outside.
 		For example, a safebox may be used to protect a key and perform encryption or signing on behalf of callers.
+		\hugo{ nit: 'and' and 'or' in close proximity. a comma would probably help readability. }
 		A safebox does not trust any data provided from outside of the compartment, but callers may trust it to behave correctly.}
 	\item[tag=Mutual distrust]{ Mutual distrust is the strongest model.
 		A compartment in a mutual-distrust relationship protects itself from attacks from the outside by careful handling of inputs and expects other compartments to protect themselves from it in the same way.}
@@ -344,11 +356,12 @@ If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
 \functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
+\hugo{ There's an extra comma after the 'i.e.' in "smart pointer, i.e., any class" }
 
 \begin{note}
 Checking the pointer is not the only option.
 A CHERI fault will invoke the compartment's error handler (see \ref{handling_errors}) and so it may be possible to recover.
-Some compartments chose to assume that their arguments are valid and just gracefully clean up if they aren't.
+Some compartments choose to assume that their arguments are valid and just gracefully clean up if they aren't.
 \end{note}
 
 If a pointer refers to a heap location, there is one additional attack possible.
@@ -514,6 +527,8 @@ These maintain a stack of \c{jmp_buf} structures, as defined by \c{setjmp}.
 The head of the linked list is stored at the top of the region of the stack that is visible to the current compartment invocation, in a gap left by the switcher.
 Each \c{CHERIOT_DURING} macro invocation pushes an entry onto a stack that allows returning and each \c{CHERIOT_END_HANDLER} macro pops the top entry.
 
+\hugo{ Some may not be aware of jmp_buf and setjmp. Maybe saying "standard C jmp_buf structures" would let them know it's not CHERIoT specific and that they can look it up in any C reference. }
+
 Between these two, a \c{CHERIOT_HANDLER} is the equivalent of the start of a catch block.
 This defines the start of a region where code will run if an error is triggered.
 You can see this in action in \ref{lst:errorhandling}.
@@ -622,6 +637,10 @@ This ensures that there is no ambiguity and that accidental name collisions don'
 
 \macrodoc{DECLARE_STATIC_SEALED_VALUE}
 
+\hugo{
+  I think this section would be helped by some example code listings.
+}
+
 Any object created in this way shows up in the audit log.
 The exports section for the compartment that exposes the sealing key will will contain an entry like this:
 
@@ -632,6 +651,13 @@ The exports section for the compartment that exposes the sealing key will will c
   "kind": "SealingKey"
 \},
 \end{jsonsnippet}
+
+\hugo{
+  I would avoid going to in-depth with the auditing here.
+  Just a brief explanation here without json snippets,
+  and then have a link to a section in the Auditing chapter
+  with a full description and json snippets.
+}
 
 This is cross-referenced with a section like this:
 
@@ -665,6 +691,7 @@ They can be unsealed using the token APIs described in \ref{token_apis}.
 The token APIs look as if they're provided by the allocator, but \c{token_obj_unseal} is a fast path implemented as a library.
 This makes it fast to unseal objects (no cross-compartment call).
 It also removes any dependency on the allocator from things that rely on static sealing.
+\hugo{ A little more explanation here would be nice. Something like "The token API's methods normally require a cross compartment call, because ..." before introducing token_obj_unseal. }
 
 The allocator provides an example in the RTOS of how you can use this feature.
 When you allocate memory, you pass the allocator a static sealed object that represents your allocation capability, which authorises allocating memory up to a quota.
@@ -713,4 +740,3 @@ This example is from the test suite and defines a \c{test_word} object that is a
 Note that the objects are defined as sizes, not as types.
 The type cannot be enforced by CHERI and depends on the compartment that imports the object.
 If a single compartment has write access to an object then that compartment forms the TCB for type safety of that object.
-
