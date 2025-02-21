@@ -16,8 +16,7 @@ The no-capture guarantees that CHERIoT RTOS enforces are based on the guarantee 
 The only store-local capabilities that a thread ever has access to are derived from its current stack.
 Allowing stack creation would violate that: at least the memory allocator would have access to multiple stacks at once.
 It would be possible to allocate stacks from a separate pool, but that's not really different from allocating stacks up front and having a small compartment that switches them from one use to another or implements a thread pool.
-There is an example thread pool in \file{lib/thread_pool} and \file{thread_pool.h} that you can either use directly or use as inspiration for your own design, if you want to create new thread-like contexts.
-\hugo{ Was it mentioned that the reader should assume paths (unless specified) are are relative to cheriot-rtos/sdk? }
+There is an example thread pool in \file{lib/thread_pool} in the RTOS SDK, with its interface defined in the \file{thread_pool.h} header, that you can either use directly or use as inspiration for your own design, if you want to create new thread-like contexts.
 
 If a thread entry point returns then the thread exits but, importantly, this does \textem{not} free the thread's stack or trusted stack.
 The memory owned by a thread is assigned to that thread as long as the system runs.
@@ -46,7 +45,6 @@ Like FreeRTOS (and unlike UNIX), higher numbers mean higher priorities.
 The scheduler has some data structures whose size depends on the number of priorities, so compiling with fewer priorities can make the scheduler smaller.
 
 The entry point property is a compartment's entry point.
-\hugo{ Felt like a self referential definition. }
 It must be exposed as described in \ref{compartments}.
 Thread entry points take no arguments and return no arguments.
 
@@ -85,13 +83,11 @@ Note that thread two has a higher priority than thread one.
 When you run this example, you should see output like this:
 
 \begin{console}
-Current thread: 2 of 2
-Current thread: 2 of 2
-Current thread: 1 of 2
-Current thread: 1 of 2
+Current thread: 2 of 2 (iteration 0)
+Current thread: 2 of 2 (iteration 1)
+Current thread: 1 of 2 (iteration 0)
+Current thread: 1 of 2 (iteration 1)
 \end{console}
-
-\hugo{ I would have understood this example faster, if an ', Iteration: \%d' appended to each print. }
 
 The higher-priority thread is running until it exist.
 Normally, a higher-priority thread would \keyword{yield} to allow another thread to run, as we'll see later in this chapter.
@@ -173,9 +169,7 @@ This allows high-priority threads to allow other threads to run, but continue us
 In some cases, you really want to sleep.
 For example, if you're updating a clock display, you will want to run once a second or once a minute to update a display.
 The same applies if you're sending keep-alive packets or periodically monitoring some other component.
-Even if no other threads are runnable, you have no useful work to do for a bit.
-\hugo{In both cases, even if no other threads are runnable, you have no useful work to do for a bit.}
-\hugo{ nitpick }
+In these cases you definitely have no useful work to do, irrespective of the state of any other threads can run.
 You can pass \c{ThreadSleepNoEarlyWake} as the \c{flags} argument to \c{thread_sleep} to indicate that you really want to sleep.
 
 You can see the effect of sleeping in the \file{thread_sleep} example, as shown in \ref{lst:thread_sleep}.

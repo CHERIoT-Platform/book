@@ -11,9 +11,10 @@ void __cheri_compartment("current") entry()
 {
 	for (int i = 0; i < 2; i++)
 	{
-		printf("Current thread: %d of %d\n",
+		printf("Current thread: %d of %d (iteration %d)\n",
 		       thread_id_get(),
-		       thread_count());
+		       thread_count(),
+		       i);
 	}
 }
 // entry#end

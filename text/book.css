@@ -266,6 +266,8 @@ span.code
 	font: SourceCodePro;
 	font-family: monospace;
 }
+span.code-MacroDefinition { color: #9B4A14; }
+span.code-MacroInstantiation { color: #9B4A14; }
 span.code-Declaration { color: #0000FF; }
 span.code-Declaration { color: #0000FF; }
 span.code-Punctuation { color: #000000; }

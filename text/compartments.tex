@@ -9,6 +9,7 @@ They can export functions to be called form other compartments and can call func
 Like a shared library, they have code and globals associated with them, but a \keyword{cross-compartment call} crosses a security boundary, in the same way that an IPC message would.
 
 CHERIoT shared libraries are a lightweight way of reusing code without duplicating it into different compartments.
+They provide a very similar programmer model to simply copying and pasting a function into every compartment that uses it, without the space overhead.
 Calling a library function does not involve crossing a security boundary.
 Libraries contain code and read-only data but do not have mutable globals.
 It is possible for libraries to hold secrets but, unless library functions are written in very careful assembly, they should assume that any (immutable) globals in the library can leak to callers.
@@ -21,7 +22,6 @@ As such, you should assume that anything processed in a library written in a com
 This is not normally a problem because most libraries just exist as an alternative to compiling the same functions into multiple compartments.
 For example, the functions that implement locks on top of futexes (see \ref{futex}) are in a library to reduce overall code size, but simply copying the implementations of these functions into each caller would have no security implications.
 \end{warning}
-\hugo{ "most libraries just exist as an alternative to compiling the same functions into multiple compartments" is a really good desciption of what libraries are for. Maybe this should be promoted out of the warning and into the main section text above it. }
 
 \section{Compartments and libraries export functions}
 
@@ -116,8 +116,6 @@ The full structure is more complex and is shown in \ref{compartmentstructure}.
 
 \figure[label=compartmentstructure,src=figures/CompartmentStructure.svg,alt="The structure of a compartment.  The PCC register points a code region that contains code, read-only globals, and an import table.  The CGP register points to the read-write globals region.  An export table is not directly reachable."]{The structure of a compartment.}
 
-\hugo{ It's not clear as it could be that PCC points to all three of the top boxes as oppose to just 'code and read-only data' in the diagram. }
-
 \begin{note}
 A future version of the ABI may move read-only globals out of the program counter capability region but this requires some ISA changes to be efficient and so will likely not happen before CHERIoT 2.0.
 \end{note}
@@ -146,9 +144,9 @@ This contains the PCC and CGP for the compartment and a small amount of metadata
 	\item{How many argument registers are used (conversely, how many are unused and should be zeroed).}
 \end{itemize}
 
-\hugo{ It may be nice to briefly mention which fields a library's tables would never have. }
-
 This is all of the information that the switcher needs to transition from one compartment to another.
+Libraries have similar export-table entries, though they are used by the loader rather than the switcher.
+The final element, the number of registers to use, is not used for libraries because library calls are not a transition between security domains.
 
 Extracting code and moving it to a new compartment adds a very small amount of memory overhead, on the order of a dozen words for a typical compartment.
 
@@ -157,7 +155,6 @@ Extracting code and moving it to a new compartment adds a very small amount of m
 The build system makes adding compartments trivial.
 An \command{xmake} build file (\file{xmake.lua}) uses a declarative Lua-like syntax at the top level.
 This defines targets as sections.
-\hugo{ nitpick }
 \ref{lst:xmakeaddcompartmenttargets} shows the build system logic for the example compartments and libraries from earlier.
 Defining a new target implicitly ends the definition of the previous one.
 This example implicitly ends the library and entry targets, but uses \lua{target_end()} to explicitly end the compartment target.
@@ -177,12 +174,6 @@ The first two simply set the default rules to build as the correct kind of targe
 The \lua{firmware} target definition is more complex because it also implicitly instantiates core parts of the RTOS, constructs the linker script, and so on.
 If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentation}, simply treat these as if they were \lua{target} definitions.
 \end{note}
-
-\hugo{
-  Noticed on my second read through with the book:
-  The xmake href footnote is on the wrong page in the draft book.
-  The lua text isn't being rendered.
-}
 
 \begin{note}
 	If your \file{xmake.lua} file contains compartment or library definitions but no firmware, then it can be reused.
@@ -209,8 +200,7 @@ There are three trust models that are commonly applied to compartments:
 		This model is used to protect the rest of the system.
 		Typically, a sandbox will trust values passed to it as arguments to exported functions or return values from functions that it calls in other compartments.}
 		\item[tag=Safebox]{ A safebox is a compartment that holds some secret or sensitive data that must be protected from the outside.
-		For example, a safebox may be used to protect a key and perform encryption or signing on behalf of callers.
-		\hugo{ nit: 'and' and 'or' in close proximity. a comma would probably help readability. }
+		For example, a safebox may be used to protect a key and expose functions that use it to encrypt or sign data on behalf of callers.
 		A safebox does not trust any data provided from outside of the compartment, but callers may trust it to behave correctly.}
 	\item[tag=Mutual distrust]{ Mutual distrust is the strongest model.
 		A compartment in a mutual-distrust relationship protects itself from attacks from the outside by careful handling of inputs and expects other compartments to protect themselves from it in the same way.}
@@ -356,7 +346,6 @@ If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
 \functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
-\hugo{ There's an extra comma after the 'i.e.' in "smart pointer, i.e., any class" }
 
 \begin{note}
 Checking the pointer is not the only option.
@@ -522,12 +511,18 @@ You are unlikely to ever write a stackless error handler.
 Most of the time, you will want to link the one provided by the \file{unwind_error_handler} target.
 This can be adopted by adding \lua{add_deps("unwind_error_handler")} to your compartment's target in xmake.
 
+\begin{note}
+	The scoped error handling is built on top of the standard C \c{setjmp} and \c{longjmp} functions.
+	These are quite unusual because \c{setjmp} can return twice.
+	When you call it, it initialises a \c{jmp_buf} structure with some state about the current stack frame and returns zero.
+	You can then pass this \c{jmp_buf} down the stack and pass it to \c{longjmp}.
+	This \c{longjmp} call will make the original \c{setjmp} return a second time (immediately destroying any stack frames between the \c{setjmp} and \c{longjmp} calls), with the value passed into \c{longjmp} as the second argument.
+\end{note}
+
 This implementation is intended to be used with a set of macros that provide exception-like error handling.
 These maintain a stack of \c{jmp_buf} structures, as defined by \c{setjmp}.
 The head of the linked list is stored at the top of the region of the stack that is visible to the current compartment invocation, in a gap left by the switcher.
 Each \c{CHERIOT_DURING} macro invocation pushes an entry onto a stack that allows returning and each \c{CHERIOT_END_HANDLER} macro pops the top entry.
-
-\hugo{ Some may not be aware of jmp_buf and setjmp. Maybe saying "standard C jmp_buf structures" would let them know it's not CHERIoT specific and that they can look it up in any C reference. }
 
 Between these two, a \c{CHERIOT_HANDLER} is the equivalent of the start of a catch block.
 This defines the start of a region where code will run if an error is triggered.
@@ -637,63 +632,70 @@ This ensures that there is no ambiguity and that accidental name collisions don'
 
 \macrodoc{DECLARE_STATIC_SEALED_VALUE}
 
-\hugo{
-  I think this section would be helped by some example code listings.
-}
-
-Any object created in this way shows up in the audit log.
-The exports section for the compartment that exposes the sealing key will will contain an entry like this:
-
-\begin{jsonsnippet}
-{
-  "export_symbol": "__export.sealing_type.alloc.MallocKey",
-  "exported": true,
-  "kind": "SealingKey"
-\},
-\end{jsonsnippet}
-
-\hugo{
-  I would avoid going to in-depth with the auditing here.
-  Just a brief explanation here without json snippets,
-  and then have a link to a section in the Auditing chapter
-  with a full description and json snippets.
-}
-
-This is cross-referenced with a section like this:
-
-\begin{jsonsnippet}
-{ 
-  "contents": "00100000 00000000 00000000 00000000 00000000 00000000",
-  "kind": "SealedObject",
-  "sealing_type": {
-    "compartment": "alloc",
-    "key": "MallocKey",
-    "provided_by": "build/cheriot/cheriot/release/cheriot.allocator.compartment",
-    "symbol": "__export.sealing_type.alloc.MallocKey"
-  \}
-\},
-\end{jsonsnippet}
-
-This contains the full contents of the sealed object.
-You can audit these in a firmware image to ensure that they are valid.
-
-\begin{note}
-Auditing a hex string is not easy.
-A future version of CHERIoT RTOS will include tools to map these back to useful types.
-See \ref{cheriot-audit} for more information about the CHERIoT Audit tool, which is designed for expressing policies over these properties.
-\end{note}
-
 This gives a building block that can be used to define arbitrary software-defined capabilities at system start.
 A compartment that performs some action exposes a sealing type and a structure layout that it expects.
 Static instances of this structure can be baked into the firmware image and then passed as sealed capabilities into the compartment that wishes to use them as capabilities.
 They can be unsealed using the token APIs described in \ref{token_apis}.
+Often, you'll use this via a type-specific wrapper, as in \ref{lst:exportmonotonic}.
+The macro (\c{DECLARE_AND_DEFINE_COUNTER}) lets users of this API define a new counter with the sealing type that the compartment exposes.
 
-The token APIs look as if they're provided by the allocator, but \c{token_obj_unseal} is a fast path implemented as a library.
+\codelisting[filename=examples/software_capability/monotonic_counter.hh,marker=export,label=lst:exportmonotonic,caption="A header defining an interface using sealed objects."]{}
+
+The increment function from this header is defined in \ref{lst:monotonicincrement}.
+This uses \cxx{token_unseal} to unseal the sealed argument.
+This will return null if the unseal fails, or a valid unsealed object.
+Note that this uses the static sealed value via the \c{STATIC_SEALING_TYPE} macro.
+The sealing type doesn't need to be declared, simply using it here ensures that it is exported from the compartment.
+Trying to use a sealing type that isn't exported from a function will result in a linker error.
+
+\codelisting[filename=examples/software_capability/monotonic.cc,marker=increment,label=lst:monotonicincrement,caption="The increment function for a monotonic counter."]{}
+
+This function follows the convention of returning \c{-EINVAL} if passed an invalid value.
+If the unseal succeeds, this function knows that it can trust the contents of the object.
+You can see this being called in \ref{lst:monotoniccaller}.
+
+\codelisting[filename=examples/software_capability/caller.cc,marker=entry,label=lst:monotoniccaller,caption="Calling the atomic increment function for a monotonic counter."]{}
+
+The caller starts by declaring a monotonic counter and then tries calling the increment function with both a valid (sealed) value.
+It then tries again with two kinds of invalid values.
+The first is a value of the correct underlying type, but which is not sealed.
+The lack of sealing means that the callee can't trust that the rules for this type are followed.
+In this example, the type of a monotonic counter guarantees that the counter increments monotonically but an unsealed value would allow the caller to set it to arbitrary values.
+This should fail to unseal because it is not a sealed value.
+
+The second invalid value \textem{is} a sealed value, but it is not sealed with the correct type.
+This is the default capability used for memory allocations in this compartment.
+In this case, sealing should fail because the type is incorrect.
+This shows how sealing enforces \keyword{type safety} even in the presence of untrusted code.
+
+Finally, this casts away the sealed type qualifier and tries to access the underlying type directly.
+The compiler will permit this (it's a \cxx{reinterpret_cast}, which tells the compiler that you're doing something that might be unsafe but that it should trust you) but then the hardware will prevent you from using the result.
+
+When you run this, you should see the following output:
+
+\begin{console}
+Valid counter increment returned 1
+Valid counter increment returned 2
+Invalid counter increment returned -22
+Invalid counter increment returned -22
+Error handler: SealViolation(0x3) error at 0x80003dd8 (v:0 0x80003d88-0x80003e48 l:0xc0 o:0x0 p: G R-cgm- X- ---) (return address: 0x80006358 (v:1 0x80006110-0x80006da0 l:0xc90 o:0x5 p: G R-cgm- X- ---)), with capability register CA0(0xa): 0x800079f0 (v:1 0x800079f0-0x80007a00 l:0x10 o:0xc p: G RWcgm- -- ---)
+\end{console}
+
+The first two calls worked and incremented the monotonic counter.
+The last call, with an invalid object, was detected in the caller and the error was handled gracefully.
+Finally, the attempt to directly access the sealed object trapped and invoked the compartment's error handler (see \ref{handling_errors}), which printed a helpful message for debugging the failure.
+
+The monotonic counter is valid as long as the counter starts at zero (overflowing a 64-bit counter signed will take an infeasible amount of time).
+What would happen if a malicious caller initialised a counter with a non-zero value?
+The full contents of any object created in this way shows up in the audit log.
+You can audit these in a firmware image to ensure that they are valid (see \ref{cheriot-audit}).
+Once you've read \ref{cheriot-audit}, try writing a policy for this example that ensures that all counters start at zero.
+
+Most of the token APIs are implemented as cross-compartment calls into the allocator, but \c{token_obj_unseal} (called here via the \c{token_unseal} wrapper) is a fast path implemented as a library.
 This makes it fast to unseal objects (no cross-compartment call).
 It also removes any dependency on the allocator from things that rely on static sealing.
-\hugo{ A little more explanation here would be nice. Something like "The token API's methods normally require a cross compartment call, because ..." before introducing token_obj_unseal. }
 
-The allocator provides an example in the RTOS of how you can use this feature.
+The RTOS' allocator provides an more detailed example of a real-world use for this feature.
 When you allocate memory, you pass the allocator a static sealed object that represents your allocation capability, which authorises allocating memory up to a quota.
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.

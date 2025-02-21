@@ -299,13 +299,10 @@ Capabilities can be modified with the nouns and verbs listed in \ref{tbl:cap_mod
 \end{table}
 
 
-Setting the object type for sealed capabilities is more complex.
-This is done with \c{__builtin_cheri_seal}, which takes an authorising capability (something with the permit-seal permission) as the second argument and sets the object type of the result to the address of the sealing capability.
-Conversely, \c{__builtin_cheri_unseal} uses a capability with the permit-unseal capability and address matching the object type to restore the original unsealed value.
-\hugo{This is done with \c{__builtin_cheri_seal}, which takes an authorising capability (something with the permit-seal permission) as the second argument and sets the object type of the result to the value of the sealing capability.
-Using address here is confusing. Could alternatively use 'the value of the address field', but this is a mouthful. 
-Conversely, \c{__builtin_cheri_unseal} uses a capability with the permit-unseal permission and address matching the object type to restore the original unsealed value.
-Using permission over capablity here, makes it slightly easier to follow. }
+Setting the object type for sealed capabilities is more complex and requires a second capability that authorises sealing.
+The address field for capabilities with permit-seal or permit-unseal permissions refers to the object-type space, rather than the memory address space.
+The \c{__builtin_cheri_seal} function takes an authorising capability (something with the permit-seal permission) as the second argument and sets the object type of the result to the address of the sealing capability.
+Conversely, \c{__builtin_cheri_unseal} uses a capability with the permit-unseal permission and an address matching the object type to restore the original unsealed value.
 
 Most of the time, C code will avoid using the builtins directly and instead use the wrappers defined in \file{cheri-builtins.h}.
 This file contains a set of macros that wrap the builtins to remove the \c{__builtin_} prefix.
@@ -489,10 +486,13 @@ Capabilities larger than 8 MiB must be aligned on an 8 MiB boundary for their ba
 This is ample for small embedded systems where most compartments or heap objects are expected to be under tens of KiBs.
 
 This is a slightly simplified version of the original CHERI scheme, which simplifies critical-path lengths on short pipelines.
-Future versions of CHERIoT are likely to support slightly more expressive formats on longer pipelines.
+A microcontroller may have a simple pipeline with only the traditional fetch, decode, and execute phases (or even less).
+The critical path is the path with the most logic chained together in a single stage.
+This limits the maximum clock speed for the device because a signal must be able to propagate through all of this logic in a single cycle.
+
+Future versions of CHERIoT are likely to support slightly more expressive formats on longer pipelines, where the decoding can be split between two or more stages.
 Other CHERI systems make different trade offs.
 \end{note}
-\hugo{ It's hard to gauge, but can pipelines be assumed knowledge for embedded engineers? }
 
 
 Calculating the length can be non-trivial and can vary across CHERI systems.
