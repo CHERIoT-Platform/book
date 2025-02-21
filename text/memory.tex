@@ -8,6 +8,10 @@ The shared heap allows memory to be dynamically allocated for individual uses an
 This means that the total memory requirement for a system becomes the peak combined usage of all components.
 If two components use a lot of memory at different times, they can safely share the same memory.
 
+This chapter covers how to allocate and manage memory.
+CHERIoT provides spatial and memory safety and so there is a complementary aspect to memory allocation: What do you do when you manage memory incorrectly and CHERIoT catches the error?
+Error handling from CHERI exceptions is covered in detail in \ref{handling_errors}.
+
 \section{Understanding allocation capabilities}
 
 The memory allocator uses a capability model.
