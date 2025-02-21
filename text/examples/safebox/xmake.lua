@@ -13,6 +13,7 @@ set_toolchains("cheriot-clang")
 option("board")
 	set_default("ibex-safe-simulator")
 
+-- firmware#begin
 -- The safebox compartment
 compartment("safebox")
 	add_files("safebox.cc")
@@ -20,8 +21,6 @@ compartment("safebox")
 compartment("runner")
 	add_files("runner.cc")
 
-
--- firmware#begin
 -- Firmware image for the example.
 firmware("safebox_example")
 	-- RTOS-provided libraries
@@ -31,8 +30,6 @@ firmware("safebox_example")
 	on_load(function(target)
 		-- The board to target
 		target:values_set("board", "$(board)")
-		-- threads#begin
-		-- Threads to select
 		target:values_set("threads", {
 			{
 				compartment = "runner",
@@ -42,6 +39,5 @@ firmware("safebox_example")
 				trusted_stack_frames = 2
 			},
 		}, {expand = false})
-		-- threads#end
 	end)
 -- firmware#end

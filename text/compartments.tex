@@ -224,6 +224,13 @@ Most things trust the allocator to enforce spatial and temporal memory safety fo
 \section{Implementing a safebox}
 
 The safebox abstraction is trivial to implement in CHERIoT.
+\ref{lst:xmakesafeboxcompartments} shows the build system for a safebox.
+Note that there's nothing in this that indicates the trust model.
+From the perspective of the build, all compartments are just compartments.
+Trust relationships between them are a property of how you write the code in the compartments.
+
+\lualisting[filename=examples/safebox/xmake.lua,marker=firmware,label=lst:xmakesafeboxcompartments,caption="Build system code for the safebox example."]{}
+
 \ref{lst:guessthenumber} shows a complete implementation of a simple safebox for a guess-the-number game.
 This generates a (very weak!) pseudorandom number using the cycle counter and allows callers to guess it.
 
@@ -262,6 +269,153 @@ A safebox assumes that its caller is malicious.
 A compartment may start malicious or become malicious as the result of a compromise.
 Try modifying only \file{runner.cc} in this example to leak the secret without any incorrect guesses.
 Hopefully, you will find it impossible.
+
+\section[label=software_capabilities]{Building software capabilities with sealing}
+
+The CHERI capability mechanism can be used to express arbitrary software-defined capabilities.
+Recall that a capability, in the abstract, is an unforgeable token of authority that can be presented to allow some action.
+In UNIX systems, for example, file descriptors are capabilities.
+A userspace process cannot directly talk to the disk or the network, but if it presents a valid file descriptor to system calls such as \c{read} and \c{write} then the kernel will perform those operations on its behalf.
+
+CHERIoT provides a mechanism to create arbitrary software-defined capabilities using the \keyword{sealing} mechanism (see \ref{sealing_intro}).
+CHERIoT provides almost a few billion sealing types for use with software-defined capabilities.
+You can allocate one of these dynamically by calling \c{token_key_new}.
+
+\begin{caution}
+There is no mechanism to reuse sealing capabilities.
+As such, once you have allocated 4,278,190,079, you will be unable to create new ones.
+A 20 MHz core doing nothing other than allocating new sealing capabilities could exhaust this space in around a day.
+If untrusted code is allowed to allocate dynamic sealing capabilities then you may wish to restrict its access to this API and instead give it access to a wrapper that limits the number that it may allocate.
+\end{caution}
+
+\functiondoc{token_key_new}
+
+You can also statically register a sealing type with the \c{STATIC_SEALING_TYPE()} macro.
+This takes a single argument, the name that you wish to give the type.
+This name is used both to refer to the static sealing capability is the name that will show up in auditing reports.
+
+\macrodoc{STATIC_SEALING_TYPE}
+
+You can access the sealing capability within the compartment that exported it using the \c{STATIC_SEALING_VALUE()} macro.
+You can also refer to it in other compartments, but \textem{only} when constructing \keyword{static sealed objects}.
+A static sealed object is like a global defined in a compartment, but that compartment can access it only via a sealed capability.
+
+Static sealed objects are declared with \c{DECLARE_STATIC_SEALED_VALUE} and defined with \c{DEFINE_STATIC_SEALED_VALUE}.
+These macros take both the name of the sealing type and the compartment that exposes it as arguments.
+This ensures that there is no ambiguity and that accidental name collisions don't lead to security vulnerabilities.
+
+\macrodoc{DECLARE_STATIC_SEALED_VALUE}
+
+This gives a building block that can be used to define arbitrary software-defined capabilities at system start.
+A compartment that performs some action exposes a sealing type and a structure layout that it expects.
+Static instances of this structure can be baked into the firmware image and then passed as sealed capabilities into the compartment that wishes to use them as capabilities.
+They can be unsealed using the token APIs described in \ref{token_apis}.
+Often, you'll use this via a type-specific wrapper, as in \ref{lst:exportmonotonic}.
+The macro (\c{DECLARE_AND_DEFINE_COUNTER}) lets users of this API define a new counter with the sealing type that the compartment exposes.
+
+\codelisting[filename=examples/software_capability/monotonic_counter.hh,marker=export,label=lst:exportmonotonic,caption="A header defining an interface using sealed objects."]{}
+
+The increment function from this header is defined in \ref{lst:monotonicincrement}.
+This uses \cxx{token_unseal} to unseal the sealed argument.
+This will return null if the unseal fails, or a valid unsealed object.
+Note that this uses the static sealed value via the \c{STATIC_SEALING_TYPE} macro.
+The sealing type doesn't need to be declared, simply using it here ensures that it is exported from the compartment.
+Trying to use a sealing type that isn't exported from a function will result in a linker error.
+
+\codelisting[filename=examples/software_capability/monotonic.cc,marker=increment,label=lst:monotonicincrement,caption="The increment function for a monotonic counter."]{}
+
+This function follows the convention of returning \c{-EINVAL} if passed an invalid value.
+If the unseal succeeds, this function knows that it can trust the contents of the object.
+You can see this being called in \ref{lst:monotoniccaller}.
+
+\codelisting[filename=examples/software_capability/caller.cc,marker=entry,label=lst:monotoniccaller,caption="Calling the atomic increment function for a monotonic counter."]{}
+
+The caller starts by declaring a monotonic counter and then tries calling the increment function with both a valid (sealed) value.
+It then tries again with two kinds of invalid values.
+The first is a value of the correct underlying type, but which is not sealed.
+The lack of sealing means that the callee can't trust that the rules for this type are followed.
+In this example, the type of a monotonic counter guarantees that the counter increments monotonically but an unsealed value would allow the caller to set it to arbitrary values.
+This should fail to unseal because it is not a sealed value.
+
+The second invalid value \textem{is} a sealed value, but it is not sealed with the correct type.
+This is the default capability used for memory allocations in this compartment.
+In this case, sealing should fail because the type is incorrect.
+This shows how sealing enforces \keyword{type safety} even in the presence of untrusted code.
+
+Finally, this casts away the sealed type qualifier and tries to access the underlying type directly.
+The compiler will permit this (it's a \cxx{reinterpret_cast}, which tells the compiler that you're doing something that might be unsafe but that it should trust you) but then the hardware will prevent you from using the result.
+
+When you run this, you should see the following output:
+
+\begin{console}
+Valid counter increment returned 1
+Valid counter increment returned 2
+Invalid counter increment returned -22
+Invalid counter increment returned -22
+Error handler: SealViolation(0x3) error at 0x80003dd8 (v:0 0x80003d88-0x80003e48 l:0xc0 o:0x0 p: G R-cgm- X- ---) (return address: 0x80006358 (v:1 0x80006110-0x80006da0 l:0xc90 o:0x5 p: G R-cgm- X- ---)), with capability register CA0(0xa): 0x800079f0 (v:1 0x800079f0-0x80007a00 l:0x10 o:0xc p: G RWcgm- -- ---)
+\end{console}
+
+The first two calls worked and incremented the monotonic counter.
+The last call, with an invalid object, was detected in the caller and the error was handled gracefully.
+Finally, the attempt to directly access the sealed object trapped and invoked the compartment's error handler (see \ref{handling_errors}), which printed a helpful message for debugging the failure.
+
+The monotonic counter is valid as long as the counter starts at zero (overflowing a 64-bit counter signed will take an infeasible amount of time).
+What would happen if a malicious caller initialised a counter with a non-zero value?
+The full contents of any object created in this way shows up in the audit log.
+You can audit these in a firmware image to ensure that they are valid (see \ref{cheriot-audit}).
+Once you've read \ref{cheriot-audit}, try writing a policy for this example that ensures that all counters start at zero.
+
+Most of the token APIs are implemented as cross-compartment calls into the allocator, but \c{token_obj_unseal} (called here via the \c{token_unseal} wrapper) is a fast path implemented as a library.
+This makes it fast to unseal objects (no cross-compartment call).
+It also removes any dependency on the allocator from things that rely on static sealing.
+
+The RTOS' allocator provides an more detailed example of a real-world use for this feature.
+When you allocate memory, you pass the allocator a static sealed object that represents your allocation capability, which authorises allocating memory up to a quota.
+These contain a quota that is decreased on allocation and increased on deallocation.
+A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
+
+\section{Sharing globals between compartments}
+
+CHERIoT supports a notion of pre-shared objects.
+Each pre-shared object is allocated in a dedicated region of memory and can be imported into one or more compartments.
+Each import can have a different set of permissions.
+
+This model lets you define a global that is, for example, writeable by one compartment but readable from many, with no control flow between the communicating compartments.
+
+Currently, the syntax for importing a pre-shared object is more verbose, a future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on \c{extern} declarations.
+
+You can import a pre-shared object with the \c{SHARED_OBJECT(type, name)} macro.
+This takes the type of the object and its name (which must be globally unique across the firmware image) as arguments.
+This evaluates to a pointer to the object.
+Objects imported with this macro have the full set of permissions for imported objects.
+
+You can also disable individual permissions using the \c{SHARED_OBJECT_WITH_PERMISSIONS} macros.
+This takes an additional four additional boolean arguments that define the following set of permissions:
+
+\begin{itemize}
+	\item{Load}
+	\item{Store}
+	\item{Load or store capabilities}
+	\item{Load mutable}
+\end{itemize}
+
+Note that load-mutable depends on both load and load/store capability permissions.
+You cannot load a capability that has store permission if you cannot load a capability.
+
+Shared objects are defined in the build system, by setting the \lua{shared_objects} value on a target (typically a compartment).
+For example:
+
+\begin{luasnippet}
+    on_load(function(target)
+        target:values_set("shared_objects", { exampleK = 1024, test_word = 4 \}, {expand = false\})
+    end)
+\end{luasnippet}
+
+You don't need to define this on every compartment that imports the object, a single definition is all that is necessary.
+This example is from the test suite and defines a \c{test_word} object that is a single 32-bit value and an \c{exampleK} object that is 1024 bytes.
+Note that the objects are defined as sizes, not as types.
+The type cannot be enforced by CHERI and depends on the compartment that imports the object.
+If a single compartment has write access to an object then that compartment forms the TCB for type safety of that object.
 
 \section{Refining trust}
 
@@ -596,149 +750,3 @@ Non-malicious string
 
 Now, each call is printing the trailing newline, even if it encountered a fault while reading the message.
 
-\section[label=software_capabilities]{Building software capabilities with sealing}
-
-The CHERI capability mechanism can be used to express arbitrary software-defined capabilities.
-Recall that a capability, in the abstract, is an unforgeable token of authority that can be presented to allow some action.
-In UNIX systems, for example, file descriptors are capabilities.
-A userspace process cannot directly talk to the disk or the network, but if it presents a valid file descriptor to system calls such as \c{read} and \c{write} then the kernel will perform those operations on its behalf.
-
-CHERIoT provides a mechanism to create arbitrary software-defined capabilities using the \keyword{sealing} mechanism (see \ref{sealing_intro}).
-CHERIoT provides almost a few billion sealing types for use with software-defined capabilities.
-You can allocate one of these dynamically by calling \c{token_key_new}.
-
-\begin{caution}
-There is no mechanism to reuse sealing capabilities.
-As such, once you have allocated 4,278,190,079, you will be unable to create new ones.
-A 20 MHz core doing nothing other than allocating new sealing capabilities could exhaust this space in around a day.
-If untrusted code is allowed to allocate dynamic sealing capabilities then you may wish to restrict its access to this API and instead give it access to a wrapper that limits the number that it may allocate.
-\end{caution}
-
-\functiondoc{token_key_new}
-
-You can also statically register a sealing type with the \c{STATIC_SEALING_TYPE()} macro.
-This takes a single argument, the name that you wish to give the type.
-This name is used both to refer to the static sealing capability is the name that will show up in auditing reports.
-
-\macrodoc{STATIC_SEALING_TYPE}
-
-You can access the sealing capability within the compartment that exported it using the \c{STATIC_SEALING_VALUE()} macro.
-You can also refer to it in other compartments, but \textem{only} when constructing \keyword{static sealed objects}.
-A static sealed object is like a global defined in a compartment, but that compartment can access it only via a sealed capability.
-
-Static sealed objects are declared with \c{DECLARE_STATIC_SEALED_VALUE} and defined with \c{DEFINE_STATIC_SEALED_VALUE}.
-These macros take both the name of the sealing type and the compartment that exposes it as arguments.
-This ensures that there is no ambiguity and that accidental name collisions don't lead to security vulnerabilities.
-
-\macrodoc{DECLARE_STATIC_SEALED_VALUE}
-
-This gives a building block that can be used to define arbitrary software-defined capabilities at system start.
-A compartment that performs some action exposes a sealing type and a structure layout that it expects.
-Static instances of this structure can be baked into the firmware image and then passed as sealed capabilities into the compartment that wishes to use them as capabilities.
-They can be unsealed using the token APIs described in \ref{token_apis}.
-Often, you'll use this via a type-specific wrapper, as in \ref{lst:exportmonotonic}.
-The macro (\c{DECLARE_AND_DEFINE_COUNTER}) lets users of this API define a new counter with the sealing type that the compartment exposes.
-
-\codelisting[filename=examples/software_capability/monotonic_counter.hh,marker=export,label=lst:exportmonotonic,caption="A header defining an interface using sealed objects."]{}
-
-The increment function from this header is defined in \ref{lst:monotonicincrement}.
-This uses \cxx{token_unseal} to unseal the sealed argument.
-This will return null if the unseal fails, or a valid unsealed object.
-Note that this uses the static sealed value via the \c{STATIC_SEALING_TYPE} macro.
-The sealing type doesn't need to be declared, simply using it here ensures that it is exported from the compartment.
-Trying to use a sealing type that isn't exported from a function will result in a linker error.
-
-\codelisting[filename=examples/software_capability/monotonic.cc,marker=increment,label=lst:monotonicincrement,caption="The increment function for a monotonic counter."]{}
-
-This function follows the convention of returning \c{-EINVAL} if passed an invalid value.
-If the unseal succeeds, this function knows that it can trust the contents of the object.
-You can see this being called in \ref{lst:monotoniccaller}.
-
-\codelisting[filename=examples/software_capability/caller.cc,marker=entry,label=lst:monotoniccaller,caption="Calling the atomic increment function for a monotonic counter."]{}
-
-The caller starts by declaring a monotonic counter and then tries calling the increment function with both a valid (sealed) value.
-It then tries again with two kinds of invalid values.
-The first is a value of the correct underlying type, but which is not sealed.
-The lack of sealing means that the callee can't trust that the rules for this type are followed.
-In this example, the type of a monotonic counter guarantees that the counter increments monotonically but an unsealed value would allow the caller to set it to arbitrary values.
-This should fail to unseal because it is not a sealed value.
-
-The second invalid value \textem{is} a sealed value, but it is not sealed with the correct type.
-This is the default capability used for memory allocations in this compartment.
-In this case, sealing should fail because the type is incorrect.
-This shows how sealing enforces \keyword{type safety} even in the presence of untrusted code.
-
-Finally, this casts away the sealed type qualifier and tries to access the underlying type directly.
-The compiler will permit this (it's a \cxx{reinterpret_cast}, which tells the compiler that you're doing something that might be unsafe but that it should trust you) but then the hardware will prevent you from using the result.
-
-When you run this, you should see the following output:
-
-\begin{console}
-Valid counter increment returned 1
-Valid counter increment returned 2
-Invalid counter increment returned -22
-Invalid counter increment returned -22
-Error handler: SealViolation(0x3) error at 0x80003dd8 (v:0 0x80003d88-0x80003e48 l:0xc0 o:0x0 p: G R-cgm- X- ---) (return address: 0x80006358 (v:1 0x80006110-0x80006da0 l:0xc90 o:0x5 p: G R-cgm- X- ---)), with capability register CA0(0xa): 0x800079f0 (v:1 0x800079f0-0x80007a00 l:0x10 o:0xc p: G RWcgm- -- ---)
-\end{console}
-
-The first two calls worked and incremented the monotonic counter.
-The last call, with an invalid object, was detected in the caller and the error was handled gracefully.
-Finally, the attempt to directly access the sealed object trapped and invoked the compartment's error handler (see \ref{handling_errors}), which printed a helpful message for debugging the failure.
-
-The monotonic counter is valid as long as the counter starts at zero (overflowing a 64-bit counter signed will take an infeasible amount of time).
-What would happen if a malicious caller initialised a counter with a non-zero value?
-The full contents of any object created in this way shows up in the audit log.
-You can audit these in a firmware image to ensure that they are valid (see \ref{cheriot-audit}).
-Once you've read \ref{cheriot-audit}, try writing a policy for this example that ensures that all counters start at zero.
-
-Most of the token APIs are implemented as cross-compartment calls into the allocator, but \c{token_obj_unseal} (called here via the \c{token_unseal} wrapper) is a fast path implemented as a library.
-This makes it fast to unseal objects (no cross-compartment call).
-It also removes any dependency on the allocator from things that rely on static sealing.
-
-The RTOS' allocator provides an more detailed example of a real-world use for this feature.
-When you allocate memory, you pass the allocator a static sealed object that represents your allocation capability, which authorises allocating memory up to a quota.
-These contain a quota that is decreased on allocation and increased on deallocation.
-A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
-
-\section{Sharing globals between compartments}
-
-CHERIoT supports a notion of pre-shared objects.
-Each pre-shared object is allocated in a dedicated region of memory and can be imported into one or more compartments.
-Each import can have a different set of permissions.
-
-This model lets you define a global that is, for example, writeable by one compartment but readable from many, with no control flow between the communicating compartments.
-
-Currently, the syntax for importing a pre-shared object is more verbose, a future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on \c{extern} declarations.
-
-You can import a pre-shared object with the \c{SHARED_OBJECT(type, name)} macro.
-This takes the type of the object and its name (which must be globally unique across the firmware image) as arguments.
-This evaluates to a pointer to the object.
-Objects imported with this macro have the full set of permissions for imported objects.
-
-You can also disable individual permissions using the \c{SHARED_OBJECT_WITH_PERMISSIONS} macros.
-This takes an additional four additional boolean arguments that define the following set of permissions:
-
-\begin{itemize}
-	\item{Load}
-	\item{Store}
-	\item{Load or store capabilities}
-	\item{Load mutable}
-\end{itemize}
-
-Note that load-mutable depends on both load and load/store capability permissions.
-You cannot load a capability that has store permission if you cannot load a capability.
-
-Shared objects are defined in the build system, by setting the \lua{shared_objects} value on a target (typically a compartment).
-For example:
-
-\begin{luasnippet}
-    on_load(function(target)
-        target:values_set("shared_objects", { exampleK = 1024, test_word = 4 \}, {expand = false\})
-    end)
-\end{luasnippet}
-
-You don't need to define this on every compartment that imports the object, a single definition is all that is necessary.
-This example is from the test suite and defines a \c{test_word} object that is a single 32-bit value and an \c{exampleK} object that is 1024 bytes.
-Note that the objects are defined as sizes, not as types.
-The type cannot be enforced by CHERI and depends on the compartment that imports the object.
-If a single compartment has write access to an object then that compartment forms the TCB for type safety of that object.
