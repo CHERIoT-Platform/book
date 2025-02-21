@@ -285,6 +285,18 @@ This lets you share a read-only view of a complex data structure.
 
 The access-system-registers permission controls access to a small number of privileged registers and is never handed out to code other than a tiny trusted component in the core of the RTOS.
 
+\begin{caution}
+	The CHERIoT encoding stores 12 permissions in five bits by excluding meaningless combinations and some that are not normally useful.
+	This comes with a few limitations, most notably that execute permission implies load.
+	It is not possbile to remove load permission from an executable capability.
+	Some modern platforms support \keyword{execute-only memory} as a security feature.
+	CHERIoT cannot express this but this does not cause practical problems for security.
+	The sentry mechanism (described in \ref{sealing_intro}) lets you have memory that readable \textem{only} while executing from it, which is a more useful security property.
+	Execute-only memory normally aims to prevent information leaks that lead to code-reuse attacks.
+	These attacks, in turn, are triggered via pointer injection or other memory-safety violations, which CHERIoT deterministically mitigates.
+\end{caution}
+
+
 \section{Building memory safety}
 
 Memory safety is a property of a source-level abstract machine.
