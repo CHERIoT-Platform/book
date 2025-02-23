@@ -33,7 +33,7 @@ void try_to_trap(bool shouldTrap)
 }
 
 /// Thread entry point.
-void __cheri_compartment("errors") error_handling()
+void __cheriot_compartment("errors") error_handling()
 {
 	try_to_trap(false);
 	try_to_trap(true);

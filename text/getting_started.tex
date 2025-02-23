@@ -277,7 +277,7 @@ One is our entry point, the other is a function that we'll use as a simple examp
 
 This example is going to make a cross-compartment call from the "hello" comparment to the "example_compartment" compartment and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
 The cross-compartment call is exposed from \file{compartment.hh} as shown in \ref{lst:helloexport}.
-The only difference between this and a normal C/C++ function prototype is the \c{__cheri_compartment} macro.
+The only difference between this and a normal C/C++ function prototype is the \c{__cheriot_compartment} macro.
 This is explained in detail in \ref{exporting_functions}.
 
 \codelisting[filename=examples/hello_world/compartment.hh,marker=export,label=lst:helloexport,caption="Exporting a function for use by other compartments"]{}

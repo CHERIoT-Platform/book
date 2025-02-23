@@ -29,7 +29,7 @@ void print_capability(void *ptr)
 }
 // print_capability#end
 
-__cheri_compartment("example") int entry(void)
+__cheriot_compartment("example") int entry(void)
 {
 	// capability_manipulation#begin
 	// A stack allocation

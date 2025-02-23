@@ -13,7 +13,7 @@ FlagLock lock;
 // FlagLockPriorityInherited lock;
 
 // high#begin
-__cheri_compartment("priority_"
+__cheriot_compartment("priority_"
                     "inheritance") void high()
 {
 	// Let the low and
@@ -39,7 +39,7 @@ __cheri_compartment("priority_"
 std::atomic<int> x;
 
 // medium#begin
-__cheri_compartment("priority_"
+__cheriot_compartment("priority_"
                     "inheritance") void medium()
 {
 	// Let the low-priority thread run
@@ -56,7 +56,7 @@ __cheri_compartment("priority_"
 // medium#end
 
 // low#begin
-__cheri_compartment("priority_"
+__cheriot_compartment("priority_"
                     "inheritance") void low()
 {
 	while (true)

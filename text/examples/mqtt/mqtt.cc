@@ -46,7 +46,7 @@ static int ackReceived     = 0;
 static int publishReceived = 0;
 
 // publish_callback#begin
-void __cheri_callback
+void __cheriot_callback
 publishCallback(const char *topicName,
                 size_t      topicNameLength,
                 const void *payload,
@@ -62,7 +62,7 @@ publishCallback(const char *topicName,
 // publish_callback#end
 
 // ack_callback#begin
-void __cheri_callback ackCallback(uint16_t packetID,
+void __cheriot_callback ackCallback(uint16_t packetID,
                                   bool     isReject)
 {
 	Debug::log("Got an ACK for packet {}", packetID);
@@ -75,7 +75,7 @@ void __cheri_callback ackCallback(uint16_t packetID,
 }
 // ack_callback#end
 
-void __cheri_compartment("mqtt_example") example()
+void __cheriot_compartment("mqtt_example") example()
 {
 	int     ret;
 	Timeout t{MS_TO_TICKS(5000)};

@@ -8,7 +8,7 @@
 
 // high#begin
 /// High-priority thread entry point.
-void __cheri_compartment("interrupts") high()
+void __cheriot_compartment("interrupts") high()
 {
 	printf("One tick is %d cycles\n", TIMERCYCLES_PER_TICK);
 	while (true)
@@ -32,7 +32,7 @@ void __cheri_compartment("interrupts") high()
  * A function that runs with interrupts disabled and
  * consumes CPU for the requested number of ticks.
  */
-[[cheri::interrupt_state(disabled)]] void
+[[cheriot::interrupt_state(disabled)]] void
 spin_for_ticks(uint32_t ticks)
 {
 	uint64_t end =
@@ -41,7 +41,7 @@ spin_for_ticks(uint32_t ticks)
 }
 
 /// Low-priority thread entry point.
-void __cheri_compartment("interrupts") low()
+void __cheriot_compartment("interrupts") low()
 {
 	int sleeps = 2;
 	while (true)

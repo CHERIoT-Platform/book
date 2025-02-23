@@ -15,7 +15,7 @@ using Debug = ConditionalDebug<true, "Producer">;
  * Run the producer thread, sending integers to the
  * consumer.
  */
-void __cheri_compartment("producer") run()
+void __cheriot_compartment("producer") run()
 {
 	// queue_allocate#begin
 	// Allocate the queue

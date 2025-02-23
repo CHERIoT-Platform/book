@@ -7,7 +7,7 @@
 using Debug = ConditionalDebug<true, "SNTP Example">;
 constexpr bool UseIPv6 = CHERIOT_RTOS_OPTION_IPv6;
 
-void __cheri_compartment("sntp_example") example()
+void __cheriot_compartment("sntp_example") example()
 {
 	// network_init#begin
 	Debug::log("Starting network stack");

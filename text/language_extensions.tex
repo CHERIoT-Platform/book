@@ -14,8 +14,8 @@ This allows the compiler to know whether a particular function (which may be in 
 This can be used on either definitions or declarations but is most commonly used on declarations.
 
 If a function is defined while compiling a compilation unit belonging to a different compartment then the compiler will raise an error.
-In CHERIoT RTOS, this attribute is always used via the \c{__cheri_compartment({name\})} macro.
-This makes it possible to simply use \c{#define __cheri_compartment(x)} when compiling for other platforms.
+In CHERIoT RTOS, this attribute is always used via the \c{__cheriot_compartment({name\})} macro.
+This makes it possible to simply use \c{#define __cheriot_compartment(x)} when compiling for other platforms.
 
 Most of the time, you will not need to worry about the compiler flags directly.
 The \command{xmake} provided by CHERIoT RTOS will set the compiler flags for you automatically.
@@ -39,7 +39,7 @@ For example, if you change the compartment name in this example to \c{"hello"} i
 
 \begin{console}
 error: entry.cc:15:35: error: CHERI compartment entry declared for compartment 'hello' but implemented in 'entry' (provided with -cheri-compartment=)
-   15 | void __cheri_compartment("hello") entry()
+   15 | void __cheriot_compartment("hello") entry()
       |                                   ^
 1 error generated.
 \end{console}
@@ -55,7 +55,7 @@ Any time the address of such a function is taken, the result will be a sealed ca
 	As such, calling a CHERI callback function will \textem{always} be a cross-compartment call, even if the target is in the current compartment.
 \end{note}
 
-This attribute can also be used via the \c{__cheri_callback} macro, which allows it to be defined away when targeting other platforms.
+This attribute can also be used via the \c{__cheriot_callback} macro, which allows it to be defined away when targeting other platforms.
 
 \ref{lst:callbackexport} shows both how to declare a \c{typedef} for a function pointer type that can be used for cross-compartment callbacks and how to expose a function that takes one.
 This is a simple function that will increment a private counter and invoke the callback.
@@ -116,7 +116,7 @@ This allows library functions to be moved between libraries easily, a refactorin
 For example, the RTOS used to provide a library that implemented all of the helpers for atomic operations.
 This was later split into separate libraries for different sized objects, allowing code to link only the atomic operations for types that it uses.
 
-This attribute can also be used via the \c{__cheri_libcall} macro, which allows it to be defined away when targeting other platforms.
+This attribute can also be used via the \c{__cheriot_libcall} macro, which allows it to be defined away when targeting other platforms.
 This is how it is used in \ref{lst:declarelibfn}, which declares a simple library function.
 
 \codelisting[filename=examples/library_annotation/interface.h,marker=library_export,label=lst:declarelibfn,caption="A declaration of a library function"]{}
@@ -150,7 +150,7 @@ Don't forget to modify the \file{xmake.lua} file to change the \lua{library} tar
 
 \section{Interrupt state control}
 
-The \c{cheri_interrupt_state} attribute (commonly used as a C++11 / C23 attribute spelled \c{cheriot::interrupt_state}) is applied to functions and takes an argument that is one of the following:
+The \c{cheriot_interrupt_state} attribute (commonly used as a C++11 / C23 attribute spelled \c{cheriot::interrupt_state}) is applied to functions and takes an argument that is one of the following:
 \fixme{Should probably rename this cheriot in the compiler}
 
 \begin{description}

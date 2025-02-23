@@ -37,7 +37,7 @@ void set_queue(CHERI_SEALED(MessageQueue *) newQueue)
 /**
  * Run loop for the consumer thread.
  */
-void __cheri_compartment("consumer") run()
+void __cheriot_compartment("consumer") run()
 {
 	// Use the queue pointer as a futex.  It is initialised to
 	// 0, if the other thread has stored a valid pointer here

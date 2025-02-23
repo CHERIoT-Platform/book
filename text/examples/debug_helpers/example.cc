@@ -82,7 +82,7 @@ using Debug = ConditionalDebug<DEBUG_DEBUG_COMPARTMENT,
                                "Debug compartment">;
 // debug_type#end
 
-__cheri_compartment("debug_compartment") int entry()
+__cheriot_compartment("debug_compartment") int entry()
 {
 	// builtin_log#begin
 	Debug::log("Hello world!");

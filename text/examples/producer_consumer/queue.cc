@@ -15,7 +15,7 @@ MessageQueue *queue;
  * Run the producer thread, sending integers to the
  * consumer.
  */
-void __cheri_compartment("queue") producer()
+void __cheriot_compartment("queue") producer()
 {
 	// queue_allocate#begin
 	// Allocate the queue
@@ -41,7 +41,7 @@ void __cheri_compartment("queue") producer()
 /**
  * Run loop for the consumer thread.
  */
-void __cheri_compartment("queue") consumer()
+void __cheriot_compartment("queue") consumer()
 {
 	// consumer#begin
 	// Use the queue pointer as a futex.  It is initialised to

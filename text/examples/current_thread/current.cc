@@ -7,7 +7,7 @@
 
 // entry#begin
 /// Thread entry point.
-void __cheri_compartment("current") entry()
+void __cheriot_compartment("current") entry()
 {
 	for (int i = 0; i < 2; i++)
 	{

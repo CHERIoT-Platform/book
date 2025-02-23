@@ -16,7 +16,7 @@ This means that your workloads are going to now run with their privileges reduce
 Control systems often run with a single loop that polls or some input and manages a (potentially very complex) state machine and sets some output state.
 You can get precisely this model by running code in CHERIoT RTOS with interrupts disabled.
 
-A function that has the \c{[[cheri::interrupt_state(disabled)]]} attribute will run with interrupts disabled and so has exclusive use of the core until it yields.
+A function that has the \c{[[cheriot::interrupt_state(disabled)]]} attribute will run with interrupts disabled and so has exclusive use of the core until it yields.
 You can add this attribute to the entry point for the thread running your control loop to start with interrupts disabled.
 
 \begin{warning}

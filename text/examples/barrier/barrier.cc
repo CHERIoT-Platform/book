@@ -8,7 +8,7 @@
 
 // entry#begin
 /// Thread entry point.
-__cheri_compartment("barrier") void entry()
+__cheriot_compartment("barrier") void entry()
 {
 	static std::atomic<uint32_t> barrier = 2;
 	printf("Thread: %d arrived at barrier\n",

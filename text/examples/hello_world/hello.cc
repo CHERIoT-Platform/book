@@ -6,7 +6,7 @@
 
 // entry#begin
 /// Thread entry point.
-void __cheri_compartment("hello") entry()
+void __cheriot_compartment("hello") entry()
 {
 	printf("compartment returned %d\n", exported_function());
 }

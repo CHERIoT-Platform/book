@@ -19,7 +19,7 @@ typedef MonotonicCounterState
  *
  * Returns a negative value for errors.
  */
-int64_t __cheri_compartment("monotonic")
+int64_t __cheriot_compartment("monotonic")
   monotonic_counter_increment(
     MonotonicCounter allocatorCapability);
 // export#end

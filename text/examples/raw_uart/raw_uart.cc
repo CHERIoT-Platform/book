@@ -4,7 +4,7 @@
 #include <platform-uart.hh>
 
 /// Thread entry point.
-void __cheri_compartment("raw_uart") entry()
+void __cheriot_compartment("raw_uart") entry()
 {
 // uart#begin
 	static const char hello[] = "Hello world!\n";

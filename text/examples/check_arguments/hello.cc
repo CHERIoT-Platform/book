@@ -7,7 +7,7 @@
 using namespace CHERI;
 
 /// Thread entry point.
-void __cheri_compartment("hello") entry()
+void __cheriot_compartment("hello") entry()
 {
 	// attacks#begin
 	char unterminatedString[] = {

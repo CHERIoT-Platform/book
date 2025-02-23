@@ -58,7 +58,7 @@ void send(int number)
  * Run the first producer thread, sending integers to the
  * consumer.
  */
-void __cheri_compartment("queue") producer1()
+void __cheriot_compartment("queue") producer1()
 {
 	init();
 	send(0);
@@ -68,7 +68,7 @@ void __cheri_compartment("queue") producer1()
  * Run the second producer thread, sending integers to the
  * consumer.
  */
-void __cheri_compartment("queue") producer2()
+void __cheriot_compartment("queue") producer2()
 {
 	init();
 	send(1);
@@ -77,7 +77,7 @@ void __cheri_compartment("queue") producer2()
 /**
  * Run loop for the consumer thread.
  */
-void __cheri_compartment("queue") consumer()
+void __cheriot_compartment("queue") consumer()
 {
 	init();
 	// multiwaiter_create#begin

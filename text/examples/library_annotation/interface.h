@@ -7,5 +7,5 @@
 /**
  * A simple example library function.
  */
-__cheri_libcall void library_function();
+__cheriot_libcall void library_function();
 // library_export#end

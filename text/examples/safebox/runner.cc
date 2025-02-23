@@ -5,7 +5,7 @@
 // runner#begin
 using Debug = ConditionalDebug<true, "Runner">;
 
-__cheri_compartment("runner") void entry()
+__cheriot_compartment("runner") void entry()
 {
 	Debug::log("Guess a number between 0 and 9 (inclusive)");
 	while (int c =

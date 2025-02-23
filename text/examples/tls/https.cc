@@ -26,7 +26,7 @@ DECLARE_AND_DEFINE_ALLOCATOR_CAPABILITY(TestMalloc,
 
 #define TEST_MALLOC STATIC_SEALED_VALUE(TestMalloc)
 
-void __cheri_compartment("https_example") example()
+void __cheriot_compartment("https_example") example()
 {
 	// setup#begin
 	network_start();

@@ -26,7 +26,7 @@ void do_useful_work()
 }
 
 // low#begin
-__cheri_compartment("locking") void low()
+__cheriot_compartment("locking") void low()
 {
 	while (true)
 	{
@@ -40,7 +40,7 @@ __cheri_compartment("locking") void low()
 // low#end
 
 // medium#begin
-__cheri_compartment("locking") void medium()
+__cheriot_compartment("locking") void medium()
 {
 	while (true)
 	{
@@ -54,7 +54,7 @@ __cheri_compartment("locking") void medium()
 // medium#end
 
 // high#begin
-__cheri_compartment("locking") void high()
+__cheriot_compartment("locking") void high()
 {
 	while (true)
 	{

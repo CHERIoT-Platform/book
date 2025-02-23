@@ -27,7 +27,7 @@ void print_capability(void *ptr)
 	  (permissions & CHERI_PERM_USER0) ? '0' : '-');
 }
 
-__cheri_compartment("example") int entry(void)
+__cheriot_compartment("example") int entry(void)
 {
 	// capability_equality#begin
 	// A stack allocation

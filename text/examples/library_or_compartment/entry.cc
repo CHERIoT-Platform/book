@@ -12,7 +12,7 @@ int global;
 
 using Debug = ConditionalDebug<true, "Entry">;
 
-__cheri_compartment("entry") int entry()
+__cheriot_compartment("entry") int entry()
 {
 	register void *cgp __asm__("cgp");
 	asm("" : "=C"(cgp));

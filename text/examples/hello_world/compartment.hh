@@ -7,6 +7,6 @@
 /**
  * Example of a function in a compartment.
  */
-__cheri_compartment(
+__cheriot_compartment(
   "example_compartment") int exported_function(void);
 // export#end

@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 // callback#begin
-int __cheri_callback callback(int counter)
+int __cheriot_callback callback(int counter)
 {
 	printf("Counter value: %d\n", counter);
 	return 0;
@@ -13,7 +13,7 @@ int __cheri_callback callback(int counter)
 // callback#end
 
 /// Thread entry point.
-void __cheri_compartment("entry") entry()
+void __cheriot_compartment("entry") entry()
 {
 	// compartment_call#begin
 	increment();

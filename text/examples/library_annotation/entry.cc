@@ -9,7 +9,7 @@ using Debug = ConditionalDebug<true, "Entry compartment">;
 
 // entry#begin
 /// Thread entry point.
-void __cheri_compartment("entry") entry()
+void __cheriot_compartment("entry") entry()
 {
 	// Print the current stack capability.
 	Debug::log("Stack pointer: {}",

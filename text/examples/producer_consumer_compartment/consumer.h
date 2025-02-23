@@ -5,4 +5,4 @@
 #include <cstdlib>
 #include <queue.h>
 
-void __cheri_compartment("consumer") set_queue(CHERI_SEALED(MessageQueue *) queueHandle);
+void __cheriot_compartment("consumer") set_queue(CHERI_SEALED(MessageQueue *) queueHandle);

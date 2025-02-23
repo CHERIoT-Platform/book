@@ -20,7 +20,7 @@ DECLARE_AND_DEFINE_CONNECTION_CAPABILITY(
   ConnectionTypeTCP);
 // server_capability#end
 
-void __cheri_compartment("tcp_example") example()
+void __cheriot_compartment("tcp_example") example()
 {
 	Debug::log("Starting network stack");
 	network_start();

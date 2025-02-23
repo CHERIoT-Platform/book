@@ -9,7 +9,7 @@
 // Declare and define a counter for this to use.
 DECLARE_AND_DEFINE_COUNTER(aCounter)
 
-void __cheri_compartment("caller") entry()
+void __cheriot_compartment("caller") entry()
 {
 	// Get a pointer to the valid counter.
 	auto validCounter = STATIC_SEALED_VALUE(aCounter);

@@ -28,7 +28,7 @@ void print_capability(void *ptr)
 	  (permissions & CHERI_PERM_USER0) ? '0' : '-');
 }
 
-__cheri_compartment("example") int entry(void)
+__cheriot_compartment("example") int entry(void)
 {
 	// representable_range#begin
 	const size_t Size = 160000;
