@@ -297,6 +297,7 @@ end
 function package:registerCommands()
 	-- Hacky \floating command.  Just wraps a parbox and sets a flag on the ouput.
 	self:registerCommand("floating", function(options, content)
+		SILE.call("noindent")
 		local parbox, hlist = parboxPackage:makeParbox(options, content)
 		parbox.moveable = true
 		SILE.typesetter:pushHbox(parbox)
