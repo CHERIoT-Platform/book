@@ -261,7 +261,7 @@ function buildPage(self)
 			-- Hack: If the last thing is a big penalty, assume that we're
 			-- never going to get better by adding more things.
 			local lastVBox = self.state.outputQueue[#self.state.outputQueue]
-			if lastVBox and (lastVBox.is_penalty) and (lastVBox.penalty <= -10000) then
+			if lastVBox and lastVBox.is_penalty and (lastVBox.penalty <= -10000) then
 				finish()
 				return true
 			end
@@ -304,6 +304,8 @@ function package:registerCommands()
 		for _, h in ipairs(hlist) do
 			SILE.typesetter:pushHorizontal(h)
 		end
+		SILE.call("indent")
+		SILE.call("smallskip")
 		return parbox
 	end)
 end
