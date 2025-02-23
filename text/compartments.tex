@@ -636,9 +636,6 @@ The error handler is called with interrupts enabled, even if interrupts were dis
 Latency-critical code should never depend on the error handler for meeting its timing.
 \end{warning}
 
-If a called compartment faults and forcibly unwinds then this will be reported as a CHERI fault with no cause (zero) in \c{mtval}.
-You can use this to propagate faults up to callers, to track the number of times a cross-compartment call has failed, and so on.
-
 The spilled register file does not contain a tagged value for the program counter capability.
 This is to prevent library functions that run with interrupts disabled or with access to secrets from accidentally leaking on faults.
 All other registers will be preserved exactly as they are in the register file.
