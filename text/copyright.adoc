@@ -7,6 +7,7 @@ ${include("_header.adoc", always_embed=True, leveloffset=None)}
 This book is copyright David Chisnall under the CC BY-NC 4.0 license.
 
 Portions of the text and code listings are part of the CHERIoT RTOS project and are licensed under the MIT license:
+\amanda{The MIT license wraps strangely, both in the HTML version and the PDF.  I would recommend removing the <pre></pre>tags and making a special class in the stylesheet to use the font.  I am not entirely certain what causes the PDF to wrap and if removing the <pre></pre> tags will fix the PDF as well, but the PDF is fixed-width and there's no good reason for it to have strange line-breaks.  Alternatively, I can go through and re-break all the lines to fit the PDF but that will still leave weird wrapping on the HTML on smaller screens.}
 
 ----
 MIT License
