@@ -152,7 +152,7 @@ In a CHERI system, this can include one component having read access to an objec
 \section{Restricting memory access with compressed bounds}
 
 The original CHERI prototypes used a 256-bit capability that stored a full 64-bit base and length.
-This was useful for research and prototyping but replacing 64-bit pointers with 256-bit ones was an unacceptable overhead when we started to move CHERI from research to production.
+This was useful for research and prototyping but replacing 64-bit pointers with 256-bit ones was an unacceptable overhead when CHERI started to move from research to production.
 Newer CHERI implementations reduce this overhead by taking advantage of redundancy.
 The base, top, and address of a capability all have some common bits in the top of their address.
 
@@ -230,6 +230,8 @@ If you use the CHERIoT RTOS logging support (described in \ref{debug}) to print 
 	\caption[label=tbl:primary_permissions]{CHERIoT primary permissions}
 \end{table}
 
+\amanda{The HTML looks weird here, and could use a couple of newlines between the end of the table and the next paragraph.The PDF also looks weird for a different reason-- you start describing the items before the table appears.}
+
 Read and write permission allow the capability to be used as an operand to load and store instructions, respectively.
 Execute allows the capability to be used as a jump target, where it will end up installed as the \keyword{program counter capability} and used for instruction fetch.
 We'll cover the sealing and unsealing permissions later.
@@ -274,6 +276,7 @@ If you pass it to another function then that function cannot store it in a globa
 The callee cannot hold onto a copy of the pointer after the end of the call.
 This is shallow because the callee can capture pointers to objects that are reachable via pointers stored in the original object.
 Removing the local-global permission makes this a \keyword{deep no-capture} guarantee.
+\amanda{Above, did you actually mean "local-global" or did you mean "load-global"?  If you meant it as "local-global" it should probably be reworded to "local/global" or "local or global store" or otherwise clarified to make it obvious you meant both.}
 Any pointer loaded, at any level of indirection, from the original pointer will have the property that it can be stored only on the stack.
 
 Similarly, store and load-mutable permissions are intended to give similar language-level guarantees for mutability.
@@ -288,10 +291,10 @@ The access-system-registers permission controls access to a small number of priv
 \begin{caution}
 	The CHERIoT encoding stores 12 permissions in five bits by excluding meaningless combinations and some that are not normally useful.
 	This comes with a few limitations, most notably that execute permission implies load.
-	It is not possbile to remove load permission from an executable capability.
+	It is not possible to remove load permission from an executable capability.
 	Some modern platforms support \keyword{execute-only memory} as a security feature.
 	CHERIoT cannot express this but this does not cause practical problems for security.
-	The sentry mechanism (described in \ref{sealing_intro}) lets you have memory that readable \textem{only} while executing from it, which is a more useful security property.
+	The sentry mechanism (described in \ref{sealing_intro}) lets you have memory that is readable \textem{only} while executing from it, which is a more useful security property.
 	Execute-only memory normally aims to prevent information leaks that lead to code-reuse attacks.
 	These attacks, in turn, are triggered via pointer injection or other memory-safety violations, which CHERIoT deterministically mitigates.
 \end{caution}
