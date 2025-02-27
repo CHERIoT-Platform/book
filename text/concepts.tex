@@ -273,7 +273,7 @@ Removing the global permission from any other capability gives it the same prope
 If you pass it to another function then that function cannot store it in a global or on the heap, which gives you a \keyword{shallow no-capture} guarantee:
 The callee cannot hold onto a copy of the pointer after the end of the call.
 This is shallow because the callee can capture pointers to objects that are reachable via pointers stored in the original object.
-Removing the local-global permission makes this a \keyword{deep no-capture} guarantee.
+Removing the load-global permission makes this a \keyword{deep no-capture} guarantee.
 Any pointer loaded, at any level of indirection, from the original pointer will have the property that it can be stored only on the stack.
 
 Similarly, store and load-mutable permissions are intended to give similar language-level guarantees for mutability.
@@ -372,7 +372,8 @@ The data is accessible via PC-relative addressing only after jumping into the co
 \section[label=interrupt_sentries]{Controlling interrupt status with sentries}
 
 In conventional RISC-V (and most other architectures) the interrupt status is controlled via a special register.
-This register can be modified only in some privileged mode.
+This register can be modified only in a privileged mode.
+\amanda{The word "some" here is confusing.  The next sentence makes it sound like it's a specific privileged mode, so I'm making the change to reflect that, but I am not 100% confident that it's correct.  I'd actually recommend re-writing both sentences to be something like "This register can be modified only by code running with the Access System Registers permission..." but, you know, accurate.}
 The CHERIoT ISA allows it to be modified by any code running with the Access System Registers permission in the program counter capability.
 
 Embedded software often wants to disable interrupts for short periods but granting the permission to toggle interrupts makes auditing availability guarantees between mutually distrusting components almost impossible.
