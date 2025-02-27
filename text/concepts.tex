@@ -330,7 +330,7 @@ Sealing a capability transforms it from something that conveys rights and can be
 It can be transformed back with the converse unseal operation.
 
 Capabilities have one field that we have not yet discussed: an \keyword{object type}.
-THis is normally zero, representing an unsealed capability.
+This is normally zero, representing an unsealed capability.
 Any non-zero value indicates a sealed capability.
 
 When you seal a capability, you use a capability with permit-seal permission.
@@ -340,6 +340,7 @@ Any attempt to change the address, bounds, or permission will clear the tag and 
 It can be copied but is always treated as an opqaue value.
 Unsealing is the only operation that can modify a sealed capability.
 This requires a valid capability with permit-seal permission and the same address as the capability that was used in the original seal operation.
+\amanda{Above, did you mean permit-seal or permit-unseal?}
 The unseal operation results in a capability that is identical to the one that was sealed.
 
 If you attempt to unseal a capability that is not sealed with the value of the permit-unseal capability then you will get back an untagged value.
