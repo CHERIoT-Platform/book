@@ -37,9 +37,10 @@ function process(textTree)
 		local src = figure:attribute("src")
 		-- SVGs may include other files.  Some of the SVGs are actually
 		-- directories, look for the real file inside.
-		local nestedSVG = string.gsub(src, "(.*/)(.*%.svg)$", "%1%2/%2")
-		if file_exists(nestedSVG) then
-			src = nestedSVG
+		local nestedSVGName = string.gsub(src, "(.*/)(.*%.svg)$", "%1%2/%2")
+		local nestedSVG = (nestedSVGName ~= src) and file_exists(nestedSVGName)
+		if nestedSVG then
+			src = nestedSVGName
 		end
 
 		-- SVG images that load other things need special handling because

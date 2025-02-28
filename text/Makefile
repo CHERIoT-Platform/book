@@ -40,6 +40,7 @@ HTML_PASSES= \
 	--pass ts-inlines \
 	--pass number-tables \
 	--pass html-lua \
+	--pass html-promote-docs \
 	--pass html-listings \
 	--pass html-lists \
 	--pass html-em \
@@ -90,6 +91,19 @@ html: ${SOURCES} Makefile
 	cp figures/*.jpg _site/figures
 	cp -R figures/*.svg _site/figures
 	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB
+
+cheriot-programmers-guide.epub: ${SOURCES} Makefile
+	rm -rf cheriot-programmers-guide.epub.tmp
+	rm -rf cheriot-programmers-guide.epub
+	mkdir -p cheriot-programmers-guide.epub.tmp/EPUB/figures
+	mkdir -p cheriot-programmers-guide.epub.tmp/META-INF
+	cp ../cover/Cover.jpg cheriot-programmers-guide.epub.tmp/EPUB/
+	cp book.css cheriot-programmers-guide.epub.tmp/EPUB/
+	cp -R figures/*.{png,jpg,svg} cheriot-programmers-guide.epub.tmp/EPUB/figures
+	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=cheriot-programmers-guide.epub.tmp --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config epub=true
+	cd cheriot-programmers-guide.epub.tmp && zip -r -X cheriot-programmers-guide.epub mimetype EPUB META-INF && mv cheriot-programmers-guide.epub ..
+	epubcheck cheriot-programmers-guide.epub
+	rm -rf cheriot-programmers-guide.epub.tmp
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
 	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile > cheriot-programmers-guide.xml 
