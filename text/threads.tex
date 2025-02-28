@@ -144,6 +144,7 @@ Sleeping for a bounded number of ticks is the simplest form of blocking availabl
 The \c{thread_sleep} call causes the caller to yield until a certain number of ticks have run.
 
 \functiondoc{thread_sleep}
+
 As with other calls that take a \c{Timeout}, the number of ticks that have elapsed during the call can be checked by reading the \c{elapsed} field of the timeout structure.
 
 Sleeping in a system with an RTOS scheduler conflates two concepts:
