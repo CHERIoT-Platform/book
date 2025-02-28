@@ -181,7 +181,7 @@ Instead, the RTOS includes a \library{freestanding} library that includes these 
 
 C++ expects slightly more from a freestanding environment.
 CHERIoT RTOS does not provide support for exceptions, but does support thread-safe initialisation of statics.
-In C++, function-local \cxx{static} variables that have non-trivial constructors are initialised lazily, the first time that they are invoked.
+In C++, function-local \cxx{static} variables that have non-trivial constructors are initialised lazily the first time that they are invoked.
 The compiler emits a guard word that is used to mark whether the object is initialised and act as a lock to protect initialisation.
 The compiler also emits a branch on the initialised bit at the point where the variable comes into scope.
 In the uninitialised case, this inserts a call to \c{__cxa_guard_acquire} to acquire the lock and then a call to \c{__cxa_guard_release} to release the lock.
@@ -198,6 +198,7 @@ For both C and C++ (and other languages that use the same compiler back end), th
 For example, if you divide one 64-bit number by another, this is a single operator in C.
 On most 64-bit processors, it's a single divide instruction but on 32-bit processors it requires a much longer sequence.
 Similarly, GCC and Clang provide a \keyword{population count} built-in function that counts the number of bits in an integer that are set to one.
+\amanda{This phrasing is difficult to parse.  May I suggest something like "...built-in function that examines an integer and counts the number of bits that are set to one." instead?  As written, my first read-through took it as the count being set to one, which feels a bit unproductive.}
 This is a single instruction on most modern application processors, but requires some shifting and masking on microcontrollers.
 
 CHERIoT RTOS provides the \library{crt} library to implement these functions.
@@ -263,9 +264,9 @@ The \file{lib} directory in the RTOS SDK contains all of the libraries.
 Some of these have been discussed already because they are part of a core environment that you might expect to be available for any compartment to use.
 
 Others are correspond more to operating system features and will be discussed in later chapters.
-For example, those related to locking, message queues, and so on a will be discussed in \ref{threads}.
+For example, those related to locking, message queues, and so on will be discussed in \ref{threads}.
 The features for debugging are discussed in \ref{debug}.
 
-Others, such as the port of the Microvium JavaScript interpreter are not discussed in the book at all.
-This book does not aim to provide an exhaustive list of everything that the RTOS provides as libraries and more will be added after the book is published.
+Others, such as the port of the Microvium JavaScript interpreter, are not discussed in the book at all.
+This book does not aim to provide an exhaustive list of everything that the RTOS provides as libraries, and more will be added after the book is published.
 Please look in the RTOS repository to see what has been added.
