@@ -24,8 +24,9 @@ This, in turn, enables multi-stage boot where some functionality, such as attest
 These abstractions can all be built from capabilities and so, unlike systems based on protection rings such as TrustZone, an arbitrary number can be nested.
 
 If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise the pointer by deriving a capability from one out of the compartment's code or data capabilities.
+\amanda{"one out of the..." implies that there's more than one option. But your comment on my previous comment strongly implies that there is NOT more than one option.  I am unsure how to resolve this, but I am sure that "one out of" is confusing and possibly misleading.}
 Again, this enforces provenance properties, this time within a firmware image.
-A malicious compartment may provide a relocation that points to a global outside its own memory, but the loader will attempt to derive the capability only from the compartment's initial \reg{pcc} (code) and \reg{cgp} (globals) regions and so will fail.
+A malicious compartment may provide a relocation that points to a global outside its own memory, but the loader will attempt to derive the capability only from the compartment's initial \reg{pcc} (code) and \reg{cgp} (globals) regions and so will fail. Globals may point to other globals owned by the compartment; the loader will fail to derive a valid capability if they point elsewhere.
 
 The loader must also provide all capabilities to compartments that allow them to communicate outside of their own private space.
 This includes access to \keyword{memory-mapped I/O} (MMIO) regions, capabilities for pre-shared objects, for software-defined capabilities, and any capabilities for calling entry points exposed by other compartments or libraries.
@@ -197,7 +198,7 @@ This is not supported on CHERIoT.
 For both C and C++ (and other languages that use the same compiler back end), there are some sequences that compilers prefer to generate as calls to helper functions.
 For example, if you divide one 64-bit number by another, this is a single operator in C.
 On most 64-bit processors, it's a single divide instruction but on 32-bit processors it requires a much longer sequence.
-Similarly, GCC and Clang provide a \keyword{population count} built-in function that counts the number of bits in an integer that are set to one.
+Similarly, GCC and Clang provide a \keyword{population count} built-in function that examines an integer and counts the number of bits that are set to one.
 This is a single instruction on most modern application processors, but requires some shifting and masking on microcontrollers.
 
 CHERIoT RTOS provides the \library{crt} library to implement these functions.
