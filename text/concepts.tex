@@ -339,7 +339,7 @@ With a non-zero object type, the sealed capability cannot be modified.
 Any attempt to change the address, bounds, or permission will clear the tag and give an invalid capability.
 It can be copied but is always treated as an opqaue value.
 Unsealing is the only operation that can modify a sealed capability.
-This requires a valid capability with permit-seal permission and the same address as the capability that was used in the original seal operation.
+This requires a valid capability with permit-unseal permission and the same address as the capability that was used in the original seal operation.
 The unseal operation results in a capability that is identical to the one that was sealed.
 
 If you attempt to unseal a capability that is not sealed with the value of the permit-unseal capability then you will get back an untagged value.
@@ -372,7 +372,7 @@ The data is accessible via PC-relative addressing only after jumping into the co
 
 In conventional RISC-V (and most other architectures) the interrupt status is controlled via a special register.
 This register can be modified only in some privileged mode.
-The CHERIoT ISA allows it to be modified by any code running with the Access System Registers permission in the program counter capability.
+The CHERIoT ISA allows this register to be modified only by code running with the Access System Registers permission in the program counter capability.
 
 Embedded software often wants to disable interrupts for short periods but granting the permission to toggle interrupts makes auditing availability guarantees between mutually distrusting components almost impossible.
 Instead, CHERIoT provides three kinds of sentries that control the interrupt status.
