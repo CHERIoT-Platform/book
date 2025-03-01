@@ -6,7 +6,7 @@ Each core component runs with some privileges that mean that it is (at least par
 \section{Starting the system with the loader}
 
 The \keyword{loader} runs on system startup.
-A firmware image contains everything that needs to end up in memory when the system starts as well as an image header that contains metadata describing its layout.
+A firmware image contains everything that needs to end up in memory when the system starts, as well as an image header that contains metadata describing its layout.
 The loader reads the header and populates each compartment with the set of capabilities that it needs.
 The loader exists so that the system can be started from a firmware image that does not embed capabilities.
 This is a useful property even if a particular target has persistent storage (non-volatile RAM) that \textem{can} hold capabilities because it ensures that there is an on-device \keyword{pointer provenance} flow for the firmware.
@@ -14,7 +14,7 @@ This is a useful property even if a particular target has persistent storage (no
 Pointer provenance ensures that pointers in the system were derived from other pointers via a chain that makes sense.
 Pointers cannot be made up from thin air.
 When a CHERI system boots, it starts with one or more capabilities in registers that convey the full set of permissions.
-If you call a function like \c{malloc} there is a chain of derivations that leads back to these.
+If you call a function like \c{malloc} there is a chain of derivations that leads back to these permissions.
 For example, the loader will create a capability to the heap region that has a subset of permissions (for example, not execute permission) that covers the region that will be used for the heap, and then the memory allocator will reduce the bounds to hand out a capability for a single object.
 CHERI doesn't let you reconstruct that chain but it does guarantee that it, or some equivalent chain, must have existed.
 
@@ -23,7 +23,7 @@ This ensures that the initial state for each component's memory contains only ca
 This, in turn, enables multi-stage boot where some functionality, such as attestation, secure key storage, and so on, are provided by a bootloader.
 These abstractions can all be built from capabilities and so, unlike systems based on protection rings such as TrustZone, an arbitrary number can be nested.
 
-If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise the pointer by deriving a capability from one out of the compartment's code or data capabilities.
+If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise the pointer by deriving a capability out of the compartment's code or data capabilities.
 Again, this enforces provenance properties, this time within a firmware image.
 A malicious compartment may provide a relocation that points to a global outside its own memory, but the loader will attempt to derive the capability only from the compartment's initial \reg{pcc} (code) and \reg{cgp} (globals) regions and so will fail.
 
@@ -54,7 +54,7 @@ The scheduler derives these from a capability that has store-local but not globa
 Before starting the system, the loader erases almost all of its code (leaving the stub that handles this erasure), its stack, and clears its registers.
 The last bit of the loader's code becomes the idle thread (a wait-for-interrupt loop).
 The loader's stack is used for the scheduler stack.
-The memory that held loader's code is used for heap memory.
+The memory that held the loader's code is used for heap memory.
 
 \section{Changing trust domain with the switcher}
 
