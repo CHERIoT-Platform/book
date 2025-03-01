@@ -340,6 +340,53 @@ function process(textTree)
 				item:attribute_set("properties", properties)
 			end
 		end
+		local coverPage = TextTree.create({
+			kind = "html",
+			attributes = {
+				xmlns = "http://www.w3.org/1999/xhtml",
+				["xmlns:epub"] = "http://www.idpf.org/2007/ops",
+			},
+			children = {
+				{
+					kind = "head",
+					children = {
+						{
+							kind = "title",
+							children = { config.title },
+						},
+						{
+							kind = "link",
+							attributes = {
+								rel = "stylesheet",
+								href = "book.css",
+								type = "text/css",
+							},
+						},
+						{
+							kind = "meta",
+							attributes = {
+								charset = "utf-8",
+							},
+						},
+					},
+				},
+				{
+					kind = "body",
+					children = {
+						{
+							kind = "img",
+							attributes = {
+								src = "Cover.jpg",
+								alt = "Cover image"
+							}
+						},
+					},
+				},
+			},
+		})
+		out:output_file(root .. "/EPUB/cover.xhtml")
+		out:process(coverPage)
+		addManifest("cover-page", "cover.xhtml", "application/xhtml+xml")
 		addManifest("style", "book.css", "text/css")
 		for _, img in ipairs(figures) do
 			local mimes = {
@@ -369,7 +416,7 @@ function process(textTree)
 			item:attribute_set("idref", id)
 			item:attribute_set("linear", linear or "yes")
 		end
-		--addSpine("cover", "no")
+		addSpine("cover-page")
 		for _, chapter in pairs(chapters) do
 			addSpine(chapter.name)
 		end
