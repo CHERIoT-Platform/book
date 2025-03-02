@@ -43,6 +43,7 @@ error: entry.cc:15:35: error: CHERI compartment entry declared for compartment '
       |                                   ^
 1 error generated.
 \end{console}
+\amanda{It is somewhat confusing that the error occurs in entry.cc when the most recent example used compartment.cc, particularly because the paragraph before this used the phrase "in this example."  I would recommend making them match.}
 
 \section[label=cheri_callback]{Passing callbacks to other compartments.}
 
@@ -61,6 +62,7 @@ This attribute can also be used via the \c{__cheriot_callback} macro, which allo
 This is a simple function that will increment a private counter and invoke the callback.
 
 \codelisting[filename=examples/compartment_annotation/interface.h,marker=compartment_export_callback,label=lst:callbackexport,caption="Exposing a function that takes a cross-compartment callback for use by other compartments."]{}
+\amanda{Is there a reason for the newline in the last line of this code?  It's inconsistent with all the other listings you've had so far.}
 
 The implementation of this function (\ref{lst:monotoniccallbackfn}) calls it just as it would call any other function pointer.
 The difference is dealt with entirely by the compiler.
