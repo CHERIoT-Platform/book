@@ -111,7 +111,7 @@ The \c{cheri_libcall} attribute specifies that this function is provided by a li
 This attribute is implicit for all compiler built-in functions, including \c{memcpy} and similar freestanding C environment functions.
 As with \c{cheri_compartment()}, this may be used on both definitions and declarations.
 
-Unlike the compartment annotation, the library annotation does not specify the library that provides the function (though you can validate this later with the auditing tooling, as described in \ref{cheriot-audit}.
+Unlike the compartment annotation, the library annotation does not specify the library that provides the function (though you can validate this later with the auditing tools, as described in \ref{cheriot-audit}).
 This allows library functions to be moved between libraries easily, a refactoring that does not affect most of the security model.
 For example, the RTOS used to provide a library that implemented all of the helpers for atomic operations.
 This was later split into separate libraries for different sized objects, allowing code to link only the atomic operations for types that it uses.
@@ -127,7 +127,8 @@ As with the compartment annotations, these don't need to be placed on both the p
 \codelisting[filename=examples/library_annotation/library.cc,marker=library_implementation,label=lst:definelibfn,caption="A definition of a library function"]{}
 
 Both the library function and the call site, shown in \ref{lst:calllibfn} use the CHERIoT RTOS debugging APIs that are described in detail in \ref{debug}.
-These allow you to, among other things, pretty-print capabilities.
+Among other things, these allow you to pretty-print capabilities.
+\amanda{Alternatively, put "among other things" at the end.  Just don't put it in the middle of the sentence.}
 These use a compiler builtin to get the capability to the stack and print it.
 
 \codelisting[filename=examples/library_annotation/entry.cc,marker=entry,label=lst:calllibfn,caption="Calling a simple library function."]{}
@@ -150,7 +151,7 @@ Don't forget to modify the \file{xmake.lua} file to change the \lua{library} tar
 
 \section{Interrupt state control}
 
-The \c{cheriot_interrupt_state} attribute (commonly used as a C++11 / C23 attribute spelled \c{cheriot::interrupt_state}) is applied to functions and takes an argument that is one of the following:
+The \c{cheriot_interrupt_state} attribute (commonly used as the C++11 / C23 attribute \c{cheriot::interrupt_state}) is applied to functions and takes an argument that is one of the following:
 \fixme{Should probably rename this cheriot in the compiler}
 
 \begin{description}
@@ -167,7 +168,7 @@ This makes it possible to statically reason about interrupt state in lexical sco
 
 \begin{caution}
 If a compartment is able to provide arbitrary interrupt-disabled functions, that compartment is in the TCB for availability.
-It is a good idea to move interrupts-disabled code into library functions where the contents of the library can be audited and the exact binary for the interrupt-disabled function can be part of a \keyword{software bill of materials} (SBOM), which can then allow you to reason about the whole system's availability guarantees.
+It is a good idea to move interrupt-disabled code into library functions where the contents of the library can be audited and the exact binary for the interrupt-disabled function can be part of a \keyword{software bill of materials} (SBOM), which can then allow you to reason about the whole system's availability guarantees.
 \end{caution}
 
 If you need to wrap a few statements to run with interrupts disabled, you can use the convenience helper \cxx{CHERI::with_interrupts_disabled}.
@@ -187,6 +188,7 @@ This function and the meaning of a scheduler tick are explained in more detail i
 For now, assume that the thread is attempting to sleep for the number of cycles shown by the \c{printf} call at the start, outside of the loop.
 
 \codelisting[filename=examples/interrupts_disabled/interrupts.cc,marker=low,label=lst:lowpriorityinterruptsdisabled,caption="A low-priority thread that uses an interrupts-disabled function to consume CPU."]{}
+\amanda{The text above the code explaining interrupt_state(disabled) is "cheri::" but the text in the code is "cheriot::"  Should one of these be changed?}
 
 The other thread in this program is shown in \ref{lst:highpriorityinterruptsdisabled}.
 This runs with high priority and so will always preempt the low-priority thread when it is able to, but disabling interrupts means that preemption is impossible.
@@ -261,7 +263,7 @@ The compiler will error if you try to dereference a sealed capability.
 You can implicitly cast the \c{MyType *__sealed_capability} to \c{void*} but not to a \c{MyType *}.
 You can explicitly cast away the \c{__sealed_capability} qualifier but that just lets you compile things that will trap at run time.
 
-The builtins for sealing and unsealing respect these types as do the RTOS APIs (\ref{token_apis}) that use them.
+The builtins for sealing and unsealing respect these types, as do the RTOS APIs (\ref{token_apis}) that use them.
 This means that you can write a function that expects a \c{MyType *__sealed_capability} and preserve type safety throughout your code and untrusted code.
 When a caller gives you back this kind of pointer and you unseal it, you will get a \c{MyType *} that is either a valid value or untagged.
 
@@ -272,7 +274,7 @@ These are typically of the form \c{__builtin_cheri_{noun\}_{verb\}}.
 You can read all of the fields of a CHERI capability with \c{get} as the verb and the following nouns:
 
 \begin{description}
-	\item[tag=address]{The current address that's used when the capability is used a pointer.}
+	\item[tag=address]{The current address that's used when the capability is used as a pointer.}
 	\item[tag=base]{The lowest address that this authorises access to.}
 	\item[tag=top]{The address immediately after the end of the range that this authorises access to.}
 	\item[tag=length]{The distance between the base and the top.}
@@ -308,7 +310,7 @@ Most of the time, C code will avoid using the builtins directly and instead use 
 This file contains a set of macros that wrap the builtins to remove the \c{__builtin_} prefix.
 
 \begin{note}
-	Although most of the macros in \file{cheri-builtins.h} match the names of the underlying builtins, the permissions ones follow the CHERIoT RTOS coding convention of avoiding abbreviations and so use \c{permissions} instead of \c{perms}.
+	Although most of the macros in \file{cheri-builtins.h} match the names of the underlying builtins, the permissions macros follow the CHERIoT RTOS coding convention of avoiding abbreviations and so use \c{permissions} instead of \c{perms}.
 	The predicates prefix the operation with \c{_is} so \c{__builtin_cheri_equal_exact} becomes \c{cheri_is_equal_exact}.
 \end{note}
 
@@ -316,11 +318,11 @@ You can see how to use most of the introspection builtins via their macro wrappe
 This prints a capability, showing its address, tag (valid) bit, length, bounds, and permissions.
 The permissions are expanded as the letters from the tables in \ref{permissions}.
 The builtins are thing wrappers around the instructions, which represent the permissions as a bitmask.
-Individual bits must be extracted by a bitwise and operation.
+Individual bits must be extracted by a bitwise AND operation.
 
 \codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=print_capability,label=lst:prettyprintcapc,caption="Pretty printing a capability using the C builtin wrappers."]{}
 
-\ref{lst:capmanipc} uses this function to print both some initial capabilities from heap and stack memory and then manipulates them.
+\ref{lst:capmanipc} uses this function to print some initial capabilities from both heap and stack memory and then manipulates them.
 First, it explicitly sets the bounds of the heap capability to 23 bytes, then removes all permissions except load.
 
 \codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=capability_manipulation,label=lst:capmanipc,caption="Manipulating capabilities using the C builtin wrappers."]{}
@@ -342,7 +344,7 @@ These two conditions ensure that stack pointers (which lack global) can be store
 
 The bounds on the original heap allocation are rounded up to a multiple of the heap's allocation granule size.
 The CHERIoT allocator allocates 8-byte chunks, so this is rounded up to 24 (0x18) bytes.
-For a capability this small, CHERIoT can precisely represent the desired size and so the bounds setting operation succeeds and you can derive a capability with the precise bounds that we requested.
+For a capability this small, CHERIoT can precisely represent the desired size and so the bounds-setting operation succeeds and you can derive a capability with the precise bounds that we requested.
 Next, this removes all permissions except load.
 This pointer now provides a read-only view of the data, which cannot be stored anywhere except on the stack and which cannot be used to load capabilities.
 
@@ -450,12 +452,12 @@ offset ⊂ bounded? 0
 
 Most of these lines should not be a surprise.
 The bounded capability is a subset of the original, it was created by subsetting the bounds.
-The capability that was created by subsetting the rights on the bounded version is, in turn a subset of the bounded version.
+The capability that was created by subsetting the rights on the bounded version is, in turn, a subset of the bounded version.
 Finally, the original is not a subset of the bounded version.
 
 The surprising entry might be that the untagged capability is not a subset of the original.
 In a set-theoretic sense, this would be incorrect: The empty set is a subset of any other set.
-In practice, this degenerate case is not a useful.
+In practice, this degenerate case is not useful.
 
 The test-subset operation gives a unidirectional substitution property (i.e. any operation that is safe to do with the subset is safe to do with the superset) but this is not usually something that you care about.
 The test is most useful for telling if one capability is \textem{derived from} another (or, at least, could have a derivation path from a specific common root).
