@@ -5,7 +5,7 @@ Compartments in CHERIoT are somewhere between these two abstractions.
 Unlike a process, they do not own threads, which are an independent concept in CHERIoT, described more in \ref{threads}.
 
 Communication between compartments looks a lot more like communication between shared libraries than like inter-process communication (IPC).
-They can export functions to be called form other compartments and can call functions exported from other compartments.
+They can export functions to be called from other compartments and can call functions exported from other compartments.
 Like a shared library, they have code and globals associated with them, but a \keyword{cross-compartment call} crosses a security boundary, in the same way that an IPC message would.
 
 CHERIoT shared libraries are a lightweight way of reusing code without duplicating it into different compartments.
@@ -42,11 +42,11 @@ As mentioned previously, (read-only) globals in a library are hidden in a softwa
 
 You can still use a compartment's globals to share data but you must explicitly expose them via an accessor function.
 This makes CHERIoT compartments and libraries similar to Smalltalk-style objects, with public methods and private instance variables.
-You can also create globals that are shared between compartments (see \ref{_sharing_globals_between_compartments}) but these are not part of any compartment.
+You can also create globals that are shared between compartments (see \ref{_sharing_globals_between_compartments}) but that are not part of any compartment.
 
 If you expose an interface that returns a pointer to a global, you can use CHERI permissions to restrict access.
 Returning a read-only pointer to a global is a common idiom for building a lightweight broadcast communication channel.
-The owning compartment can write to the global and other compartments can read from via their copy of the pointer, with guarantees that only the owning compartment is making changes.
+The owning compartment can write to the global and other compartments can read from their copy of the pointer, with guarantees that only the owning compartment is making changes.
 
 To see the differences, \ref{lst:exportcompartmentandlib} shows a header that exports two functions, one from a compartment and one from a library.
 
@@ -163,6 +163,7 @@ This example implicitly ends the library and entry targets, but uses \lua{target
 
 Inside each target definition, you can add files, dependencies on other targets, and so on.
 The \lua{"entry"} target, for example, sets itself as a non-default target.
+\amanda{Does it?  Because it looks like it's "library" that sets itself as non-default via the "set_default(false)" line.}
 \command{xmake} will build every default target, whether it is used or not.
 Marking a target as non-default allows it to be defined, but built only if it is used.
 This is useful for reusable components.
@@ -177,7 +178,7 @@ If you are reading the \href[src="https://xmake.io"]{\command{xmake} documentati
 
 \begin{note}
 	If your \file{xmake.lua} file contains compartment or library definitions but no firmware, then it can be reused.
-	Each of the optional libraries and compartments shipped with the RTOS is defined like this, they are in a separate \file{xmake.lua} that is then included.
+	Each of the optional libraries and compartments shipped with the RTOS is defined like this, in a separate \file{xmake.lua} that is then included.
 	As long as the components are set as non-default, they will simply be available for firmware to add as dependencies.
 \end{note}
 
@@ -185,7 +186,7 @@ Once you have defined the rules to build each compartment and library, they need
 Any library or compartment that is a direct or indirect dependency of a firmware image will be built and linked into the final image.
 For this example, we show both forms.
 The entry compartment lists both the library and the example compartment as explicit dependencies because it calls both of them.
-In the firmware definition (\ref{lst:xmakeaddcompartmentdeps}) adds the entry compartment as an explicit dependency, which then pulls in the other two.
+The firmware definition (\ref{lst:xmakeaddcompartmentdeps}) adds the entry compartment as an explicit dependency, which then pulls in the other two.
 This firmware also depends on two libraries from the core RTOS, the freestanding library, which provides the core of the C run-time environment, and the debug library which is pretty-printing the debug messages.
 
 \lualisting[filename=examples/library_or_compartment/xmake.lua,marker=compartments_as_dependencies,label=lst:xmakeaddcompartmentdeps,caption="Build system code for adding dependencies on compartment and library targets"]{}
