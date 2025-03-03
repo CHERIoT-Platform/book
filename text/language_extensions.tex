@@ -491,7 +491,7 @@ The critical path is the path with the most logic chained together in a single s
 This limits the maximum clock speed for the device because a signal must be able to propagate through all of this logic in a single cycle.
 
 Future versions of CHERIoT are likely to support slightly more expressive formats on longer pipelines, where the decoding can be split between two or more stages.
-Other CHERI systems make different trade offs.
+Other CHERI systems make different trade-offs.
 \end{note}
 
 
@@ -520,9 +520,9 @@ The top and bottom of an allocation that can accurately represent the requested 
 The alignment mask is simply another way of representing this, it is nine zeroes in the low bits and ones in all of the high bits.
 
 When the allocator returns a value for this requested size, the length is rounded up as you'd expect.
-If you bitwise and the base and top with the alignment mask, you will see no change.
+If you bitwise AND the base and top with the alignment mask, you will see no change.
 Both are, in this specific case, slightly more strongly aligned than required, most likely because this is the first \c{malloc} call in the program and so these are as strongly aligned as the heap base.
-You can test that the alignment is adequate by doing a bitwise and (C operator: \c{&}) of the base or top with the alignment mask.
+You can test that the alignment is adequate by doing a bitwise AND (C operator: \c{&}) of the base or top with the alignment mask.
 This should leave the value unmodified.
 
 \section[label=cheri_capability_cpp]{Manipulating capabilities with \cxx{CHERI::Capability}}
