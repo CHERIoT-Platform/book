@@ -349,7 +349,7 @@ This exposes the flash filesystem so that you can just copy a firmware file into
 The run script provided for Sonata looks for the \file{SONATA} device in some common mount locations and, if that fails, simply prints the location of the file and tells you to copy it yourself.
 
 If you are working in the dev container, the host filesystems are not automatically available and must be explicitly added.
-You can add extra mount locations can be added to the \file{.devcontainer/devcontainer.json} file.
+You can add extra mount locations to the \file{.devcontainer/devcontainer.json} file.
 If you're on macOS, the \file{SONATA} filesystem will be mounted in \file{/Volumes}, so you can add the following snippet (in the top-level object in the JSON file) to expose it to the container:
 
 \begin{jsonsnippet}
