@@ -384,7 +384,7 @@ Each import can have a different set of permissions.
 
 This model lets you define a global that is, for example, writeable by one compartment but readable from many, with no control flow between the communicating compartments.
 
-Currently, the syntax for importing a pre-shared object is more verbose, a future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on \c{extern} declarations.
+Currently, the syntax for importing a pre-shared object is more verbose. A future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on \c{extern} declarations.
 
 You can import a pre-shared object with the \c{SHARED_OBJECT(type, name)} macro.
 This takes the type of the object and its name (which must be globally unique across the firmware image) as arguments.
@@ -392,7 +392,7 @@ This evaluates to a pointer to the object.
 Objects imported with this macro have the full set of permissions for imported objects.
 
 You can also disable individual permissions using the \c{SHARED_OBJECT_WITH_PERMISSIONS} macros.
-This takes an additional four additional boolean arguments that define the following set of permissions:
+This takes an additional four boolean arguments that define the following set of permissions:
 
 \begin{itemize}
 	\item{Load}
