@@ -238,7 +238,7 @@ This generates a (very weak!) pseudorandom number using the cycle counter and al
 
 This is called from the runner compartment, shown in \ref{lst:guessthenumberrunner}.
 This compartment talks directly to the outside world and so is part of the attack surface.
-It's quite unlikely that a compartment that simply reads individual bytes and ignores anything not in the ASCII digit range could be vulnerable but the same techniques can protect much more realistic examples.
+It's quite unlikely that a compartment that simply reads individual bytes and ignores anything not in the ASCII digit range could be vulnerable, but the same techniques can protect much more realistic examples.
 
 \codelisting[marker=runner,caption=The runner compartment for the guess-the-numbers game,label=lst:guessthenumberrunner, filename=examples/safebox/runner.cc]{}
 
@@ -292,7 +292,7 @@ If untrusted code is allowed to allocate dynamic sealing capabilities then you m
 
 You can also statically register a sealing type with the \c{STATIC_SEALING_TYPE()} macro.
 This takes a single argument, the name that you wish to give the type.
-This name is used both to refer to the static sealing capability is the name that will show up in auditing reports.
+This name is used to refer to the static sealing capability and is the name that will show up in auditing reports.
 
 \macrodoc{STATIC_SEALING_TYPE}
 
@@ -301,10 +301,11 @@ You can also refer to it in other compartments, but \textem{only} when construct
 A static sealed object is like a global defined in a compartment, but that compartment can access it only via a sealed capability.
 
 Static sealed objects are declared with \c{DECLARE_STATIC_SEALED_VALUE} and defined with \c{DEFINE_STATIC_SEALED_VALUE}.
-These macros take both the name of the sealing type and the compartment that exposes it as arguments.
+These macros take as arguments both the name of the sealing type and the compartment that exposes it.
 This ensures that there is no ambiguity and that accidental name collisions don't lead to security vulnerabilities.
 
 \macrodoc{DECLARE_STATIC_SEALED_VALUE}
+\amanda{Should there also be a macrodoc for DEFINE_STATIC_SEALED_VALUE?}
 
 This gives a building block that can be used to define arbitrary software-defined capabilities at system start.
 A compartment that performs some action exposes a sealing type and a structure layout that it expects.
@@ -330,7 +331,7 @@ You can see this being called in \ref{lst:monotoniccaller}.
 
 \codelisting[filename=examples/software_capability/caller.cc,marker=entry,label=lst:monotoniccaller,caption="Calling the atomic increment function for a monotonic counter."]{}
 
-The caller starts by declaring a monotonic counter and then tries calling the increment function with both a valid (sealed) value.
+The caller starts by declaring a monotonic counter and then tries calling the increment function twice with a valid (sealed) value.
 It then tries again with two kinds of invalid values.
 The first is a value of the correct underlying type, but which is not sealed.
 The lack of sealing means that the callee can't trust that the rules for this type are followed.
@@ -356,10 +357,10 @@ Error handler: SealViolation(0x3) error at 0x80003dd8 (v:0 0x80003d88-0x80003e48
 \end{console}
 
 The first two calls worked and incremented the monotonic counter.
-The last call, with an invalid object, was detected in the caller and the error was handled gracefully.
+The last two calls, with invalid objects, were detected in the caller and the errors were handled gracefully.
 Finally, the attempt to directly access the sealed object trapped and invoked the compartment's error handler (see \ref{handling_errors}), which printed a helpful message for debugging the failure.
 
-The monotonic counter is valid as long as the counter starts at zero (overflowing a 64-bit counter signed will take an infeasible amount of time).
+The monotonic counter is valid as long as the counter starts at zero (overflowing a 64-bit signed counter will take an infeasible amount of time).
 What would happen if a malicious caller initialised a counter with a non-zero value?
 The full contents of any object created in this way shows up in the audit log.
 You can audit these in a firmware image to ensure that they are valid (see \ref{cheriot-audit}).
@@ -369,7 +370,7 @@ Most of the token APIs are implemented as cross-compartment calls into the alloc
 This makes it fast to unseal objects (no cross-compartment call).
 It also removes any dependency on the allocator from things that rely on static sealing.
 
-The RTOS' allocator provides an more detailed example of a real-world use for this feature.
+The RTOS' allocator provides a more detailed example of a real-world use for this feature.
 When you allocate memory, you pass the allocator a static sealed object that represents your allocation capability, which authorises allocating memory up to a quota.
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
