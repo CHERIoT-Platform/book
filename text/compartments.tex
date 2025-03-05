@@ -382,7 +382,7 @@ Each import can have a different set of permissions.
 
 This model lets you define a global that is, for example, writeable by one compartment but readable from many, with no control flow between the communicating compartments.
 
-Currently, the syntax for importing a pre-shared object is more verbose, a future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on \c{extern} declarations.
+Currently, the syntax for importing a pre-shared object is more verbose. A future version of the CHERIoT compiler will incorporate this into the type system and control imports via attributes on \c{extern} declarations.
 
 You can import a pre-shared object with the \c{SHARED_OBJECT(type, name)} macro.
 This takes the type of the object and its name (which must be globally unique across the firmware image) as arguments.
@@ -390,7 +390,7 @@ This evaluates to a pointer to the object.
 Objects imported with this macro have the full set of permissions for imported objects.
 
 You can also disable individual permissions using the \c{SHARED_OBJECT_WITH_PERMISSIONS} macros.
-This takes an additional four additional boolean arguments that define the following set of permissions:
+This takes an additional four boolean arguments that define the following set of permissions:
 
 \begin{itemize}
 	\item{Load}
@@ -424,7 +424,7 @@ At a high level, components are typically trusted (or not) with respect to three
 
 \begin{description}
 	\item[tag=Confidentiality]{How does information flow out of this component?}
-	\item[tag=Integrity]{What how can information be modified by this component?}
+	\item[tag=Integrity]{How can information be modified by this component?}
 	\item[tag=Availability]{What can this component prevent from working?}
 \end{description}
 
@@ -494,12 +494,15 @@ There are a few things that an attacker can do with pointer arguments to invoke 
 Any of these (or similar attacks) will allow an attacker to cause your compartment to encounter a fault when it tries to use the pointer.
 
 In general, you will want to check permissions and bounds on any pointer argument that you're passed.
-The \c{CHERI::check_pointer"} function helps here.
+The \c{CHERI::check_pointer} function helps here.
 It checks that a pointer has (at least) the bounds and permissions that you expect and that it isn't in your current stack region.
 If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
 \functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
+\amanda{In the first paragraph of this box, the code uses "space" but the text uses "Space" and they should match.  IMO it's better to uncapitalize the version in the text since a later paragraph uses "space."}
+\amanda{In the first sentence of the fourth paragraph of this box, the text reads "set the permissions of passed capability reference" and should read "...of the passed..."}
+\amanda{In the second sentence of the fourth paragraph of this box, the text reads "ask for less permissions..." Permissions are discrete and countable things, and therefore it should read "ask for fewer permissions..."}
 
 \begin{note}
 Checking the pointer is not the only option.
@@ -516,15 +519,16 @@ You can check whether a pointer refers to heap memory by calling \c{heap_address
 If this returns true, you can prevent deallocation by using the \keyword{claim} mechanism, described in \ref{heap_claim}.
 
 \functiondoc{heap_address_is_valid}
+\amanda{Within this box, "check_pointer" should be formatted as code.}
 
-Alternatively, you can use the ephemeral claim mechanism (also documented in \ref{heap_claim} to ensure that a pointer is either a pointer that cannot be freed, or to ensure that it remains live until the next cross-compartment call.
+Alternatively, you can use the ephemeral claim mechanism described in \ref{heap_claim} to ensure that a pointer is either a pointer that cannot be freed, or to ensure that it remains live until the next cross-compartment call.
 These techniques are all combined in \ref{lst:safeuartchecks}, which is a simple function that prints a string to the UART, defensively.
 This first uses a lock (see \ref{threads}) to ensure that only one thread will access this function at a time.
 If this compartment exposed more than one function that used the UART then the lock would need to be shared between all of them.
 
 \codelisting[marker=safe_uart,caption=Checks to ensure that a function does not crash.,label=lst:safeuartchecks, filename=examples/check_arguments/uart.cc]{}
 
-Next, it uses \c{heap_claim_ephemeral} to prevent concurrent deallocation.
+First, it uses \c{heap_claim_ephemeral} to prevent concurrent deallocation.
 After this, it is safe to use \cxx{check_pointer} to ensure that the permissions are correct and that this pointer does not overlap the current compartment's stack (because of the default value of CheckStack).
 For a C string, this checks only that a single byte is readable.
 The function then gets the length explicitly and prints either the full length of the buffer, or the buffer up to a null terminator, whichever is shorter.
@@ -561,7 +565,7 @@ This is sufficient for leaf functions, but if your function calls others (and th
 You can specify the stack space required by an exported function by using the \c{__cheriot_minimum_stack} attribute.
 This is a function attribute that takes a single argument, the number of bytes of stack space that the function requires.
 Setting this attribute ensures that the switcher will not invoke the exported function unless at least the required amount of stack space is available.
-The malicious caller from the previous example would see a return value if \c{-ENOTENOUGHSTACK} and your code would not be invoked.
+The malicious caller from the previous example would see a return value of \c{-ENOTENOUGHSTACK} and your code would not be invoked.
 Using this attribute requires you to know how much stack space the function will use.
 
 CHERIoT CPUs include a feature called a stack high-water mark that tracks the amount of stack that is used so that the switcher can avoid zeroing unused portions of the stack.
@@ -573,7 +577,7 @@ You can then use the difference between the top of the stack capability (accesse
 \begin{note}
 This helper checks the amount of stack usage \textem{of the current compartment}.
 The switcher check is not intended to ensure that the invocation of the current compartment can succeed, only that failures are detectable and recoverable.
-If you want to ensure that a called compartment *also* has enough stack then you will need to add its stack requirements to those of your compartment.
+If you want to ensure that a called compartment \textem{also} has enough stack then you will need to add its stack requirements to those of your compartment.
 \end{note}
 
 The \file{debug.hh} header includes a C++ helper class, \cxx{StackUsageCheck}.
@@ -590,7 +594,7 @@ Typically, you will use it in logging mode initially, then disabled mode in prod
 Use it in asserting mode when running representative tests in CI so that it fails if you have increased your stack requirements and not updated the caller.
 
 It's important that the tests that you run in asserting mode have good coverage.
-It's typically fine for this to be function-granularity coverage: with the exception of variable-length arrays, functions stack usage does not depend on control flow within the function.
+It's typically fine for this to be function-granularity coverage; with the exception of variable-length arrays, functions stack usage does not depend on control flow within the function.
 
 \begin{caution}
 It's tempting to enable the stack checks in debug builds.
