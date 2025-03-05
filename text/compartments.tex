@@ -521,11 +521,11 @@ If this returns true, you can prevent deallocation by using the \keyword{claim} 
 
 Alternatively, you can use the ephemeral claim mechanism (also documented in \ref{heap_claim} to ensure that a pointer is either a pointer that cannot be freed, or to ensure that it remains live until the next cross-compartment call.
 These techniques are all combined in \ref{lst:safeuartchecks}, which is a simple function that prints a string to the UART, defensively.
-This first uses a lock (see \ref{threads}) to ensure that only one thread will access this function at a time.
-If this compartment exposed more than one function that used the UART then the lock would need to be shared between all of them.
 
 \codelisting[marker=safe_uart,caption=Checks to ensure that a function does not crash.,label=lst:safeuartchecks, filename=examples/check_arguments/uart.cc]{}
 
+This first uses a lock (see \ref{threads}) to ensure that only one thread will access this function at a time.
+If this compartment exposed more than one function that used the UART then the lock would need to be shared between all of them.
 Next, it uses \c{heap_claim_ephemeral} to prevent concurrent deallocation.
 After this, it is safe to use \cxx{check_pointer} to ensure that the permissions are correct and that this pointer does not overlap the current compartment's stack (because of the default value of CheckStack).
 For a C string, this checks only that a single byte is readable.
@@ -575,7 +575,7 @@ You can then use the difference between the top of the stack capability (accesse
 \begin{note}
 This helper checks the amount of stack usage \textem{of the current compartment}.
 The switcher check is not intended to ensure that the invocation of the current compartment can succeed, only that failures are detectable and recoverable.
-If you want to ensure that a called compartment *also* has enough stack then you will need to add its stack requirements to those of your compartment.
+If you want to ensure that a called compartment \textem{also} has enough stack then you will need to add its stack requirements to those of your compartment.
 \end{note}
 
 The \file{debug.hh} header includes a C++ helper class, \cxx{StackUsageCheck}.
