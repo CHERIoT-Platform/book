@@ -173,7 +173,7 @@ If a compartment is able to provide arbitrary interrupt-disabled functions, that
 It is a good idea to move interrupt-disabled code into library functions where the contents of the library can be audited and the exact binary for the interrupt-disabled function can be part of a \keyword{software bill of materials} (SBOM), which can then allow you to reason about the whole system's availability guarantees.
 \end{caution}
 
-If you need to wrap a few statements to run with interrupts disabled, you can use the convenience helper \cxx{CHERI::with_interrupts_disabled}.
+If you need to wrap a few statements to run with interrupts disabled, you can use the convenience helper \cxx{CHERIoT::with_interrupts_disabled}.
 This is annotated with the attribute that disables interrupts and invokes the passed lambda.
 This maintains the structured-programming discipline for code running with interrupts disabled: it is coupled to a lexical scope.
 
@@ -190,7 +190,6 @@ This function and the meaning of a scheduler tick are explained in more detail i
 For now, assume that the thread is attempting to sleep for the number of cycles shown by the \c{printf} call at the start, outside of the loop.
 
 \codelisting[filename=examples/interrupts_disabled/interrupts.cc,marker=low,label=lst:lowpriorityinterruptsdisabled,caption="A low-priority thread that uses an interrupts-disabled function to consume CPU."]{}
-\amanda{The text above the code explaining interrupt_state(disabled) is "cheri::" but the text in the code is "cheriot::"  Should one of these be changed?}
 
 The other thread in this program is shown in \ref{lst:highpriorityinterruptsdisabled}.
 This runs with high priority and so will always preempt the low-priority thread when it is able to, but disabling interrupts means that preemption is impossible.
