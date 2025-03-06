@@ -6,11 +6,11 @@
 /// Thread entry point.
 void __cheriot_compartment("raw_uart") entry()
 {
-// uart#begin
+	// uart#begin
 	static const char hello[] = "Hello world!\n";
 	for (char c : hello)
 	{
 		MMIO_CAPABILITY(Uart, uart)->blocking_write(c);
 	}
-// uart#end
+	// uart#end
 }

@@ -8,7 +8,8 @@
  * A function to increment a private variable inside a
  * compartment.
  */
-__cheriot_compartment("example_compartment") int increment();
+__cheriot_compartment(
+  "example_compartment") int increment();
 // compartment_export#end
 
 // compartment_export_callback#begin

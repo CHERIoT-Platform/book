@@ -5,4 +5,5 @@
  * a secret value that is a number from 0-9.  Returns true
  * if the guess is correct.
  */
-__cheriot_compartment("safebox") bool check_guess(int guess);
+__cheriot_compartment("safebox") bool check_guess(
+  int guess);

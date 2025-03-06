@@ -51,9 +51,9 @@ void __cheriot_compartment("queue") consumer()
 	futex_wait(reinterpret_cast<uint32_t *>(&queue), 0);
 	Debug::log("Waiting for messages");
 	// Get a message from the queue and print it.
-	int     value = 0;
-	while ((value != 199) &&
-	       (blocking_forever<queue_receive>(queue, &value) == 0))
+	int value = 0;
+	while ((value != 199) && (blocking_forever<queue_receive>(
+	                            queue, &value) == 0))
 	{
 		Debug::log("Read {} from queue", value);
 	}

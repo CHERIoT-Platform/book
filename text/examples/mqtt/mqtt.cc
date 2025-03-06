@@ -63,7 +63,7 @@ publishCallback(const char *topicName,
 
 // ack_callback#begin
 void __cheriot_callback ackCallback(uint16_t packetID,
-                                  bool     isReject)
+                                    bool     isReject)
 {
 	Debug::log("Got an ACK for packet {}", packetID);
 	if (isReject)
@@ -221,7 +221,7 @@ void __cheriot_compartment("mqtt_example") example()
 
 	Debug::log("Disconnecting from the broker.");
 
-	t   = Timeout{MS_TO_TICKS(5000)};
+	t = Timeout{MS_TO_TICKS(5000)};
 	// disconnect#begin
 	ret = mqtt_disconnect(
 	  &t, STATIC_SEALED_VALUE(mqttTestMalloc), handle);

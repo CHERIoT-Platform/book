@@ -13,4 +13,5 @@
  * If the string is not null-terminated, prints only the
  * length of the capability.
  */
-int __cheriot_compartment("uart") uart_puts(const char *msg);
+int __cheriot_compartment("uart")
+  uart_puts(const char *msg);

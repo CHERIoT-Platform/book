@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "monotonic_counter.hh"
-#include <stdio.h>
 #include <fail-simulator-on-error.h>
+#include <stdio.h>
 
 // entry#begin
 // Declare and define a counter for this to use.
@@ -31,7 +31,8 @@ void __cheriot_compartment("caller") entry()
 	printf("Invalid counter increment returned %lld\n",
 	       monotonic_counter_increment(invalidSealedCounter));
 	// Try manipulating the counter directly
-	auto underlyingCounter = reinterpret_cast<MonotonicCounterState*>(validCounter);
+	auto underlyingCounter =
+	  reinterpret_cast<MonotonicCounterState *>(validCounter);
 	(*underlyingCounter)++;
 }
 // entry#end
