@@ -371,7 +371,7 @@ The data is accessible via PC-relative addressing only after jumping into the co
 \section[label=interrupt_sentries]{Controlling interrupt status with sentries}
 
 In conventional RISC-V (and most other architectures) the interrupt status is controlled via a special register.
-This register can be modified only in some privileged mode.
+This register can be modified only in a privileged mode.
 The CHERIoT ISA allows this register to be modified only by code running with the Access System Registers permission in the program counter capability.
 
 Embedded software often wants to disable interrupts for short periods but granting the permission to toggle interrupts makes auditing availability guarantees between mutually distrusting components almost impossible.
