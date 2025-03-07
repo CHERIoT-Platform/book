@@ -11,7 +11,7 @@ When you start a process or a virtual machine, this abstraction is preserved and
 
 When you use a programming language that's higher-level than assembly, memory looks a little bit different.
 Rather than being a flat set of one-byte storage locations, the language exposes memory as \keyword{objects}.
-An object may be something simple, such as an integer, or something large such as an array of complex structures.
+An object may be something simple, such as an integer, or something large, such as an array of complex structures.
 On most hardware, this is purely a software abstraction.
 You may specify that you have an on-stack array of twelve integers, or a heap allocation containing a buffer for a network packet, but the compiled program will use numbers referring to locations in a flat memory space to represent these locations.
 
@@ -21,7 +21,7 @@ When you do have memory safety, things simply work as you expect them to.
 It's therefore easier to think about \keyword{memory unsafety}.
 
 Memory safety is usually split into two subcategories: \keyword{temporal memory safety} and \keyword{spatial memory safety}.
-When you don't have spatial memory safety, you can think that you are accessing one object, you may be accessing an adjacent one.
+When you don't have spatial memory safety, you can think that you are accessing one object, but you may be accessing an adjacent one.
 For example, if you allocate a 12-byte on-stack buffer and then try to write 16 bytes into it, a memory-safe system will raise some kind of error.
 An unsafe system will instead let you write four bytes over some adjacent location, possibly a return address.
 This is the simplest example of how a \keyword{buffer overflow} can lead to arbitrary-code execution.
@@ -68,7 +68,7 @@ Most importantly, it's an extension that adds a \keyword{capability} model to th
 A capability, in the abstract sense, is an unforgeable token of authority that must be presented to perform an operation.
 Capabilities exist in the physical world in various forms.
 For example, a key to a padlock is a capability to unlock that padlock.
-When the key is presented, the padlock can be unlocked, without the key the padlock cannot be unlocked without exploiting some security vulnerability, such as using lock picks or a bolt cutter.
+When the key is presented; the padlock can be unlocked, without the key the padlock cannot be unlocked without exploiting some security vulnerability, such as using lock picks or a bolt cutter.
 It doesn't matter to the padlock who presents the key, only that the correct key has been presented.
 Some complex building locks have different keys that authorise unlocking different sets of doors.
 For example, a team leader may have a key that unlocks the offices of everyone on their team and the building manager may hold a key that unlocks everything.
@@ -112,7 +112,7 @@ On a CHERIoT system, which is a CHERI RISC-V variant, this instruction looks sli
 	clw	s0, 8(ca1)
 \end{asmsnippet}
 
-Now, it is loading a word into \reg{s0} from offset eight relative to the \textem{capability} (not address) in register \reg{ca1} (\reg{a1} extended to hold a capability.
+Now, it is loading a word into \reg{s0} from offset eight relative to the \textem{capability} (not address) in register \reg{ca1} (\reg{a1} extended to hold a capability.)
 This instruction will check that the capability in \reg{ca1} is a valid capability, check that it has load permission, and check that the range covered by the four-byte load starting at offset eight from the current address is all in bounds.
 If, and only if, all of these checks pass, will it do the same load as the original version.
 If any of these fail, the instruction will trap.
@@ -273,7 +273,7 @@ Removing the global permission from any other capability gives it the same prope
 If you pass it to another function then that function cannot store it in a global or on the heap, which gives you a \keyword{shallow no-capture} guarantee:
 The callee cannot hold onto a copy of the pointer after the end of the call.
 This is shallow because the callee can capture pointers to objects that are reachable via pointers stored in the original object.
-Removing the local-global permission makes this a \keyword{deep no-capture} guarantee.
+Removing the load-global permission makes this a \keyword{deep no-capture} guarantee.
 Any pointer loaded, at any level of indirection, from the original pointer will have the property that it can be stored only on the stack.
 
 Similarly, store and load-mutable permissions are intended to give similar language-level guarantees for mutability.
@@ -288,10 +288,10 @@ The access-system-registers permission controls access to a small number of priv
 \begin{caution}
 	The CHERIoT encoding stores 12 permissions in five bits by excluding meaningless combinations and some that are not normally useful.
 	This comes with a few limitations, most notably that execute permission implies load.
-	It is not possbile to remove load permission from an executable capability.
+	It is not possible to remove load permission from an executable capability.
 	Some modern platforms support \keyword{execute-only memory} as a security feature.
 	CHERIoT cannot express this but this does not cause practical problems for security.
-	The sentry mechanism (described in \ref{sealing_intro}) lets you have memory that readable \textem{only} while executing from it, which is a more useful security property.
+	The sentry mechanism (described in \ref{sealing_intro}) lets you have memory that is readable \textem{only} while executing from it, which is a more useful security property.
 	Execute-only memory normally aims to prevent information leaks that lead to code-reuse attacks.
 	These attacks, in turn, are triggered via pointer injection or other memory-safety violations, which CHERIoT deterministically mitigates.
 \end{caution}
