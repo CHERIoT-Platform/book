@@ -152,7 +152,7 @@ In a CHERI system, this can include one component having read access to an objec
 \section{Restricting memory access with compressed bounds}
 
 The original CHERI prototypes used a 256-bit capability that stored a full 64-bit base and length.
-This was useful for research and prototyping but replacing 64-bit pointers with 256-bit ones was an unacceptable overhead when we started to move CHERI from research to production.
+This was useful for research and prototyping but replacing 64-bit pointers with 256-bit ones was an unacceptable overhead when CHERI started to move from research to production.
 Newer CHERI implementations reduce this overhead by taking advantage of redundancy.
 The base, top, and address of a capability all have some common bits in the top of their address.
 
