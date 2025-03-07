@@ -363,7 +363,7 @@ Simple futex-based locks are vulnerable to \keyword{priority inversion}, where a
 We saw an example of this with ticket locks but the same is also possible with flag locks, as we'll see in the \file{priority_inheritance} example.
 
 This starts with the high-priority thread shown in \ref{lst:pihigh} running.
-This will sit in a loop, first yielding for up to a second to allow other threads to run, then tries to acquire a lock.
+This will sit in a loop, first yielding for up to a second to allow other threads to run, then trying to acquire a lock.
 This example is using \cxx{LockGuard}, a simple RAII wrapper around the RTOS' locks.
 The constructor variant here with two arguments takes a timeout in addition to the lock.
 Lock guards are convertible to \cxx{bool} and convert as \cxx{true} if and only if the lock is acquired.
@@ -391,7 +391,7 @@ The yield simply forces it to happen every time, to trigger the problem.
 
 After the low-priority thread yields (or is preempted) the medium-priority thread will resume and infinite loop (or, at least, does something that doesn't yield).
 The low-priority thread cannot run, because a higher-priority thread is runnable.
-When the high-priority thread tries to run, it sees that the lock is already acquired blocks waiting for it to be finished.
+When the high-priority thread tries to run, it sees that the lock is already acquired and blocks, waiting for it to be finished.
 Unfortunately, the thread that could release the lock never runs and so you see output like this:
 
 \begin{console}
@@ -423,7 +423,7 @@ High-priority thread acquired the lock!
 High-priority thread acquired the lock!
 \end{console}
 
-Now, while the medium-priority thread the high-priority thread waits and tries to acquire the lock.
+Now, while the medium-priority thread runs, the high-priority thread waits and tries to acquire the lock.
 The lock is held and so it will try to loan its priority to the thread that owns it.
 This allows the low-priority thread to run in preference to the medium-priority one.
 The low-priority thread runs and releases the lock, allowing the high-priority thread to resume and acquire the lock.
@@ -432,7 +432,7 @@ The futex APIs implement this by storing the thread ID of the owning thread in t
 The specified thread will have its priority set to the highest priority of any of the waiting threads.
 The priority boost lasts until the waiters time out or the boosted thread releases the lock, whichever happens first.
 A single thread can hold multiple priority-inheriting locks and receive priority boosts from all of them.
-Most of the time, you will not use this directly and will instead use the priority-inheriting lock APIs from C or their C++ wrappers.
+Most of the time, you will not use this directly and will instead use the priority-inheriting lock APIs from their C or C++ wrappers.
 
 The priority inheritance mechanism can also be used to build asymmetric locks.
 These have a fast path that doesn't do any cross-compartment calls and a slow path that does.
@@ -461,7 +461,8 @@ The scheduler does this for interrupts (see \ref{drivers}), allowing threads to 
 
 \section{Using event groups}
 
-The \c{event_group} library provides an event group API that is primarily intended for porting code written against FreeRTOS's event groups APIs.
+The \c{event_group} library provides an event-group API that is primarily intended for porting code written against FreeRTOS's event-groups APIs.
+\amanda{Should event-groups be plural for FreeRTOS's APIs?}
 The \file{event.h} header exposes the interface to this library.
 These APIs do not have a clear trust model and so should be avoided in new code that is not ported from FreeRTOS.
 You can build more convenient interfaces atop futexes for most synchronisation operations.
@@ -486,9 +487,11 @@ Both of these calls return the old values of the bits.
 \functiondoc{eventgroup_clear}
 
 You can then subsequently wait for some of the events to be set with the \c{eventgroup_wait} function.
-This takes a set of events to wait for and can wait until either any or all of them are set.
+This takes a set of events to wait for and can wait until either some or all of them are set.
 
 \functiondoc{eventgroup_wait}
+\amanda{In this functiondoc, the third paragraph contains text that is emphasized via asterisks instead of textem}
+\amanda{In this functiondoc, the third paragraph ends with the text "if different threads clear bits different bits in the waited set."  This should read "...clear different bits in the waited set."}
 
 This call can also atomically clear the bits that you've waited on, giving them edge-triggered behaviour.
 
@@ -503,7 +506,7 @@ There are two distinct use cases for message queues:
 \end{itemize}
 
 In the first case, the endpoints are in the same trust domain.
-The \c{message_queue_library} library provides a simple message queue API that is intended for this use case.
+The \c{message_queue_library} library provides a simple message-queue API that is intended for this use case.
 When the endpoints are in different trust domains, the endpoints must be protected from tampering.
 The \c{message_queue} compartment wraps the library in a compartment that exposes an almost identical interface to the library but with the endpoints exposed as (tamper-proof) sealed capabilities.
 
@@ -520,9 +523,10 @@ The \c{queue_destroy} function avoids this by waking all threads.
 Other threads may then trap immediately after they return and try to read from the queue's counters, but at least this is recoverable (see \ref{handling_errors}).
 
 \functiondoc{queue_destroy}
+\amanda{Within this functiondoc, the last paragraph contains the text "and so will avoid upgrading the locks if freeing the queue would fail."  The word "so" is unnecessary; the text should read "and will avoid upgrading the locks if freeing the queue would fail."}
 
-Messages are then sent with \c{queue_send} and received with \c{queue_receive}.
-These are blocking (if allowed to by with a non-zero timeout) calls that send or receive a single message.
+Messages are sent with \c{queue_send} and received with \c{queue_receive}.
+These are blocking (if allowed to by a non-zero timeout) calls that send or receive a single message.
 
 \functiondoc{queue_send}
 
@@ -552,7 +556,7 @@ If the consumer thread runs first, the wait call will block then return after th
 If the producer thread runs first then the wait call will return immediately.
 
 The producer in this simple example then just sends 200 integers, one at a time, as shown in \ref{lst:queuesinglecompartmentsend}.
-These will fill up the queue until either the scheduler quantum expires or the queue fills up, then the consumer thread will run.
+These will enter the queue until either the scheduler quantum expires or the queue fills up, then the consumer thread will run.
 
 \codelisting[filename=examples/producer_consumer/queue.cc,marker=queue_send,label=lst:queuesinglecompartmentsend,caption="Sending messages to a message queue."]{}
 
@@ -612,8 +616,10 @@ Sometimes, it's useful to be able to give one compartment the ability to write t
 The queue compartment provides two APIs that let you allocate a handle that is authorised for only sending or receiving, \c{queue_receive_handle_create_sealed} and \c{queue_send_handle_create_sealed}.
 
 \functiondoc{queue_receive_handle_create_sealed}
+\amanda{Within this functiondoc there is text that is empathisized with asterisks rather than textem.}
 
 \functiondoc{queue_send_handle_create_sealed}
+\amanda{Within this functiondoc there is text that is empathisized with asterisks rather than textem.}
 
 With these APIs, you can have an initial setup compartment that creates a queue and then hands the send and receive endpoints to two others.
 This provides mutual distrust because neither compartment that holds a send or receive handle can free the queue, nor can they be used for the opposite operation, and the queue compartment protects the integrity of the queue itself.
@@ -639,31 +645,35 @@ This creates a multiwaiter with space for a fixed number of events.
 \functiondoc{multiwaiter_create}
 
 \ref{lst:multiwaitercreate} shows how to create a multiwaiter that can wait for two futexes.
-This is example generalises the producer-consumer example from earlier in this chapter to have two producer threads, each of which writes to a different message queue, but a single consumer that reads both.
+This example generalises the producer-consumer example from earlier in this chapter to have two producer threads, each of which writes to a different message queue, but a single consumer that reads both.
 The consumer will use this multiwaiter to block until one or both queues has a message available.
 
 \codelisting[filename=examples/multiwaiter/queue.cc,marker=multiwaiter_create,label=lst:multiwaitercreate,caption="Creating a multiwaiter object."]{}
 
 Each \c{multiwaiter_wait} call is a one-shot operation.
 The call is passed a set of things to wait for and the associated condition via the `events` array and returns the waited status via the same array.
+\amanda{The quotes used are an unusual choice and look odd in both the HTML and PDF versions.  Is this for epub formatting, or just an unconventional stylistic choice?  If it's not strictly necessary, I would recommend either using '' or formatting it as code.}
 This is typically an on-stack array.
 
 \functiondoc{multiwaiter_wait}
+\amanda{Within this functiondoc, error codes are not formatted the same way that error codes in previous functiondocs have been formatted.}
 
 The multiwaiter can natively wait only for futex notifications but higher-level mechanisms are built out of futexes.
 For example, if you wish to wait for a message queue (see \ref{message_queue}) to be ready to send, you can call \c{multiwaiter_queue_receive_init} to initialise a multiwaiter event with the queue's receive counter and expected value.
 This event will then fire if the queue becomes non-full.
+\amanda{Er, non-full, or non-empty?}
 The normal caveats about race conditions apply: the queue may become full again if another thread sends messages in between your receiving the notification and sending a message.
+\amanda{Receiving or sending?  And is "full" the correct word, or "non-empty"?}
 
 \ref{lst:multiwaiterwait} initialises two events, one for each of the queues, and then calls \c{multiwaiter_wait}.
-This will return immediately if an equivalent \c{futex_wait} call on either futex would have done, or will block until one of the queues becomes non-empty.
+This will return immediately if an equivalent \c{futex_wait} call on either futex would have done so, or will block until one of the queues becomes non-empty.
 The loop then tries to handle one event from each message queue that has events available.
 
 \codelisting[filename=examples/multiwaiter/queue.cc,marker=multiwaiter_use,label=lst:multiwaiterwait,caption="Using a multiwaiter to wait for either of two queues."]{}
 
 Try modifying this to avoid the \c{multiwaiter_wait} call if either of the queues is already non-empty.
 You can do this either by repeating the non-blocking receive and using the multiwaiter only if it fails, or by checking whether the \c{value} field of the event source has been initialised to -1 by \c{multiwaiter_queue_receive_init}.
-Make sure that you don't starve one of then producers by biasing your consumption towards one of the queues.
+Make sure that you don't starve one of the producers by biasing your consumption towards one of the queues.
 
 Remember that the CHERIoT RTOS scheduler also exposes interrupts as futexes.
-This means that the multiwaiter API can wait for multiple hardware and software events, in a single call.
+This means that the multiwaiter API can wait for multiple hardware and software events in a single call.
