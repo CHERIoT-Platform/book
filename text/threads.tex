@@ -5,14 +5,14 @@ Threads run until they either yield or are preempted via an interrupt, and then 
 There are a small number of scheduler APIs that allow threads to block; higher-level APIs from other compartments may block by indirectly invoking them.
 
 Remember that, in most respects, the scheduler is just another compartment.
-It doesn't run with elevated privileges, it makes a decision about which thread to run next but it is not able to see the stacks or register states associated with threads.
+It doesn't run with elevated privileges. It makes a decision about which thread to run next, but it is not able to see the stacks or register states associated with threads.
 When another thread calls into the scheduler (for example, to sleep or to wake other threads), the call is just like any other cross-compartment call and uses the same mechanism.
 
 \section{Defining threads}
 
 Threads in CHERIoT RTOS cannot be dynamically created.
 Creating threads at run time would require allocating stacks at run time.
-The no-capture guarantees that CHERIoT RTOS enforces are based on the guarantee that no code (after the loader) has access to two stacks' memory at a time and so the switcher can zero stacks and avoid leaks.
+The no-capture guarantees that CHERIoT RTOS enforces are based on the guarantee that no code other than the loader has access to two stacks' memory at a time and so the switcher can zero stacks and avoid leaks.
 The only store-local capabilities that a thread ever has access to are derived from its current stack.
 Allowing stack creation would violate that: at least the memory allocator would have access to multiple stacks at once.
 It would be possible to allocate stacks from a separate pool, but that's not really different from allocating stacks up front and having a small compartment that switches them from one use to another or implements a thread pool.
@@ -31,9 +31,9 @@ Threads in CHERIoT RTOS are constructed with four properties:
 \end{itemize}
 
 The stack size means the same as on any other platform.
-Specifically on CHEIRoT, the stack-pointer capability will be bounded to this size (rounded up if necessary for alignment) and any overflow of the stack, even by a single byte, will trap.
+Specifically on CHERIoT, the stack-pointer capability will be bounded to this size (rounded up if necessary for alignment) and any overflow of the stack, even by a single byte, will trap.
 The trusted stack size is the maximum number of cross-compartment calls that this thread can do.
-Each cross-compartment call invokes the switcher, which pushes a new frame on the trusted stack describing where to return.
+Each cross-compartment call invokes the switcher, which pushes a new frame onto the trusted stack describing where to return.
 
 \begin{note}
 In the current version, each trusted stack frame is three capabilities (24 bytes).
@@ -58,6 +58,7 @@ This can be for something as simple as debugging but may also be needed for main
 The ID of each thread is stored in the register save area for that thread and the switcher exposes a library call (\c{thread_id_get}) to read it.
 
 \functiondoc{thread_id_get}
+\amanda{Within this functiondoc, there is the text "Those contexts are very restricted in what it can do," which should be "... very restricted in what they can do,"}
 
 Thread IDs start at one (not zero!) because zero is used to indicate the idle thread and so is never visible.
 The \c{thread_count} function returns the number of threads that have been created in the system.
@@ -89,7 +90,7 @@ Current thread: 1 of 2 (iteration 0)
 Current thread: 1 of 2 (iteration 1)
 \end{console}
 
-The higher-priority thread is running until it exist.
+The higher-priority thread is running until it exits.
 Normally, a higher-priority thread would \keyword{yield} to allow another thread to run, as we'll see later in this chapter.
 
 \section[label=timeouts]{Limiting blocking with timeouts}
@@ -105,7 +106,7 @@ Timeouts represent time spent blocking (yielding waiting to be runnable), not ti
 Timeouts measure time in \keyword{scheduler ticks}.
 A tick is a single scheduling quantum, which depends on the board configuration.
 This is the minimum amount of time for which it is plausible for a thread to sleep.
-If a thread sleeps then another thread becomes runnable and is then allowed to run (unless it also yields).
+If a thread sleeps, another thread becomes runnable and is then allowed to run (unless it also yields).
 
 Although ticks exist as a unit of accounting, the CHERIoT RTOS scheduler is a \keyword{tickless scheduler}.
 Traditional schedulers schedule a timer interrupt at a fixed quantum and make a scheduling choice at each call.
@@ -144,6 +145,8 @@ Sleeping for a bounded number of ticks is the simplest form of blocking availabl
 The \c{thread_sleep} call causes the caller to yield until a certain number of ticks have run.
 
 \functiondoc{thread_sleep}
+\amanda{Within this functiondoc, in the third paragraph, there is the text "A call of thread_sleep is with a timeout of zero..." The word "is" should be removed, leaving "A call of thread_sleep with a timeout of zero..."}
+\amanda{Within this functiondoc, in the third paragraph, the term "cross-domain" is used.  Did you mean "cross-compartment"?  "Domains" have not previously been mentioned in the book.}
 
 As with other calls that take a \c{Timeout}, the number of ticks that have elapsed during the call can be checked by reading the \c{elapsed} field of the timeout structure.
 
@@ -170,7 +173,7 @@ This allows high-priority threads to allow other threads to run, but continue us
 In some cases, you really want to sleep.
 For example, if you're updating a clock display, you will want to run once a second or once a minute to update a display.
 The same applies if you're sending keep-alive packets or periodically monitoring some other component.
-In these cases you definitely have no useful work to do, irrespective of the state of any other threads can run.
+In these cases you definitely have no useful work to do, irrespective of the state of any other threads that can or cannot run.
 You can pass \c{ThreadSleepNoEarlyWake} as the \c{flags} argument to \c{thread_sleep} to indicate that you really want to sleep.
 
 You can see the effect of sleeping in the \file{thread_sleep} example, as shown in \ref{lst:thread_sleep}.
