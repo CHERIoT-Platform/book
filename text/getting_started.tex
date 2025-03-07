@@ -300,8 +300,8 @@ This is described in more detail in \ref{threads}.
 
 Returning to the build system, \ref{lst:xmakefirmware} shows how the \lua{firmware} block defines everything that's combined together to create a firmware image.
 First, the \lua{add_deps} lines are defining the compartments and libraries that are linked.
-The first add_deps adds two libraries provided by the RTOS, implementing the core functions for a freestanding C environment and a minimal subset of \file{stdio.h} functions, respectively.
-The next add_deps adds the two compartments that we defined earlier.
+The first \lua{add_deps} adds two libraries provided by the RTOS, implementing the core functions for a freestanding C environment and a minimal subset of \file{stdio.h} functions, respectively.
+The next \lua{add_deps} adds the two compartments that we defined earlier.
 
 Not all of the metadata that we set can be defined in the declarative syntax of \command{xmake}, and so we have to implement a function using the \lua{on_load} hook to set the remaining properties.
 The \lua{"board"} property is set from the option that we declared.
