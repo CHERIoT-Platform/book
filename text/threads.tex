@@ -231,6 +231,7 @@ A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-s
 \functiondoc{futex_timed_wait}
 
 \functiondoc{futex_wake}
+\amanda{Within this functiondoc, there is the text "futex[_timed]_wait" but there has been no mention of just plain "futex_wait" and will not be for many paragraphs.  futex_wait should be mentioned at least briefly somewhere around here.}
 
 \begin{note}
 	In C++, \cxx{std::atomic<uint32_t>} provides \cxx{wait}, \cxx{notify_all}, and \cxx{notify_one} methods that expose futex functionality and may be more convenient to call than the raw futex APIs.
@@ -249,10 +250,10 @@ Your thread may be scheduled before the thread that owns the lock finishes, so y
 
 The first simple optimisation on this design is to yield in the spin loop.
 This will allow other threads to run but the waiting thread remains runnable and so may be rescheduled early.
-With an RTOS priority scheduler, if the thread that's waiting is a higher priority than thread that owns the lock then the thread that owns the lock may never be scheduled.
+With an RTOS priority scheduler, if the thread that's waiting is a higher priority than the thread that owns the lock, the thread that owns the lock may never be scheduled.
 
 A futex lets the waiting thread sleep.
-The \c{futex_timed_wait} call will compare the value in the futex word to the expected value (one, indicating locked, in this case) and, if they match, will send the thread to sleep and remain asleep until the thread owning the lock will then do a \c{futex_wake} call when unlocking.
+The \c{futex_timed_wait} call will compare the value in the futex word to the expected value (one, indicating locked, in this case) and, if they match, will send the thread to sleep and remain asleep until the thread owning the lock does a \c{futex_wake} call when unlocking.
 
 A more complete futex-based lock uses three values in the lock word to differentiate between locked states with and without waiters.
 This allows the uncontended case to avoid any cross-compartment calls.
@@ -277,10 +278,11 @@ The first thread, when it resumes will try to wait on the futex, but the value h
 Fortunately, \c{futex_wait} takes an expected value and so, if the futex word does not have this value then the call will resume immediately.
 
 If this example had three threads, a similar race could occur in the opposite direction.
-If the first thread decremented from three to two and was then preempted by a second thread then it would call \c{futex_wake} with an expected value of two, but the value would now be one.
+If the first thread decremented from three to two and was then preempted by a second thread, it would call \c{futex_wake} with an expected value of two, but the value would now be one.
 It would then wake, because the value does not match.
 If this happens, it would reload the value, note that it is not zero, and retry waiting.
-The futex APIs are designed to allow this combination of atomic operation and wait to work for any interleaving.
+The futex APIs are designed to allow this combination of atomic operation and wait-to-work for any interleaving.
+\amanda{The dashes I added are not ideal, since "wait to work" is a valid phrase, but not setting it apart makes the sentence harder to read.  An alternate solution is to put quotes around "wait to work" and I'm open to either method.}
 
 Try modifying this example by adding more threads (don't forget to increase the initial value of the counter!).
 
@@ -302,7 +304,7 @@ This header also defines a \cxx{NoLock} class that provides the same interface b
 
 You can see the difference between the lock types by running the \file{locking} example.
 This uses a lock declared at the top of the file, as shown in \ref{lst:locksdeclare}.
-This is using a flag lock in the uncommented version, you can change it to using a ticket lock by commenting out the first declaration and uncommenting the second.
+This is using a flag lock in the uncommented version. You can change it to using a ticket lock by commenting out the first declaration and uncommenting the second.
 
 \codelisting[filename=examples/locking/locking.cc,marker=declare,label=lst:locksdeclare,caption="Declaring a lock in C++"]{}
 
@@ -345,7 +347,7 @@ When you try to acquire the lock, you atomically fetch-and-increment the counter
 The result of the fetch is your ticket number.
 You then wait until the second counter is equal to your ticket number.
 When you release the lock, you increment the second counter.
-This is built from futexes by doing a futex-wait on the counter word to block acquiring the lock and a futex-wake when you release the lock.
+This is built from futexes by doing a \c{futex_wait} on the counter word to block acquiring the lock and a \c{futex_wake} when you release the lock.
 
 In this example, the high-priority thread runs first and acquires the lock.
 Next, while it's yielding in the middle, the medium-priority thread tries to acquire the lock and blocks.
