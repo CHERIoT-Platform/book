@@ -9,7 +9,7 @@ This means that the total memory requirement for a system becomes the peak combi
 If two components use a lot of memory at different times, they can safely share the same memory.
 
 This chapter covers how to allocate and manage memory.
-CHERIoT provides spatial and memory safety and so there is a complementary aspect to memory allocation: What do you do when you manage memory incorrectly and CHERIoT catches the error?
+CHERIoT provides spatial and memory safety so there is a complementary aspect to memory allocation: What do you do when you manage memory incorrectly and CHERIoT catches the error?
 Error handling from CHERI exceptions is covered in detail in \ref{handling_errors}.
 
 \section{Understanding allocation capabilities}
@@ -40,14 +40,14 @@ These can be combined with the \c{DECLARE_AND_DEFINE_ALLOCATOR_CAPABILITY} macro
 \begin{caution}
 The allocator capabilities are exposed as COMDATs in C++.
 This allows them to be defined in a header and used in multiple translation units.
-C does not expose a similar mechanism and so you must use the separate declare and define macros in C if your compartment has more than one compilation unit that wish to share an allocator capability and define the capability in a single compilation unit.
+C does not expose a similar mechanism, so you must use the separate declare and define macros in C if your compartment has multiple compilation units that wish to share an allocator capability and define the capability in a single compilation unit.
 \end{caution}
 
 In future versions of CHERIoT RTOS, allocator capabilities are likely to gain additional restrictions (for example, separating the ability to allocate from the ability to claim).
 
 \section{Recalling the memory safety guarantees}
 
-Every pointer to a new allocation provided by memory allocator is derived from a capability to a large heap region and bounded.
+Every pointer to a new allocation provided by the memory allocator is derived from a capability to a large heap region and bounded.
 The \keyword{capability monotonicity} guarantees in a CHERI system ensure that a caller cannot expand the bounds of the returned pointer.
 
 The CHERIoT platform provides two additional features for temporal safety.
@@ -76,6 +76,8 @@ This combination of features allows the allocator to provide complete spatial an
 \section{Allocating with an explicit capability}
 
 \functiondoc{heap_allocate}
+\amanda{Within this functiondoc, in the fifth paragraph, the word "fulfiled" should be "fulfilled"}
+\amanda{Within this functiondoc, in the seventh paragraph, asterisks are used for emphasis instead of textem.}
 
 \functiondoc{heap_free}
 
@@ -102,7 +104,7 @@ These are implemented as wrappers around \c{heap_allocate} and \c{heap_free} tha
 You can also pass this capability explicitly to allocate things from the same quota as the standard allocation routines.
 
 \begin{note}
-	\c{MALLOC_CAPABILITY} is a macro referring to the default allocation capability _in the current compartment_.
+	\c{MALLOC_CAPABILITY} is a macro referring to the default allocation capability \textem{in the current compartment}.
 	It refers to a different capability in every compartment.
 \end{note}
 
@@ -111,7 +113,7 @@ If a compartment is not supposed to allocate memory on its own behalf, you can d
 This will disable C's \c{malloc} and \c{free} and C++'s global \c{new} and \c{delete} operators.
 Defining \c{CHERIOT_NO_NEW_DELETE} will disable the global C++ operator \c{new} and \c{delete}, but leave \c{malloc} and \c{free} available.
 
-Defining these does not prevent memory allocation, you can still define non-default allocator capabilities and use them directly, but it prevents accidental allocation.
+Defining these does not prevent memory allocation; you can still define non-default allocator capabilities and use them directly, but it prevents accidental allocation.
 
 \section{Defining custom allocation capabilities for \c{malloc} and \c{free}}
 
@@ -131,7 +133,8 @@ This limitation will be removed in a future toolchain iteration.
 
 Sometimes a compartment needs to be able to allocate memory but that memory is not logically owned by the compartment.
 This pattern appears even in the core of the RTOS.
-The compartment that provides message queues, for example, allocates memory on behalf of a caller, it does not hold the right to allocate memory on its own behalf.
+The compartment that provides message queues, for example, allocates memory on behalf of a caller. 
+It does not hold the right to allocate memory on its own behalf.
 It does this by taking an allocator capability as an argument and forwarding it to the allocator.
 
 Often, if a compartment is allocating on behalf of a caller, it needs to ensure that the caller doesn't tamper with the object.
@@ -162,7 +165,7 @@ The \c{token_obj_unseal} function requires a permit-unseal capability whose valu
 The virtualised sealing mechanism must be able to derive an accurate capability for the object excluding the header.
 This is trivial for objects up to a little under 4 KiB.
 After that, the allocator will create some padding.
-The padding is placed at the *start* of the allocation, so you can see how much is there by querying the base and address of the returned (sealed) capability.
+The padding is placed at the \textem{start} of the allocation, so you can see how much is there by querying the base and address of the returned (sealed) capability.
 \end{note}
 
 An object allocated in this way can be deallocated only by presenting \textem{both} the allocator capability and the sealing capability that match the original allocation.
@@ -170,7 +173,7 @@ This is very convenient for compartments that expose services because the memory
 
 \section[label=heap_claim]{Ensuring that heap objects are not deallocated}
 
-If malicious caller passes a compartment a buffer and then frees it, then the callee can be induced to trap.
+If malicious caller passes a compartment a buffer and then frees it, the callee can be induced to trap.
 There are some situations where this is acceptable.
 In some cases, compartments exist in a hierarchical trust relationship and it's fine for a more-trusted compartment to be able to crash a less-trusted one.
 In other cases, the compartment is fault tolerant.
@@ -182,7 +185,8 @@ The \c{heap_claim} function allows you to place a claim on an object.
 The claim is dropped by calling \c{heap_free}.
 
 While you have a claim on an object, that object counts towards your quota.
-You can claim the same object multiple times, each time adds a new claim to the object but (if it is already claimed with that quota) does not consume quota.
+You can claim the same object multiple times. 
+Each time adds a new claim to the object but (if it is already claimed with that quota) does not consume quota.
 
 \begin{note}
 You can pass a capability with bounds that do not cover an entire object to \c{heap_claim} but your claim will cover the entire object because you cannot free part of an object.
@@ -190,10 +194,11 @@ You can pass a capability with bounds that do not cover an entire object to \c{h
 
 \functiondoc{heap_claim}
 
-If you need to ensure that an allocation remains valid for a brief, scoped, period then \c{heap_claim_ephemeral} may be more useful.
+If you need to ensure that an allocation remains valid for a brief, scoped period then \c{heap_claim_ephemeral} may be more useful.
 This function places an ephemeral claim on one or two objects.
 
 \functiondoc{heap_claim_ephemeral}
+\amanda{Within this functiondoc, in the fourth paragraph "compartment_helpers" should be formatted as code.}
 
 Every thread has two \keyword{hazard slots} that can hold pointers.
 The \c{heap_claim_ephemeral} function manages these two slots.
