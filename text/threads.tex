@@ -651,8 +651,7 @@ The consumer will use this multiwaiter to block until one or both queues has a m
 \codelisting[filename=examples/multiwaiter/queue.cc,marker=multiwaiter_create,label=lst:multiwaitercreate,caption="Creating a multiwaiter object."]{}
 
 Each \c{multiwaiter_wait} call is a one-shot operation.
-The call is passed a set of things to wait for and the associated condition via the `events` array and returns the waited status via the same array.
-\amanda{The quotes used are an unusual choice and look odd in both the HTML and PDF versions.  Is this for epub formatting, or just an unconventional stylistic choice?  If it's not strictly necessary, I would recommend either using '' or formatting it as code.}
+The call is passed a set of things to wait for and the associated condition via the \c{events} array and returns the waited status via the same array.
 This is typically an on-stack array.
 
 \functiondoc{multiwaiter_wait}
