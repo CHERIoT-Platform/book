@@ -660,7 +660,6 @@ This is typically an on-stack array.
 The multiwaiter can natively wait only for futex notifications but higher-level mechanisms are built out of futexes.
 For example, if you wish to wait for a message queue (see \ref{message_queue}) to be ready to send, you can call \c{multiwaiter_queue_receive_init} to initialise a multiwaiter event with the queue's receive counter and expected value.
 This event will then fire if the queue becomes non-full.
-\amanda{Er, non-full, or non-empty?}
 The normal caveats about race conditions apply: the queue may become full again if another thread sends messages in between your receiving the notification and sending a message.
 \amanda{Receiving or sending?  And is "full" the correct word, or "non-empty"?}
 
