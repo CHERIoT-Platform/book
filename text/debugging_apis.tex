@@ -92,12 +92,12 @@ The \cxx{Debug::log()} function takes a format string and then a set of argument
 This is similar to \c{printf} or \cxx{std::format}, inserting the arguments into the output, replacing placeholders.
 The syntax here is modelled on \cxx{std::format}, but does not currently accept any format modifiers.
 The \cxx{{\}} syntax for placeholders makes it possible to add modifiers in the future.
-This class is designed to avoid needing heap allocator or large amounts of stack space and so is intentionally less flexible than a general-purpose formatting library.
+This class is designed to avoid needing heap allocation or large amounts of stack space and so is intentionally less flexible than a general-purpose formatting library.
 
 Unsigned integers are printed as hex.
 Signed integers are printed as decimal.
 Floating point numbers are not supported.
-Individual characters are printed as characters, strings (either \c{const char*} or \cxx{std::string_view}) are printed as strings.
+Individual characters are printed as characters. Strings (either \c{const char*} or \cxx{std::string_view}) are printed as strings.
 
 Enumerated types are converted to strings using the Magic Enum library and printed with their numeric value in brackets.
 This has some limitations (in particular, by default, it does not work with very large enumeration values).
@@ -220,7 +220,7 @@ Invariant triggered error handler
 The invariant is still checked and is triggering a trap, which leads to an unwind, but no debug APIs are printing messages.
 
 In some cases, you may find that the expression that calculates the assertion condition is expensive and the compiler does not successfully optimise it away in release builds.
-If the checks calls functions in other compilation units, for example, or reads from \c{volatile} memory, the compiler cannot remove them even if the result is unused.
+If the checks call functions in other compilation units, for example, or reads from \c{volatile} memory, the compiler cannot remove them even if the result is unused.
 To avoid this, you can replace the condition with a lambda that takes no arguments and returns a \c{bool}.
 The lambda is never executed in release builds and so the compiler will strip it away.
 
