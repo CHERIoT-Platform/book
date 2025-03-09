@@ -14,7 +14,7 @@ This is a useful property even if a particular target has persistent storage (no
 Pointer provenance ensures that pointers in the system were derived from other pointers via a chain that makes sense.
 Pointers cannot be made up from thin air.
 When a CHERI system boots, it starts with one or more capabilities in registers that convey the full set of permissions.
-If you call a function like \c{malloc} there is a chain of derivations that leads back to these permissions.
+If you call a function like \c{malloc} there is a chain of derivations that leads back to these initial capabilities.
 For example, the loader will create a capability to the heap region that has a subset of permissions (for example, not execute permission) that covers the region that will be used for the heap, and then the memory allocator will reduce the bounds to hand out a capability for a single object.
 CHERI doesn't let you reconstruct that chain but it does guarantee that it, or some equivalent chain, must have existed.
 
