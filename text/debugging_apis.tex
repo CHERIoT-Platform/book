@@ -21,6 +21,7 @@ You should typically add an audit check that ensures this compartment is not pre
 Debug builds can often be significantly larger than release builds.
 They contain more code and potentially large strings for debug messages.
 CHERIoT RTOS is designed to allow debugging features to be turned on on a per-compartment basis to help mitigate this.
+\amanda{There is technically nothing wrong with "turned on on" but I hate it anyway.  Can we change "turned on" to "activated" and make it read "...to be activated on a per-compartment basis..."?  I freely admit that this is my own personal bias and it's not my book, so "No, leave it alone" is a perfectly valid answer.}
 You can see this in the core components.
 If you run \command{xmake config --help} in a firmware build, you will see this at the end of the output:
 
@@ -51,6 +52,7 @@ $ xmake config --help
 \end{console}
 
 You must also opt your compartment or library into debugging support by adding the corresponding rule in the description of your compartment or library.
+\amanda{This is clunky and awkward.  Would "You must also enable debugging support in your compartment or library by adding..." still be accurate?}
 This is shown in \ref{lst:xmakeusedebugoption}, which adds a debug option to an example compartment.
 
 \lualisting[filename=examples/debug_helpers/xmake.lua,marker=use_debug,label=lst:xmakeusedebugoption,caption="Build system code for using a debug option."]{}
@@ -78,7 +80,7 @@ If you use \lua{debugLevelOption} instead of \lua{debugOption}, the build system
 
 The second is a free-form string literal that will be prepended (in magenta) to any debug line.
 There are two other template arguments that you can use if you are using debug levels.
-In the simple case, the boolean parameter controls whether log messages are shown, whether assertions are checked and whether invariants report a verbose message on failure.
+In the simple case, the boolean parameter controls whether log messages are shown, whether assertions are checked, and whether invariants report a verbose message on failure.
 By default, the latter two will happen if the threshold is set to warning or lower but the last two template parameters allow users to override this default.
 
 The rest of this chapter will assume that the \cxx{Debug} type has been defined in this way.
