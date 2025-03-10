@@ -88,7 +88,7 @@ The callback is then declared just like any other function, but with the correct
 
 The callback function is passed just like any other function pointer, as shown in \ref{lst:passsimplecallback}.
 Note that the two ways of taking the address of a function in C/C++ (\c{callback} and \c{&callback}) are equivalent.
-Both work, some people prefer the former because it is more concise, others prefer the latter because it is a visual marker that a pointer is being constructed.
+Both work; some people prefer the former because it is more concise, others prefer the latter because it is a visual marker that a pointer is being constructed.
 
 \codelisting[filename=examples/compartment_annotation/entry.cc,marker=compartment_call,label=lst:passsimplecallback,caption="A function that can be invoked as a cross-compartment callback."]{}
 
@@ -104,7 +104,7 @@ The callback is invoked in the compartment that implements it and has access to 
 \section{Exposing library entry points}
 
 Libraries are discussed in detail in \ref{compartments}.
-Like compartments, they can export functions, via a simple annotation.
+Like compartments, they can export functions via a simple annotation.
 Unlike compartments, they are simply a mechanism for code sharing, not a security boundary.
 Libraries do not have mutable globals and each call to a library is assumed to have access to everything in the caller.
 Libraries are intended to provide almost the same abstraction as if you'd copied and pasted code into each compartment that calls them, though without the accompanying code duplication.
@@ -115,8 +115,7 @@ As with \c{cheri_compartment()}, this may be used on both definitions and declar
 
 Unlike the compartment annotation, the library annotation does not specify the library that provides the function (though you can validate this later with the auditing tools, as described in \ref{cheriot-audit}).
 This allows library functions to be moved between libraries easily, a refactoring that does not affect most of the security model.
-For example, the RTOS used to provide a library that implemented all of the helpers for atomic operations.
-This was later split into separate libraries for different sized objects, allowing code to link only the atomic operations for types that it uses.
+For example, the RTOS used to provide a library that implemented all of the helpers for atomic operations was later split into separate libraries for different sized objects, allowing code to link only the atomic operations for types that it uses.
 
 This attribute can also be used via the \c{__cheriot_libcall} macro, which allows it to be defined away when targeting other platforms.
 This is how it is used in \ref{lst:declarelibfn}, which declares a simple library function.
@@ -128,15 +127,14 @@ As with the compartment annotations, these don't need to be placed on both the p
 
 \codelisting[filename=examples/library_annotation/library.cc,marker=library_implementation,label=lst:definelibfn,caption="A definition of a library function"]{}
 
-Both the library function and the call site, shown in \ref{lst:calllibfn} use the CHERIoT RTOS debugging APIs that are described in detail in \ref{debug}.
+Both the library function and the call site, shown in \ref{lst:calllibfn}, use the CHERIoT RTOS debugging APIs that are described in detail in \ref{debug}.
 Among other things, these allow you to pretty-print capabilities.
-\amanda{Alternatively, put "among other things" at the end.  Just don't put it in the middle of the sentence.}
 These use a compiler builtin to get the capability to the stack and print it.
 
 \codelisting[filename=examples/library_annotation/entry.cc,marker=entry,label=lst:calllibfn,caption="Calling a simple library function."]{}
 
 When you run this example, you should see the stack capability printed twice, once by the entry compartment and once by the library.
-The library is called from the compartment and so you should see the stack pointer move, but the bounds will remain the same.
+The library is called from the compartment so you should see the stack pointer move, but the bounds will remain the same.
 When you run it, you should see something like this:
 
 \begin{console}
@@ -556,7 +554,7 @@ This can be used as a template parameter and can be used in static assertions fo
 The loader makes extensive use of this class to ensure correctness, with compile-time checks that operations on permission-set objects are valid.
 
 This part of the example uses the \cxx{contains()} method to query whether a specific permission is present.
-This is strongly typed, it takes a \cxx{CHERI::Permission}, not an arbitrary integer.
+This is strongly typed; it takes a \cxx{CHERI::Permission}, not an arbitrary integer.
 It is also a variadic template function: you can pass it multiple permissions and it will return true if and only if the permission set has all of them.
 
 Next, \ref{lst:capmanipcxx} does the same set of manipulations as \ref{lst:capmanipc}.
