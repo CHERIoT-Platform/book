@@ -26,7 +26,7 @@ Similarly, to write to a device register, you execute a store instruction.
 This model is very convenient for CHERI systems because CHERI capabilities already allow you to restrict access to ranges of memory.
 This means that we don't need to define a new protection model for device access on CHERIoT.
 Capabilities can grant access to MMIO ranges just as they do to real memory.
-You can provide a read-only to a device range, or even to a single register.
+You can provide a read-only capability to a device range, or even to a single register.
 
 \begin{caution}
 A read-only capability to a device's MMIO region may convey more rights than you expect.
@@ -41,9 +41,9 @@ Reading or writing the device's registers then becomes simple field access in C 
 
 This abstraction is sufficient for \keyword{polling}, where you query the device periodically to see if it has anything ready to process.
 Polling may be sufficient for devices with a simple request-response interface.
-For example, if you send some plaintext to an AES engine and then read the cyphertext back, you always know that there'd data ready (or about to be data ready in a few cycles).
+For example, if you send some plaintext to an AES engine and then read the cyphertext back, you always know that there's data ready (or about to be data ready in a few cycles).
 In contrast, for something like a UART, Ethernet interface, USB controller, and so on, there will be long periods where the device has no data for you to process.
-Querying every such device in a loop would be inefficient both in terms of power and performance and so devices can raise \keyword{interrupts}.
+Querying every such device in a loop would be inefficient both in terms of power and performance, so devices can raise \keyword{interrupts}.
 We'll discuss these in more detail in \ref{_handling_interrupts} but, at a high level, they are asynchronous events that come from a device.
 When a frame is ready on an Ethernet controller, for example, it will send an interrupt letting the CPU know, so that some software can handle the incoming frame.
 
@@ -84,6 +84,7 @@ In the CHERIoT network stack, described in \ref{_networking}, the part of the dr
 The firewall does more than simply expose the send-packet and receive-packet interfaces of the physical device, it also provides ingress and egress filtering to improve security.
 
 \section{Specifying a device's locations}
+\amanda{Locations or location?  Is it possible for a physical device to have more than one location?}
 
 Devices are specified in the board description file, which is described in detail in \ref{new_board}.
 The two relevant parts are the \json{devices} node, which specifies the memory-mapped I/O devices and the \json{interrupts} section that describes how external interrupts should be configured.
@@ -153,7 +154,7 @@ Any compartment that accesses this device will have an entry in the audit report
 
 \begin{note}
 There is no generic policy for device access because the right policy depends on device and the SoC.
-Consider a device has two GPIO pins, one connected to an LED used to indicate a fault in the device and the other to trigger the sprinkler system for the building.
+Consider a device that has two GPIO pins, one connected to an LED used to indicate a fault in the device and the other to trigger the sprinkler system for the building.
 You would probably write a policy that allows most compartments to indicate a fault, but restricts access to the sprinkler control to a single compartment.
 From the perspective of both the SoC and the RTOS, the two devices are identical.
 \end{note}
@@ -161,9 +162,10 @@ From the perspective of both the SoC and the RTOS, the two devices are identical
 You can then audit whether a firmware image enforces whatever policy you want (for example, no compartment other than a device driver may access the device directly).
 Note that the linker reports will always provide the addresses and lengths in decimal, because they are standard JSON.
 We support a small number of extensions to JSON in the files that we consume, to improve usability, but don't use these in files that we produce, to improve interoperability.
+\amanda{Who is "we"?}
 
 There is no requirement to expose a device as a single MMIO region.
-You may wish to define multiple regions, which can be as small as a single byte, so that you can privilege separate your device driver.
+You may wish to define multiple regions, which can be as small as a single byte, so that you can privilege-separate your device driver.
 
 Some devices have a very large control structure.
 For example, the platform-local interrupt controller is many KiBs.
@@ -250,7 +252,7 @@ A future version of the CHERIoT architecture is expected to include extensions t
 \end{note}
 
 Each interrupt is mapped to a futex word, which can be used with scheduler waiting primitives.
-Futexes are discussed in detail in \ref{futex} but, for the purpose of interrupt handling you can think of them as counters with a compare-and-wait operation.
+Futexes are discussed in detail in \ref{futex} but, for the purpose of interrupt handling, you can think of them as counters with a compare-and-wait operation.
 You can get the word associated with an interrupt by passing the authorising capability to the \c{interrupt_futex_get} function exported by the scheduler:
 
 \begin{cxxsnippet}
@@ -263,6 +265,7 @@ You can now query whether any interrupts have fired since you last checked by co
 
 \begin{cxxsnippet}
 [,cpp]
+\amanda{Is this line ("[,cpp]" supposed to be here?}
 do
 {
     uint32_t last = *ethernetFutex;
@@ -271,7 +274,7 @@ do
 \end{cxxsnippet}
 
 If you want to wait for multiple event sources, you can use the multiwaiter (see \ref{multiwaiter}) API.
-This allows sleeping on multiple kinds of event source so you can, for example, have a single thread that blocks waiting for a message to send from another thread or a message to receive from the device.
+This allows sleeping on multiple kinds of event sources so you can, for example, have a single thread that blocks waiting for a message to send from another thread or a message to receive from the device.
 
 \section{Acknowledging interrupts}
 
@@ -288,6 +291,7 @@ do
     interrupt_complete(STATIC_SEALED_VALUE(ethernetInterruptCapability));
 \} while ((last != *ethernetFutex) || futex_wait(ethernetFutex, last) == 0);
 \end{cxxsnippet}
+\amanda{For reasons I do not understand, the both the PDF and HTML versions have a blank line between "//Handle interrupt here" and "interrupt_complete(...) which looks very weird.}
 
 This includes two changes.
 The first is the call to \c{interrupt_complete} once the interrupt has been handled.
@@ -303,7 +307,7 @@ The higher level provides a security model atop this.
 
 In most cases, the lower-level abstractions are provided as header-only libraries that can be included in whichever compartments need them.
 This allows drivers to be incorporated into another compartment that has full access to the device.
-For example, the scheduler is the only component that has direct access to the interrupt controller, the memory allocator is the only component that has full access to the revoker.
+For example, the scheduler is the only component that has direct access to the interrupt controller, while the memory allocator is the only component that has full access to the revoker.
 In both cases, separating the driver into a compartment would not provide any security benefit because the component that uses the device is allowed to do anything that it wants to the device and does not need to be protected from the device.
 
 If a device has multiple consumers then it may need a compartment to handle multiplexing.
@@ -322,7 +326,8 @@ For example, our Ibex simulator has this:
     ],
 \end{jsonsnippet}
 
-These are added *in this order*, which makes it possible for code in the more specialised directories to \c{#include_next} versions of the files in the more generic versions or to add files that are found in preference to the generic versions.
+These are added \textem{in this order}, which makes it possible for code in the more specialised directories to \c{#include_next} more generic versions of the files or to add files that are found in preference to the generic versions.
+\amanda{It is possible that that was supposed to be three different options instead of two.  If so, we need to find a clearer way to express what the first one is supposed to be.}
 
 For example, the UART device in the \file{generic-riscv} directory defines a basic 16550 interface.
 This is templated with the size of the register because the original 16550 used 8-bit registers, whereas newer versions typically use the low 8 bits of a 32-bit register.
