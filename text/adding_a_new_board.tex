@@ -1,8 +1,8 @@
 \chapter[label=new_board]{Adding a new board}
 
 CHERIoT RTOS uses a JSON file to describe the target.
-At a first glance, this looks similar to a flattened device tree (FDT) source file.
-Both contain a layout of memory and locations of devices but the CHERIoT RTOS board description file also contains a lot of information that is useful only at build time, such as the locations of header files and preprocessor defines for the platform.
+At first glance, this looks similar to a flattened device tree (FDT) source file.
+Both contain a layout of memory and locations of devices but the CHERIoT RTOS board description file also contains a lot of information that is useful only at build time, such as the locations of header files and preprocessor definitions for the platform.
 
 When you want to create a board support package (BSP) for a new CHERIoT configuration, this is the first place to start.
 The CHERIoT RTOS build system allows board description files to be specified either as names in the \file{sdk/boards} directory or as file paths.
@@ -10,7 +10,7 @@ Anything that has been contributed to the CHERIoT RTOS repository will use the f
 
 \section{Specifying memory layout}
 
-CHERIoT RTOS has to differentiate three kinds of memory in the configuration
+CHERIoT RTOS has to differentiate between three kinds of memory in the configuration
 
 \begin{itemize}
 	\item{Code and read-only global data, which cannot contain pointers to revokable heap memory.}
@@ -32,10 +32,10 @@ In most systems, there is more code than heap and so, to reduce costs, not all m
 Our security guarantees for the shared heap depend on the mechanism that allows the allocator to mark memory as quarantined.
 Any pointer to memory in this region is subject to a check (by the hardware) on load: if it points to deallocated memory then it will be invalidated on load.
 This mechanism is necessary only for memory that can be reused by different trust domains during a single boot.
-Memory used to hold globals and code does not require it and so an implementation may save some hardware and power costs by supporting these temporal safety features for only a subset of memory.
-As such, we require a range of memory that is used for static code and data ('instruction memory') that is not required to support this mechanism and an additional range that *must* support this for use as the shared heap ('heap memory').
+Memory used to hold globals and code does not require it so an implementation may save some hardware and power costs by supporting these temporal safety features for only a subset of memory.
+As such, we require a range of memory that is used for static code and data ('instruction memory') that is not required to support this mechanism and an additional range that \textem{must} support this for use as the shared heap ('heap memory').
 Implementations may choose not to make this separation and provide a single memory region.
-At some point, we expect to further separate the mutable and immutable portions of instruction memory so that we can support execute in place.
+At some point, we expect to further separate the mutable and immutable portions of instruction memory so that we can support execute in place (XIP).
 
 Instruction memory is described by the \json{instruction_memory} property.
 This must be an object with a \json{start} and \json{end} property, each of which is an address.
@@ -64,7 +64,7 @@ Each memory-mapped I/O device is listed as an object within the \json{devices} f
 The name of the field is the name of the device and must be an object that contains a \json{start} and either a \json{length} or \json{end} property that, between them, describe the memory range for the device.
 Software can then use the \c{MMIO_CAPABILITY} macro with the name of the device to get a capability to that device's MMIO range and can use \c{#if DEVICE_EXISTS(device_name)} to conditionally compile code if that device exists.
 
-The Sail model is very simple and so provides only three devices:
+The Sail model is very simple and provides only three devices:
 
 \begin{jsonsnippet}
     "devices": {
@@ -102,7 +102,8 @@ Interrupts that are edge triggered are automatically completed by the scheduler;
 
 Some properties define base parts of hardware support.
 The \json{revoker} property is either absent (no temporal safety support), \json{"software"} (revocation is implemented via a software sweep) or \json{"hardware"} (there is a hardware revoker).
-We expect this to be \json{"hardware"} on all real implementations, the software revoker exists primarily for the Sail model and the no temporal safety mode only for benchmarking the overhead of revocation.
+We expect this to be \json{"hardware"} on all real implementations. 
+The software revoker exists primarily for the Sail model and the no temporal safety mode only for benchmarking the overhead of revocation.
 
 If the \json{stack_high_water_mark} property is set to true, then we assume the CPU provides CSRs for tracking stack usage.
 This property is primarily present for benchmarking as all of our targets currently implement this feature.
@@ -159,7 +160,7 @@ If \json{simulation} is set to \json{true} then this board is assumed to be a si
 \section{Running with \command{xmake run}}
 
 Most of the examples in this book were run with the \command{xmake run} command.
-This needs to know how to invoke the simulator or deploy to the device.
+This command needs to know how to invoke the simulator or deploy to the device.
 
 In addition, the \json{run_command} property can be the name of a program (or script) that can either simulate the firmware image or deploy it to a real target.
 This will be run from the build directory and will be passed the absolute path of the firmware image when \command{xmake run} is used.
@@ -172,7 +173,7 @@ These will be expanded to the full path of the SDK or the directory containing t
 Some boards are minor variations on others.
 For example, the Sonata simulator is identical to the Sonata FPGA platform, but has a different run command.
 
-Copying the original board file and creating a variation works, but (unless both are generated by some external system) incurs a maintenance burden.
+Copying the original board file and creating a variation works, but incurs a maintenance burden (unless both are generated by some external system).
 The build system provides built-in support for this use case.
 Rather than providing a \file{.json} file for the board, you provide a \file{.patch} file.
 This is a JSON document that uses \href[src=https://jsonpatch.com]{JSON Patch} to describe a set of changes.
