@@ -3,7 +3,7 @@
 If you have existing code that runs happily on bare metal, you may consider CHERIoT for a variety of reasons, for example:
 
 \begin{itemize}
-	\item{You want to add network connectivity and so need to isolate network communication.}
+	\item{You want to add network connectivity and need to isolate network communication.}
 	\item{You are consolidating multiple functions from different microcontrollers onto a single device.}
 	\item{You really love memory safety.}
 \end{itemize}
@@ -13,7 +13,7 @@ This means that your workloads are going to now run with their privileges reduce
 
 \section{Replacing a real-time control loop}
 
-Control systems often run with a single loop that polls or some input and manages a (potentially very complex) state machine and sets some output state.
+Control systems often run with a single loop that polls for some input, manages a (potentially very complex) state machine, and sets some output state.
 You can get precisely this model by running code in CHERIoT RTOS with interrupts disabled.
 
 A function that has the \c{[[cheriot::interrupt_state(disabled)]]} attribute will run with interrupts disabled and so has exclusive use of the core until it yields.
@@ -23,6 +23,7 @@ You can add this attribute to the entry point for the thread running your contro
 Not true.
 See issue 129, should be fixed soon! 
 \end{warning}
+\amanda{If it's not fixed by the time of publication, some details about the issue would be nice.}
 
 The scheduler will always schedule the highest-priority runnable thread (or round-robin schedule threads if more than one is runnable at the same priority).
 If your thread is the highest priority, it won't be preempted, but interrupts may still fire and cause the scheduler to perform some book-keeping work.
@@ -32,7 +33,7 @@ This is a direct replacement of a real-time control loop, but somewhat misses th
 
 \section{Yielding}
 
-If it makes sense for a control loop to run on a multitasking operating system then there will be times when it able to safely yield.
+If it makes sense for a control loop to run on a multitasking operating system, there will be times when it is able to safely yield.
 Just yielding from a high-priority thread is not normally sufficient because it remains the highest-priority thread and so will be the next to run.
 
 \ref{threads} discusses the various ways for a thread to block.
@@ -58,7 +59,7 @@ If your code is using \c{volatile} pointers to access device memory then you sho
 \section{Replacing interrupt service routines}
 
 Some bare-metal environments have special attributes for declaring interrupt-service routines and associating them with different channels.
-As discussed in \ref{interrupt_waiting}, this kind of mechanism would violate the CHERIoT security model and so is not provided.
+As discussed in \ref{interrupt_waiting}, this kind of mechanism would violate the CHERIoT security model and is not provided.
 You can implement your own dispatcher in a CHERIoT environment by waiting on multiple interrupts with the multiwaiter APIs (see \ref{multiwaiter}) and then calling the interrupt routines yourself.
 
 If interrupts are marked as edge-triggered in the board description then they are implicitly acknowledged in the interrupt controller by the scheduler.
