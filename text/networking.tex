@@ -115,7 +115,6 @@ When the SNTP compartment receives the response and knows the time, it sets some
 
 Once the current time has been fetched, you can get the current time of day.
 \ref{lst:sntpshowtime} shows a loop that runs roughly every 50 ms and prints the time (as a UNIX epoch timestamp) if the number of seconds has changed since last time.
-\amanda{Okay, I am not 100% confident of this change, because my code-parsing skills are subpar.  But it does look like there's only one number of seconds each time.  If you actually meant "second number of seconds" can we change it to "new number of seconds" or something so that it's easier to parse?}
 The \c{gettimeofday} function called here is from the time helpers library that was mentioned earlier.
 
 \codelisting[filename=examples/sntp/sntp.cc,marker=show_time,label=lst:sntpshowtime,caption="Printing the current UNIX epoch time."]{}
@@ -140,7 +139,6 @@ Network test: Current UNIX epoch time: 1735563082
 Network test: Current UNIX epoch time: 1735563083
 Network test: Current UNIX epoch time: 1735563084
 \end{console}
-\amanda{Out of curiousity, where does the text "Network test: " come from?  I can see all the rest of it (except "Starting network stack" but I assume that's baked into the network_start}
 
 \begin{note}
 At the time of writing, there is a problem with the Sonata network interface's ability to receive IPv6 packets.
@@ -239,7 +237,6 @@ __________[_]_[_]_[_]________/_]_[_\\_________________
 \amanda{The PDF version that I downloaded (which is several commits out of date, so this may change) has the ASCII art split across two pages.  I recommend tagging this like a table so that it does not split.}
 
 \functiondoc{network_socket_receive_preallocated}
-\amanda{The first paragraph of this functiondoc uses "data are" (twice!)  While "data" is technically plural, in usual use it can be treated as either singular or plural, and this paragraph reads very weirdly because most people would read "data" as singular in this case. I recommend either changing it to "data is" or rewriting it to avoid using a to-be verb, for example "This will block until it receives data or the timeout expires. If it receives data, the data will be stored in the provided buffer."}
 
 \section{Creating a listening socket}
 
@@ -272,7 +269,6 @@ The network stack's interface is written defensively.
 If the length is smaller than the bounds of the buffer, or if the buffer has the wrong permissions, this call will fail.
 
 \functiondoc{network_socket_send}
-\amanda{Again, in this functiondoc, data is treated as a plural noun when this use case should treat it as singular. I recommend changing "have" to "has" but you could also use something like "until the data finishes sending or the timeout expires."}
 
 Note here that the on-stack buffer (the single byte local variable) is derived from our stack pointer and so is automatically local.
 This ensures that the TCP/IP compartment cannot capture it.
@@ -415,8 +411,8 @@ Information about the intermediate certificate, DigiCert Global G2 TLS RSA SHA25
    v:NotBefore: Mar 30 00:00:00 2021 GMT; NotAfter: Mar 29 23:59:59 2031 GMT
 \end{console}
 
-This expires in six years, so it might seem safe to use as a trust anchor.
-\amanda{Six years as of the time of writing.  You can't assume your reader will be reading this is 2025.}
+This expires in six years at the time of writing this book, so it might seem safe to use as a trust anchor.
+\amanda{Six years as of the time of writing.  You can't assume your reader will be reading this in 2025.}
 Unfortunately, this is not the case.
 Although this certificate is valid for another six years, there's no guarantee that this intermediate certificate will be the one used to sign the certificate for \host{example.com} next time.
 The certificate that the site operator created is the first to be displayed in the output:
@@ -570,10 +566,8 @@ This example first subscribes to a topic, in \ref{lst:mqttsubscribe}.
 
 The return value will be either a negative error code or a non-negative packet ID.
 We don't care about the packet ID in this example, so simply assert that we didn't see an error.
-\amanda{Er, maybe I'm missing something but the return code is greater than 0 (i.e. non-negative, therefore a packet ID, therefore not an error) but we print that we had an error.  Shouldn't it be "ret < 0"?}
 
 \functiondoc{mqtt_run}
-\amanda{Again, the code appears to print an error message if the return code is greater than zero but errors are negative returns.  If you say this is correct I will believe you but I would like confirmation of it.}
 
 The server will send a reply message to acknowledge the subscription.
 When you call \c{mqtt_run}, it will process incoming messages and invoke the relevant callbacks.
@@ -607,7 +601,6 @@ The publish part is shown in \ref{lst:mqttpublish}.
 As with the subscribe call, this returns a negative error code or a non-negative packet number.
 
 \codelisting[filename=examples/mqtt/mqtt.cc,marker=publish,label=lst:mqttpublish,caption="Publishing to an MQTT topic."]{}
-\amanda{Again, the code appears to print an error message if the return code is greater than zero but errors are negative returns.  If you say this is correct I will believe you but I would like confirmation of it. (It is happening often enough that I have to assume I'm missing something, but I would be remiss if I didn't point it out and it turned out to be wrong.)}
 
 Publishing the message will trigger two messages from the server.
 There will be an acknowledgement of the publish and, because the example is subscribed to this topic, it will also receive the publish notification.
@@ -930,7 +923,6 @@ Next, the error handler does the same to global locks and begins freeing memory.
 This can cause other threads to crash.
 That's fine because they will just enter their error handlers as well.
 The error handlers will check a global variable that tracks the reset state machine to determine whether they need to do anything or just exit.
-\amanda{Is "reset state machine" what you meant, or should there be "reset state of the machine"?  This is the first time you've used "machine" anywhere and I'm uncertain if it's truly intended.}
 
 When a user calls into the TCP/IP compartment, the API functions increment a counter of the number of threads that are present.
 This is then decremented in the error handler, or if they gracefully exit.
