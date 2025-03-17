@@ -281,8 +281,7 @@ If this example had three threads, a similar race could occur in the opposite di
 If the first thread decremented from three to two and was then preempted by a second thread, it would call \c{futex_wake} with an expected value of two, but the value would now be one.
 It would then wake, because the value does not match.
 If this happens, it would reload the value, note that it is not zero, and retry waiting.
-The futex APIs are designed to allow this combination of atomic operation and wait-to-work for any interleaving.
-\amanda{The dashes I added are not ideal, since "wait to work" is a valid phrase, but not setting it apart makes the sentence harder to read.  An alternate solution is to put quotes around "wait to work" and I'm open to either method.}
+The futex APIs are designed to allow this combination of wait and atomic operation to work for any interleaving.
 
 Try modifying this example by adding more threads (don't forget to increase the initial value of the counter!).
 
@@ -661,7 +660,16 @@ The multiwaiter can natively wait only for futex notifications but higher-level 
 For example, if you wish to wait for a message queue (see \ref{message_queue}) to be ready to send, you can call \c{multiwaiter_queue_receive_init} to initialise a multiwaiter event with the queue's receive counter and expected value.
 This event will then fire if the queue becomes non-full.
 The normal caveats about race conditions apply: the queue may become full again if another thread sends messages in between your receiving the notification and sending a message.
-\amanda{Receiving or sending?  And is "full" the correct word, or "non-empty"?}
+For example, consider the following sequence:
+
+\begin{enumerate}
+       \item{You try to send buy cannot because the queue is full.}
+       \item{You use the multiwaiter to wait for the queue to become non-full.}
+       \item{Another thread receives a message from the queue, which makes the queue non-full.}
+       \item{Your thread becomes runnable because the futex wake triggered your futex wait to return but does not yet run.}
+       \item{Another thread sends a message to the queue, which makes the queue full again.}
+       \item{You try to send but the send fails because the queue is now full.}
+\end{enumerate}
 
 \ref{lst:multiwaiterwait} initialises two events, one for each of the queues, and then calls \c{multiwaiter_wait}.
 This will return immediately if an equivalent \c{futex_wait} call on either futex would have done so, or will block until one of the queues becomes non-empty.
