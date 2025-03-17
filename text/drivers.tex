@@ -84,7 +84,6 @@ In the CHERIoT network stack, described in \ref{_networking}, the part of the dr
 The firewall does more than simply expose the send-packet and receive-packet interfaces of the physical device, it also provides ingress and egress filtering to improve security.
 
 \section{Specifying a device's locations}
-\amanda{Locations or location?  Is it possible for a physical device to have more than one location?}
 
 Devices are specified in the board description file, which is described in detail in \ref{new_board}.
 The two relevant parts are the \json{devices} node, which specifies the memory-mapped I/O devices and the \json{interrupts} section that describes how external interrupts should be configured.
@@ -264,8 +263,6 @@ The \c{ethernetFutex} pointer is now a read-only capability (attempting to store
 You can now query whether any interrupts have fired since you last checked by comparing it against a previous value and you can wait for an interrupt with \c{futex_wait}, for example:
 
 \begin{cxxsnippet}
-[,cpp]
-\amanda{Is this line ("[,cpp]" supposed to be here?}
 do
 {
     uint32_t last = *ethernetFutex;
