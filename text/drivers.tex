@@ -307,7 +307,7 @@ The higher level provides a security model atop this.
 
 In most cases, the lower-level abstractions are provided as header-only libraries that can be included in whichever compartments need them.
 This allows drivers to be incorporated into another compartment that has full access to the device.
-For example, the scheduler is the only component that has direct access to the interrupt controller, while the memory allocator is the only component that has full access to the revoker.
+For example, the scheduler is the only component that has direct access to the interrupt controller, whereas the memory allocator is the only component that has full access to the revoker.
 In both cases, separating the driver into a compartment would not provide any security benefit because the component that uses the device is allowed to do anything that it wants to the device and does not need to be protected from the device.
 
 If a device has multiple consumers then it may need a compartment to handle multiplexing.
