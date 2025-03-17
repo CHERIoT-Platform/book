@@ -6,7 +6,7 @@ Each core component runs with some privileges that mean that it is (at least par
 \section{Starting the system with the loader}
 
 The \keyword{loader} runs on system startup.
-A firmware image contains everything that needs to end up in memory when the system starts as well as an image header that contains metadata describing its layout.
+A firmware image contains everything that needs to end up in memory when the system starts, as well as an image header that contains metadata describing its layout.
 The loader reads the header and populates each compartment with the set of capabilities that it needs.
 The loader exists so that the system can be started from a firmware image that does not embed capabilities.
 This is a useful property even if a particular target has persistent storage (non-volatile RAM) that \textem{can} hold capabilities because it ensures that there is an on-device \keyword{pointer provenance} flow for the firmware.
@@ -14,7 +14,7 @@ This is a useful property even if a particular target has persistent storage (no
 Pointer provenance ensures that pointers in the system were derived from other pointers via a chain that makes sense.
 Pointers cannot be made up from thin air.
 When a CHERI system boots, it starts with one or more capabilities in registers that convey the full set of permissions.
-If you call a function like \c{malloc} there is a chain of derivations that leads back to these.
+If you call a function like \c{malloc} there is a chain of derivations that leads back to these initial capabilities.
 For example, the loader will create a capability to the heap region that has a subset of permissions (for example, not execute permission) that covers the region that will be used for the heap, and then the memory allocator will reduce the bounds to hand out a capability for a single object.
 CHERI doesn't let you reconstruct that chain but it does guarantee that it, or some equivalent chain, must have existed.
 
@@ -23,9 +23,10 @@ This ensures that the initial state for each component's memory contains only ca
 This, in turn, enables multi-stage boot where some functionality, such as attestation, secure key storage, and so on, are provided by a bootloader.
 These abstractions can all be built from capabilities and so, unlike systems based on protection rings such as TrustZone, an arbitrary number can be nested.
 
-If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise the pointer by deriving a capability from one out of the compartment's code or data capabilities.
+If a compartment contains a global that is a pointer, initialised to point to another global, the loader will initialise the pointer by deriving a capability from one out of either the compartment's code or data capabilities.
 Again, this enforces provenance properties, this time within a firmware image.
 A malicious compartment may provide a relocation that points to a global outside its own memory, but the loader will attempt to derive the capability only from the compartment's initial \reg{pcc} (code) and \reg{cgp} (globals) regions and so will fail.
+Globals may point to other globals owned by the compartment; the loader will fail to derive a valid capability if they point elsewhere.
 
 The loader must also provide all capabilities to compartments that allow them to communicate outside of their own private space.
 This includes access to \keyword{memory-mapped I/O} (MMIO) regions, capabilities for pre-shared objects, for software-defined capabilities, and any capabilities for calling entry points exposed by other compartments or libraries.
@@ -54,7 +55,7 @@ The scheduler derives these from a capability that has store-local but not globa
 Before starting the system, the loader erases almost all of its code (leaving the stub that handles this erasure), its stack, and clears its registers.
 The last bit of the loader's code becomes the idle thread (a wait-for-interrupt loop).
 The loader's stack is used for the scheduler stack.
-The memory that held loader's code is used for heap memory.
+The memory that held the loader's code is used for heap memory.
 
 \section{Changing trust domain with the switcher}
 
@@ -181,7 +182,7 @@ Instead, the RTOS includes a \library{freestanding} library that includes these 
 
 C++ expects slightly more from a freestanding environment.
 CHERIoT RTOS does not provide support for exceptions, but does support thread-safe initialisation of statics.
-In C++, function-local \cxx{static} variables that have non-trivial constructors are initialised lazily, the first time that they are invoked.
+In C++, function-local \cxx{static} variables that have non-trivial constructors are initialised lazily the first time that they are invoked.
 The compiler emits a guard word that is used to mark whether the object is initialised and act as a lock to protect initialisation.
 The compiler also emits a branch on the initialised bit at the point where the variable comes into scope.
 In the uninitialised case, this inserts a call to \c{__cxa_guard_acquire} to acquire the lock and then a call to \c{__cxa_guard_release} to release the lock.
@@ -197,7 +198,7 @@ This is not supported on CHERIoT.
 For both C and C++ (and other languages that use the same compiler back end), there are some sequences that compilers prefer to generate as calls to helper functions.
 For example, if you divide one 64-bit number by another, this is a single operator in C.
 On most 64-bit processors, it's a single divide instruction but on 32-bit processors it requires a much longer sequence.
-Similarly, GCC and Clang provide a \keyword{population count} built-in function that counts the number of bits in an integer that are set to one.
+Similarly, GCC and Clang provide a \keyword{population count} built-in function that examines an integer and counts the number of bits that are set to one.
 This is a single instruction on most modern application processors, but requires some shifting and masking on microcontrollers.
 
 CHERIoT RTOS provides the \library{crt} library to implement these functions.
@@ -263,9 +264,9 @@ The \file{lib} directory in the RTOS SDK contains all of the libraries.
 Some of these have been discussed already because they are part of a core environment that you might expect to be available for any compartment to use.
 
 Others are correspond more to operating system features and will be discussed in later chapters.
-For example, those related to locking, message queues, and so on a will be discussed in \ref{threads}.
+For example, those related to locking, message queues, and so on will be discussed in \ref{threads}.
 The features for debugging are discussed in \ref{debug}.
 
-Others, such as the port of the Microvium JavaScript interpreter are not discussed in the book at all.
-This book does not aim to provide an exhaustive list of everything that the RTOS provides as libraries and more will be added after the book is published.
+Others, such as the port of the Microvium JavaScript interpreter, are not discussed in the book at all.
+This book does not aim to provide an exhaustive list of everything that the RTOS provides as libraries, and more will be added after the book is published.
 Please look in the RTOS repository to see what has been added.
