@@ -252,7 +252,9 @@ struct RecursiveMutexState __CriticalSectionFlagLock;
 struct RecursiveMutexState __SuspendFlagLock;
 \end{cxxsnippet}
 
-A futex-based lock is very cheap to acquire in the uncontended case; it requires a single atomic compare-and-swap instruction, which may be a function call to a library routine that runs with interrupts disabled if the hardware does not support atomics.
+A futex-based lock is very cheap to acquire in the uncontended case; it requires a single atomic compare-and-swap instruction.
+(If the hardware doesn't support atomic operations then this may instead be a function call to a library routine that runs with interrupts disabled.)
+\amanda{I added the paratheses because "this" in the next line is ambiguous without them.  It's also valid to remove the paratheses and change "this" to be more explicit.}
 If possible, this approach is preferred for two reasons.
 First, it ensures that your component's critical sections do not impede progress of higher-priority threads.
 Second, it removes a burden on auditing.
