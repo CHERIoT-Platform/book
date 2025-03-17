@@ -15,11 +15,11 @@ riscv32-unknown-unknown
 -fno-asynchronous-unwind-tables
 -fno-rtti
 -Werror
--I../rtos-source/sdk/include/c++-config
--I../rtos-source/sdk/include/libc++
--I../rtos-source/sdk/include/platform/generic-riscv
--I../rtos-source/sdk/include
--I../rtos-source/sdk/third_party
+-I../examples/cheriot-rtos/sdk/include/c++-config
+-I../examples/cheriot-rtos/sdk/include/libc++
+-I../examples/cheriot-rtos/sdk/include/platform/generic-riscv
+-I../examples/cheriot-rtos/sdk/include
+-I../examples/cheriot-rtos/sdk/third_party
 -DDEBUG_LOADER=true
 -DDEBUG_ALLOCATOR=true
 -DDEBUG_SCHEDULER=true

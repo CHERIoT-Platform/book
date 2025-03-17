@@ -39,14 +39,21 @@ No artist's work was appropriated without their consent.
 \section{Reading and using examples}
 
 Code listings in this book specify the file that they come from in the book's examples.
-You can find the examples \href[src=https://github.com/CHERIoT-Platform/book/tree/main/text/examples]{in the book's git repository on GitHub}.
+You can find the examples \href[src=https://github.com/CHERIoT-Platform/book-examples]{in a stand-alone examples git repository on GitHub}.
 
-\begin{note}
-	Before the first edition is finished, the examples will move to a separate repository, to make it easier to clone them and to include the dev container configuration.
-\end{note}
+You can clone this repository with the following command:
 
-Example code is pulled in from complete source files to ensure that everything that you see as a listing is valid code that will, at the very least, compile (and hopefully work).
-You should be able to build and run all of the example code in the book yourself.
+\begin{console}
+$ git clone --recursive https://github.com/CHERIoT-Platform/book-examples
+Cloning into 'book-examples'...
+\end{console}
+
+The examples are provided as a stand-alone repository containing a snapshot of the RTOS and network stack each as a \keyword{git submodule}.
+It provides a \keyword{development container} configuration (discussed in more detail in \ref{devcontainer}) that provides all of the tools required to build the examples.
+This is discussed in more detail in \ref{getting_started}.
+
+Example code in the book is pulled in from complete source files to ensure that everything that you see as a listing is valid code that will, at the very least, compile (and hopefully work).
+You should be able to build and run all of the example code yourself.
 
 Listings have line numbers on the left.
 These are the line numbers in the file, so you can read the extracted listings in context.
