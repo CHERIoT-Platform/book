@@ -75,8 +75,7 @@ The \command{cheriot-audit} command takes three mandatory inputs, provided as co
 		This provides all of the information about the linked image.}
 	\item[tag=The board description file.]{ This is provided with the \flag{--board} (or \flag{-b}) flag and normally found in the \file{boards} directory in the SDK, but may alternatively be provided by some other board support package.
 		This describes the memory layout and allows policies to map from the numerical addresses in the audit report to device names.}
-	\item[tag=The query to run.]{ This is the Rego query to run.}
-\amanda{In the example below, you used a -q flag.  If the -q is necessary, it should be noted here, just like the -j and -m flags are.}
+	\item[tag=The query to run.]{ This is the Rego query to run, provided with \flag{--query} (or \flag{-q}.}
 \end{description}
 
 Rego is modular.
@@ -202,10 +201,9 @@ These will show up in the audit report looking something like this:
 \}
 \end{jsonsnippet}
 
-The contents is a hex string with one block per 32-bit word.
-The kind identifies them as sealed objects.
-The sealing type tells you the compartment and the sealing key that are used to seal the object (i.e. the compartment that can unseal them and the name it gives to the key that it uses).
-\amanda{I'm pretty sure that in the above paragraph, "contents", "kind", and "sealing type" should all be formatted differently, but I am unsure if they should be \c{} or \rego{}}
+The \json{contents} is a hex string with one block per 32-bit word.
+The \json{kind} identifies them as sealed objects.
+The \json{sealing_type} tells you the compartment and the sealing key that are used to seal the object (i.e. the compartment that can unseal them and the name it gives to the key that it uses).
 
 In the \rego{rtos} package, there is a Rego rule that matches imports that are sealed with the correct value:
 
@@ -317,7 +315,6 @@ Next, the policy uses some allow lists to make sure that certain devices are res
 
 The interface to the revoker (the hardware component that invalidates capabilities to freed memory, allowing reuse) is reserved for the allocator.
 The core-local and platform-level interrupt controllers (CLIC and PLIC) are both reserved for the scheduler: nothing else should directly handle interrupts, the scheduler exposes APIs for other compartments to wait for or acknowledge interrupts.
-\amanda{Should "core-local" and "platform-level" have formatting?}
 
 Finally, it checks the access to some pre-shared objects:
 
@@ -328,8 +325,7 @@ The allocator is the only thing that should have access to it (the switcher also
 
 Concurrent access to this is mediated via a 32-bit epoch variable that is incremented when the allocator starts and finishes reading the list.
 This means that it is safe to write to if the value is even, and that value is safely stored if the epoch is unchanged before and after writing.
-This is safe for anything to read, but only the allocator should access it.
-\amanda{Did you mean "only the allocator should have write access to it"?  As written, it sounds like nothing else should read it, safe or not.}
+This is safe for anything to read, but only the allocator should write to it.
 
 Finally, the rule checks that these are the expected size.
 

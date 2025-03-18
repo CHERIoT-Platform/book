@@ -58,7 +58,6 @@ This can be for something as simple as debugging but may also be needed for main
 The ID of each thread is stored in the register save area for that thread and the switcher exposes a library call (\c{thread_id_get}) to read it.
 
 \functiondoc{thread_id_get}
-\amanda{Within this functiondoc, there is the text "Those contexts are very restricted in what it can do," which should be "... very restricted in what they can do,"}
 
 Thread IDs start at one (not zero!) because zero is used to indicate the idle thread and so is never visible.
 The \c{thread_count} function returns the number of threads that have been created in the system.
@@ -145,8 +144,6 @@ Sleeping for a bounded number of ticks is the simplest form of blocking availabl
 The \c{thread_sleep} call causes the caller to yield until a certain number of ticks have run.
 
 \functiondoc{thread_sleep}
-\amanda{Within this functiondoc, in the third paragraph, there is the text "A call of thread_sleep is with a timeout of zero..." The word "is" should be removed, leaving "A call of thread_sleep with a timeout of zero..."}
-\amanda{Within this functiondoc, in the third paragraph, the term "cross-domain" is used.  Did you mean "cross-compartment"?  "Domains" have not previously been mentioned in the book.}
 
 As with other calls that take a \c{Timeout}, the number of ticks that have elapsed during the call can be checked by reading the \c{elapsed} field of the timeout structure.
 
@@ -231,7 +228,6 @@ A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-s
 \functiondoc{futex_timed_wait}
 
 \functiondoc{futex_wake}
-\amanda{Within this functiondoc, there is the text "futex[_timed]_wait" but there has been no mention of just plain "futex_wait" and will not be for many paragraphs.  futex_wait should be mentioned at least briefly somewhere around here.}
 
 \begin{note}
 	In C++, \cxx{std::atomic<uint32_t>} provides \cxx{wait}, \cxx{notify_all}, and \cxx{notify_one} methods that expose futex functionality and may be more convenient to call than the raw futex APIs.
@@ -460,8 +456,7 @@ The scheduler does this for interrupts (see \ref{drivers}), allowing threads to 
 
 \section{Using event groups}
 
-The \c{event_group} library provides an event-group API that is primarily intended for porting code written against FreeRTOS's event-groups APIs.
-\amanda{Should event-groups be plural for FreeRTOS's APIs?}
+The \c{event_group} library provides an event-group API that is primarily intended for porting code written against FreeRTOS's event-group APIs.
 The \file{event.h} header exposes the interface to this library.
 These APIs do not have a clear trust model and so should be avoided in new code that is not ported from FreeRTOS.
 You can build more convenient interfaces atop futexes for most synchronisation operations.
@@ -489,8 +484,6 @@ You can then subsequently wait for some of the events to be set with the \c{even
 This takes a set of events to wait for and can wait until either some or all of them are set.
 
 \functiondoc{eventgroup_wait}
-\amanda{In this functiondoc, the third paragraph contains text that is emphasized via asterisks instead of textem}
-\amanda{In this functiondoc, the third paragraph ends with the text "if different threads clear bits different bits in the waited set."  This should read "...clear different bits in the waited set."}
 
 This call can also atomically clear the bits that you've waited on, giving them edge-triggered behaviour.
 
@@ -522,7 +515,6 @@ The \c{queue_destroy} function avoids this by waking all threads.
 Other threads may then trap immediately after they return and try to read from the queue's counters, but at least this is recoverable (see \ref{handling_errors}).
 
 \functiondoc{queue_destroy}
-\amanda{Within this functiondoc, the last paragraph contains the text "and so will avoid upgrading the locks if freeing the queue would fail."  The word "so" is unnecessary; the text should read "and will avoid upgrading the locks if freeing the queue would fail."}
 
 Messages are sent with \c{queue_send} and received with \c{queue_receive}.
 These are blocking (if allowed to by a non-zero timeout) calls that send or receive a single message.
@@ -615,10 +607,8 @@ Sometimes, it's useful to be able to give one compartment the ability to write t
 The queue compartment provides two APIs that let you allocate a handle that is authorised for only sending or receiving, \c{queue_receive_handle_create_sealed} and \c{queue_send_handle_create_sealed}.
 
 \functiondoc{queue_receive_handle_create_sealed}
-\amanda{Within this functiondoc there is text that is empathisized with asterisks rather than textem.}
 
 \functiondoc{queue_send_handle_create_sealed}
-\amanda{Within this functiondoc there is text that is empathisized with asterisks rather than textem.}
 
 With these APIs, you can have an initial setup compartment that creates a queue and then hands the send and receive endpoints to two others.
 This provides mutual distrust because neither compartment that holds a send or receive handle can free the queue, nor can they be used for the opposite operation, and the queue compartment protects the integrity of the queue itself.
@@ -654,7 +644,6 @@ The call is passed a set of things to wait for and the associated condition via 
 This is typically an on-stack array.
 
 \functiondoc{multiwaiter_wait}
-\amanda{Within this functiondoc, error codes are not formatted the same way that error codes in previous functiondocs have been formatted.}
 
 The multiwaiter can natively wait only for futex notifications but higher-level mechanisms are built out of futexes.
 For example, if you wish to wait for a message queue (see \ref{message_queue}) to be ready to send, you can call \c{multiwaiter_queue_receive_init} to initialise a multiwaiter event with the queue's receive counter and expected value.

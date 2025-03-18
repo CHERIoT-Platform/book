@@ -43,8 +43,7 @@ This is apparent, for example, in how the programmer interacts with the schedule
 The scheduler is just another service that the system integrator may choose to use.
 User code chooses when the scheduler starts and may choose to stop it for arbitrary periods.
 
-In contrast, CHERIoT RTOS provides a model mode familiar to users of desktop or server systems.
-\amanda{Was the word "mode" intentional or was it supposed to be "more"?}
+In contrast, CHERIoT RTOS provides a model more familiar to users of desktop or server systems.
 The core parts of the RTOS are always available and provide strong isolation guarantees.
 
 \section{Replacing tasks with threads and compartments}
@@ -171,8 +170,7 @@ For example, FreeRTOS uses \c{SemaphoreHandle_t} to represent semaphores and rec
 These must be created with different functions and then locked and unlocked with different functions, but creating something as a semaphore and then trying to lock it as a recursive mutex will compile.
 In contrast, CHERIoT RTOS exposes these as distinct types and will fail to compile if you try to pass a semaphore to, for example, \c{recursivemutex_trylock}.
 
-The \file{FreeRTOS-Compat/semphr.h} header provides wrappers for the various types.
-\amanda{Various types of what?}
+The \file{FreeRTOS-Compat/semphr.h} header provides wrappers for the various kinds of FreeRTOS semaphore and mutex.
 These expose the FreeRTOS APIs and wrap all of the relevant CHERIoT RTOS types in a union with a discriminator.
 This adds a small amount of overhead for dynamic dispatch. 
 Code that uses only one type of semaphore can avoid this.
@@ -224,8 +222,7 @@ The latter approach has the benefit of accounting these objects to the caller, b
 
 CHERIoT RTOS has an approach (described in \ref{shared_heap}) that combines the advantages of both.
 Rather than providing memory for creating objects such as message queues, multiwaiters, semaphores, and so on, the caller provides an \textem{allocation capability}.
-This is a token that permits the callee to allocate memory on behalf of the callee.
-\amanda{Are both of these words supposed to be "callee" or should one be "caller"?  If it's correct, consider "on behalf of itself" or "on its own behalf" instead.}
+This is a token that permits the callee to allocate memory on behalf of the caller.
 The scheduler is not able to allocate memory on its own behalf, it can allocate memory only when explicitly passed an allocation capability.
 It then uses the sealing mechanism to ensure that the caller cannot break encapsulation for scheduler-owned objects.
 
@@ -253,8 +250,7 @@ struct RecursiveMutexState __SuspendFlagLock;
 \end{cxxsnippet}
 
 A futex-based lock is very cheap to acquire in the uncontended case; it requires a single atomic compare-and-swap instruction.
-(If the hardware doesn't support atomic operations then this may instead be a function call to a library routine that runs with interrupts disabled.)
-\amanda{I added the paratheses because "this" in the next line is ambiguous without them.  It's also valid to remove the paratheses and change "this" to be more explicit.}
+If the hardware doesn't support atomic operations then the compiler will replace the compare-and-swap instruction with a function call to a library routine that runs with interrupts disabled.
 If possible, this approach is preferred for two reasons.
 First, it ensures that your component's critical sections do not impede progress of higher-priority threads.
 Second, it removes a burden on auditing.

@@ -90,7 +90,7 @@ html: ${SOURCES} Makefile
 	cp figures/*.png _site/figures
 	cp figures/*.jpg _site/figures
 	cp -R figures/*.svg _site/figures
-	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB
+	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config review=true
 
 cheriot-programmers-guide.epub: ${SOURCES} Makefile
 	rm -rf cheriot-programmers-guide.epub.tmp
@@ -107,7 +107,6 @@ cheriot-programmers-guide.epub: ${SOURCES} Makefile
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
 	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;cheriot.toyfloats;masters;background" --config output=sile > cheriot-programmers-guide.xml 
-	./run_sile.sh cheriot-programmers-guide.xml
 	./run_sile.sh cheriot-programmers-guide.xml
 
 cheriot-programmers-guide.print.pdf: ${SOURCES} Makefile

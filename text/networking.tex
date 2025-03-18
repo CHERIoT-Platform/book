@@ -219,6 +219,7 @@ This example is simply writing the result to the UART directly.
 The server that it connects to will provide you with an ASCII-art rendering of Star Wars: A New Hope.
 After the initial banner and the scrolling text, you should see something like this:
 
+\noindent{}\parbox[width=100%fw]{
 \begin{console}
                                /~\\                   
                               |oo )       What plans? 
@@ -234,7 +235,7 @@ After the initial banner and the scrolling text, you should see something like t
           /=\\ /=\\ /=\\         | | |                  
 __________[_]_[_]_[_]________/_]_[_\\_________________
 \end{console}
-\amanda{The PDF version that I downloaded (which is several commits out of date, so this may change) has the ASCII art split across two pages.  I recommend tagging this like a table so that it does not split.}
+}
 
 \functiondoc{network_socket_receive_preallocated}
 
@@ -301,8 +302,6 @@ TCP Server Example: Received connection from 192.168.1.86 on port 62599
 Hello world!
 \end{console}
 
-\fixme{There is a bug preventing a second connection from working}
-
 \section{Securing connections with TLS}
 
 In general, the kind of unencrypted communication that we've seen so far is inappropriate for the modern Internet.
@@ -310,8 +309,7 @@ Anyone who has control of any node on the network between the device and the rem
 Such malicious messages may attack software on the device, attempting to exploit vulnerabilities.
 
 This is the threat model for a lot of the network stack work on CHERIoT: a remote attacker is trying to compromise the device.
-The firewall makes it somewhat harder, by ensuring that an attacker must spoof packets for a valid connection.
-\amanda{I do not like the colon, because the second sentence ("The firewall...") is part of the threat model but not part of the phrase after the colon-- it's its own phrase by virtue of being its own sentence.  However, trying to shove the second sentence into the second half of the first sentence would be clunky and awkward.  I recommend 1) re-writing the beginning of the first sentence to remove the colon, or 2) turning this into an itemized list, which may require re-writing the third sentence to make it fit the list better.}
+The firewall makes this class of attack somewhat harder, by ensuring that an attacker must spoof packets for a valid connection.
 This defence is weakened if your device uses a server socket because, by design, these must allow packets from unknown remote hosts.
 
 An attacker who sneaks a packet past the firewall can attack the TCP/IP compartment.
@@ -337,8 +335,7 @@ Similarly, removing permissions and bounding the pointers to the buffers ensures
 
 Beyond this, the TLS compartment has no global state.
 All state associated with a TLS connection is stored in the connection object, exposed as a sealed capability.
-This means that two concurrent calls into the TLS compartment for different have no shared state, giving \keyword{flow isolation}.
-\amanda{There is a word missing after "different."  I suspect it is "connections" but it might be "compartments" or "packets" or something else entirely.}
+This means that two concurrent calls into the TLS compartment for different TLS connections have no shared state, giving \keyword{flow isolation}.
 An attacker who compromises one TLS connection cannot use this to attack another.
 
 When you communicate with a remote server via TLS, you have to identify the server in two ways.
@@ -351,7 +348,6 @@ If you sign something with the private key, someone else can use the certificate
 
 In the simplest case, TLS can use a single certificate.
 You generate the pair of this certificate and its private key and embed the certificate on your device.
-\amanda{Technically you generate the key pair, which includes the private key.}
 This is a dangerous practice because there is no possible way of revoking the certificate if the key is compromised.
 The key must be in memory on the server that the device connects to and so is vulnerable to attack.
 
@@ -411,8 +407,7 @@ Information about the intermediate certificate, DigiCert Global G2 TLS RSA SHA25
    v:NotBefore: Mar 30 00:00:00 2021 GMT; NotAfter: Mar 29 23:59:59 2031 GMT
 \end{console}
 
-This expires in six years at the time of writing this book, so it might seem safe to use as a trust anchor.
-\amanda{Six years as of the time of writing.  You can't assume your reader will be reading this in 2025.}
+This expires in six years at the time of writing this book, so it might seem safe to use as a trust anchor (for now).
 Unfortunately, this is not the case.
 Although this certificate is valid for another six years, there's no guarantee that this intermediate certificate will be the one used to sign the certificate for \host{example.com} next time.
 The certificate that the site operator created is the first to be displayed in the output:
@@ -483,8 +478,7 @@ The TLS compartment takes the caller's malloc capability as an argument and can 
 This encapsulation means that it is impossible for the caller to accidentally send data over the socket unencrypted.
 
 This example implements a minimal HTTP client to demonstrate sending and receiving data over TLS.
-Do not use this HTTP client in production.
-\amanda{Why not?}
+Do not use this HTTP client in production, it does no error checking and ignores most HTTP headers.
 The send code is shown in \ref{lst:tlssend}.
 As with the underlying TCP send call, the TLS send call may send less than the requested amount of data.
 This code is therefore called in a loop, which will try to send more of the buffer if only some is sent successfully.
@@ -556,8 +550,7 @@ As with other networking APIs, all of the state associated with this connection 
 This includes the TLS and TCP/IP state that is allocated indirectly.
 Similarly, the result is a sealed capability that encapsulates the state of the connection.
 This includes a sealed capability to the TLS state, which includes a sealed capability to the TCP socket state.
-The MQTT, TLS, and TCP states are visible only to the compartment that owns them.
-\amanda{This should possibly be "...owns each of them." if they can be owned by different compartments.}
+The MQTT, TLS, and TCP states are visible only to the compartment that owns each of them.
 
 Once you have connected to an MQTT broker, you can send publish and subscribe messages and invoke the run loop to process incoming messages.
 This example first subscribes to a topic, in \ref{lst:mqttsubscribe}.
@@ -639,7 +632,6 @@ Finally, the demo disconnects.
 This is often unnecessary.
 Most IoT devices will simply remain connected for their entire operation.
 They will explicitly reconnect if the connection drops but never disconnect explicitly.
-\amanda{Wouldn't this leave a network socket open forever?  Presumably they *sometimes* disconnect on purpose.}
 
 \codelisting[filename=examples/mqtt/mqtt.cc,marker=disconnect,label=lst:mqttdisconnect,caption="Gracefully disconnecting from an MQTT server."]{}
 
@@ -650,11 +642,9 @@ It can fail, for example by running out of memory to hold the disconnection mess
 \section{Enforcing network access policies}
 
 The network stack comes with a \file{network_stack.rego} file that provides helpers for inspecting the state of the network stack.
-You pass this to the \flag{--module} (or \flag{-m}) argument to \command{cheriot-audit}.
-\amanda{"to" the --module argument or "with" the --module argument?}
-For the rest of this section, we'll use \command{cheriot-audit} the \ref{mqtt} example.
+You pass this as an argument to the \flag{--module} (or \flag{-m}) flags for \command{cheriot-audit}.
+For the rest of this section, we'll use \command{cheriot-audit} to inspect and audit the \ref{mqtt} example.
 From the \file{examples/mqtt} directory, you will need to run a command like this:
-\amanda{There are words missing from this sentence but I don't know what they are.  "We'll use cheriot-audit to audit the mqtt example" maybe?  "We'll use the mqtt example with cheriot-audit"?  "We'll run cheriot-audit on the mqtt example"?}
 
 \begin{console}
 $ cheriot-audit -m path/to/network-stack/network_stack.rego \\
@@ -710,7 +700,9 @@ You should see the following JSON as the result:
 This tells you that there are two compartments that can make sockets.
 The MQTT example compartment can make a TCP connection to the Mosquitto test server on port 8883.
 The SNTP compartment can create a UDP socket and open a firewall rule that allows it to communicate with the public NTP pool on the well-known NTP port.
-\amanda{Presumably the MQTT example also opens a firewall rule that allows it to communicate with the Mosquitto server.  The phrase "opens a firewall rule" isn't really necessary as it was covered in detail in an earlier section, but if you're going to use it, use it for both compartments.}
+TCP is connection-oriented and so the network stack implicitly opens firewall rules on connection.
+UDP is connectionless and so there are explicit APIs for opening firewall rules that allow a UDP host to communicate with explicit peers.
+The connection capabilities are similar in both cases but their use is different.
 
 Remember that capabilities can be delegated.
 The MQTT example compartment does not open a socket directly, it is passing this capability to the MQTT compartment, which passes it to the TLS compartment, which then passes it to the network API compartment to access the socket.

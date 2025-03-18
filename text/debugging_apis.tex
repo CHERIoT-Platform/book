@@ -20,8 +20,7 @@ You should typically add an audit check that ensures this compartment is not pre
 
 Debug builds can often be significantly larger than release builds.
 They contain more code and potentially large strings for debug messages.
-CHERIoT RTOS is designed to allow debugging features to be turned on on a per-compartment basis to help mitigate this.
-\amanda{There is technically nothing wrong with "turned on on" but I hate it anyway.  Can we change "turned on" to "activated" and make it read "...to be activated on a per-compartment basis..."?  I freely admit that this is my own personal bias and it's not my book, so "No, leave it alone" is a perfectly valid answer.}
+CHERIoT RTOS is designed to allow debugging features to be controlled on a per-compartment basis to help mitigate this.
 You can see this in the core components.
 If you run \command{xmake config --help} in a firmware build, you will see this at the end of the output:
 
@@ -51,8 +50,7 @@ $ xmake config --help
 ...
 \end{console}
 
-You must also opt your compartment or library into debugging support by adding the corresponding rule in the description of your compartment or library.
-\amanda{This is clunky and awkward.  Would "You must also enable debugging support in your compartment or library by adding..." still be accurate?}
+You must also enable debugging support in your compartment or library by adding the corresponding rule in the description of your compartment or library.
 This is shown in \ref{lst:xmakeusedebugoption}, which adds a debug option to an example compartment.
 
 \lualisting[filename=examples/debug_helpers/xmake.lua,marker=use_debug,label=lst:xmakeusedebugoption,caption="Build system code for using a debug option."]{}

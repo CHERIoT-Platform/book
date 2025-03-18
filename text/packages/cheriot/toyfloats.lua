@@ -291,7 +291,7 @@ end
 function package:_init(options)
 	base._init(self)
 	-- Hook into the type setter and replace the build-page logic.
-	SILE.typesetter.buildPage = buildPage
+	--SILE.typesetter.buildPage = buildPage
 end
 
 function package:registerCommands()

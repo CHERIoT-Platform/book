@@ -19,12 +19,6 @@ You can get precisely this model by running code in CHERIoT RTOS with interrupts
 A function that has the \c{[[cheriot::interrupt_state(disabled)]]} attribute will run with interrupts disabled and so has exclusive use of the core until it yields.
 You can add this attribute to the entry point for the thread running your control loop to start with interrupts disabled.
 
-\begin{warning}
-Not true.
-See issue 129, should be fixed soon! 
-\end{warning}
-\amanda{If it's not fixed by the time of publication, some details about the issue would be nice.}
-
 The scheduler will always schedule the highest-priority runnable thread (or round-robin schedule threads if more than one is runnable at the same priority).
 If your thread is the highest priority, it won't be preempted, but interrupts may still fire and cause the scheduler to perform some book-keeping work.
 Disabling interrupts and running with the highest priority ensures that a thread is scheduled first and continues to run for as long as it wants to.

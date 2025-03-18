@@ -160,8 +160,7 @@ From the perspective of both the SoC and the RTOS, the two devices are identical
 
 You can then audit whether a firmware image enforces whatever policy you want (for example, no compartment other than a device driver may access the device directly).
 Note that the linker reports will always provide the addresses and lengths in decimal, because they are standard JSON.
-We support a small number of extensions to JSON in the files that we consume, to improve usability, but don't use these in files that we produce, to improve interoperability.
-\amanda{Who is "we"?}
+CHERIoT RTOS supports a small number of extensions to JSON in the files that we consume, to improve usability, but don't use these in files that we produce, to improve interoperability.
 
 There is no requirement to expose a device as a single MMIO region.
 You may wish to define multiple regions, which can be as small as a single byte, so that you can privilege-separate your device driver.
@@ -285,10 +284,11 @@ do
 {
     uint32_t last = *ethernetFutex;
     // Handle interrupt here
-    interrupt_complete(STATIC_SEALED_VALUE(ethernetInterruptCapability));
-\} while ((last != *ethernetFutex) || futex_wait(ethernetFutex, last) == 0);
+    interrupt_complete(
+      STATIC_SEALED_VALUE(ethernetInterruptCapability));
+\} while ((last != *ethernetFutex) ||
+         (futex_wait(ethernetFutex, last) == 0));
 \end{cxxsnippet}
-\amanda{For reasons I do not understand, the both the PDF and HTML versions have a blank line between "//Handle interrupt here" and "interrupt_complete(...) which looks very weird.}
 
 This includes two changes.
 The first is the call to \c{interrupt_complete} once the interrupt has been handled.
@@ -323,8 +323,10 @@ For example, our Ibex simulator has this:
     ],
 \end{jsonsnippet}
 
-These are added \textem{in this order}, which makes it possible for code in the more specialised directories to \c{#include_next} more generic versions of the files or to add files that are found in preference to the generic versions.
-\amanda{It is possible that that was supposed to be three different options instead of two.  If so, we need to find a clearer way to express what the first one is supposed to be.}
+These are added \textem{in this order}.
+The C preprocessor searches files included with \c{#include} in this order stopping at the first one found.
+If a file uses \c{#include_next} then the preprocessor will start searching at the place where the current file was found.
+This lets drivers either completely replace generic versions or include them (via \c{#include_next}) with additional code (including macro definitions) before and after the generic version.
 
 For example, the UART device in the \file{generic-riscv} directory defines a basic 16550 interface.
 This is templated with the size of the register because the original 16550 used 8-bit registers, whereas newer versions typically use the low 8 bits of a 32-bit register.

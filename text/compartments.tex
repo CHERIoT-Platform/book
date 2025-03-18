@@ -162,8 +162,7 @@ This example implicitly ends the library and entry targets, but uses \lua{target
 \lualisting[filename=examples/library_or_compartment/xmake.lua,marker=compartments_and_libraries,label=lst:xmakeaddcompartmenttargets,caption="Build system code for defining compartment and library targets"]{}
 
 Inside each target definition, you can add files, dependencies on other targets, and so on.
-The \lua{"entry"} target, for example, sets itself as a non-default target.
-\amanda{Does it?  Because it looks like it's "library" that sets itself as non-default via the "set_default(false)" line.}
+The \lua{"library"} target, for example, sets itself as a non-default target.
 \command{xmake} will build every default target, whether it is used or not.
 Marking a target as non-default allows it to be defined, but built only if it is used.
 This is useful for reusable components.
@@ -306,7 +305,8 @@ These macros take as arguments both the name of the sealing type and the compart
 This ensures that there is no ambiguity and that accidental name collisions don't lead to security vulnerabilities.
 
 \macrodoc{DECLARE_STATIC_SEALED_VALUE}
-\amanda{Should there also be a macrodoc for DEFINE_STATIC_SEALED_VALUE?}
+
+\macrodoc{DEFINE_STATIC_SEALED_VALUE}
 
 This gives a building block that can be used to define arbitrary software-defined capabilities at system start.
 A compartment that performs some action exposes a sealing type and a structure layout that it expects.

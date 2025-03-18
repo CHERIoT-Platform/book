@@ -105,5 +105,8 @@ function process(textTree)
 		end
 		textTree:match_any({ "p", "span", "div" }, deleteEmpty)
 	until changed == false
+	-- Remove any noindent tags
+	textTree:match("noindent", function() return {} end)
+	textTree:match("parbox", function(parbox) return parbox:extract_children() end)
 	return textTree
 end

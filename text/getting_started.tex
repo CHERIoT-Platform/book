@@ -254,8 +254,7 @@ These libraries include the core definitions for a freestanding C implementation
 See the \file{lib} directory in the SDK for a full list.
 
 If you want your firmware built to support running on more than one CHERIoT implementation then you will typically want to expose a build-configuration option that selects the target board, as shown in \ref{lst:xmakeboardselect}.
-This exposes a \flag{--board} option at the configure stage. We'll see how this is used later.
-\amanda{In an ideal world, "later" would be replaced by a link to the chapter in which it's discussed.}
+This exposes a \flag{--board} option at the configure stage.
 
 \lualisting[filename=examples/hello_world/xmake.lua,marker=board,label=lst:xmakeboardselect,caption="Build system code for allowing the board to be selected at configure time"]{}
 
@@ -278,7 +277,6 @@ One is our entry point, the other is a function that we'll use as a simple examp
 
 This example is going to make a cross-compartment call from the "hello" comparment to the "example_compartment" compartment and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
 The cross-compartment call is exposed from \file{compartment.hh} as shown in \ref{lst:helloexport}.
-\amanda{compartment.hh doesn't actually show up until Listing 5 (which, if I'm reading it right, is 1st:toycompartmentcall), not Listing 4 (1st:helloexport).}
 The only difference between this and a normal C/C++ function prototype is the \c{__cheriot_compartment} macro.
 This is explained in detail in \ref{exporting_functions}.
 

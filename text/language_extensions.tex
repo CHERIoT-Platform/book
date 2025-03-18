@@ -35,15 +35,13 @@ The build system specifies the \flag{-cheri-compartment=} flag based on the \lua
 \lualisting[filename=examples/compartment_annotation/xmake.lua,marker=compartment,label=lst:xmakecompartment,caption="Build system code for defining a compartment."]{}
 
 If you get the compartment name wrong, the compiler will generate an error.
-For example, if you change the compartment name in this example to \c{"hello"} in the source code, you will see the following:
+For example, if you change the compartment name in \ref{lst:simpleexport} to \c{"wrong_compartment"}, you will see the following error when compiling \file{compartment.cc}, which contains the definition of this function:
 
 \begin{console}
-error: entry.cc:15:35: error: CHERI compartment entry declared for compartment 'hello' but implemented in 'entry' (provided with -cheri-compartment=)
-   15 | void __cheriot_compartment("hello") entry()
-      |                                   ^
-1 error generated.
+error: compartment.cc:21:5: error: CHERI compartment entry declared for compartment 'wrong_compartment' but implemented in 'example_compartment' (provided with -cheri-compartment=)
+   21 | int monotonic(Callback callback)
+      |     ^
 \end{console}
-\amanda{It is somewhat confusing that the error occurs in entry.cc when the most recent example used compartment.cc, particularly because the paragraph before this used the phrase "in this example."  I would recommend making them match.}
 
 \section[label=cheri_callback]{Passing callbacks to other compartments.}
 
@@ -62,7 +60,6 @@ This attribute can also be used via the \c{__cheriot_callback} macro, which allo
 This is a simple function that will increment a private counter and invoke the callback.
 
 \codelisting[filename=examples/compartment_annotation/interface.h,marker=compartment_export_callback,label=lst:callbackexport,caption="Exposing a function that takes a cross-compartment callback for use by other compartments."]{}
-\amanda{Is there a reason for the newline in the last line of this code?  It's inconsistent with all the other listings you've had so far.}
 
 The implementation of this function (\ref{lst:monotoniccallbackfn}) calls it just as it would call any other function pointer.
 The difference is dealt with entirely by the compiler.
@@ -153,7 +150,6 @@ Don't forget to modify the \file{xmake.lua} file to change the \lua{library} tar
 \section{Interrupt state control}
 
 The \c{cheriot_interrupt_state} attribute (commonly used as the C++11 / C23 attribute \c{cheriot::interrupt_state}) is applied to functions and takes an argument that is one of the following:
-\fixme{Should probably rename this cheriot in the compiler}
 
 \begin{description}
 	\item[tag=enabled]{Interrupts are enabled when calling this function.}
@@ -189,7 +185,6 @@ This function and the meaning of a scheduler tick are explained in more detail i
 For now, assume that the thread is attempting to sleep for the number of cycles shown by the \c{printf} call at the start, outside of the loop.
 
 \codelisting[filename=examples/interrupts_disabled/interrupts.cc,marker=low,label=lst:lowpriorityinterruptsdisabled,caption="A low-priority thread that uses an interrupts-disabled function to consume CPU."]{}
-\amanda{The text above the code explaining interrupt_state(disabled) is "cheri::" but the text in the code is "cheriot::"  Should one of these be changed?}
 
 The other thread in this program is shown in \ref{lst:highpriorityinterruptsdisabled}.
 This runs with high priority and so will always preempt the low-priority thread when it is able to, but disabling interrupts means that preemption is impossible.
@@ -530,7 +525,6 @@ This should leave the value unmodified.
 
 \section[label=cheri_capability_cpp]{Manipulating capabilities with \cxx{CHERI::Capability}}
 
-\phil{ Feels like this would be better right after the section "Manipulating capabilities with C builtins"}
 The raw C builtins can be somewhat verbose.
 CHERIoT RTOS provides a \cxx{CHERI::Capability} class in \file{cheri.hh} to simplify inspecting and manipulating CHERI capabilities.
 

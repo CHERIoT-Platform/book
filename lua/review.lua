@@ -1,5 +1,8 @@
 function process(textTree)
-	textTree:match_any({ "phil" , "hugo", "amanda" }, function(review)
+	local comments = 0
+	textTree:match_any({ "phil", "hugo", "amanda" }, function(review)
+		comments = comments + 1
+		review:error("Remaining review comment")
 		if not config.review then
 			return {}
 		end
@@ -14,5 +17,6 @@ function process(textTree)
 		end
 		return { review }
 	end)
+	print("Document contains " .. tostring(comments) .. " unaddressed review comments")
 	return textTree
 end
