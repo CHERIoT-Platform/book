@@ -47,9 +47,15 @@ You can find the examples \href[src=https://github.com/CHERIoT-Platform/book-exa
 You can clone this repository with the following command:
 
 \begin{console}
-$ git clone --recursive https://github.com/CHERIoT-Platform/book-examples
+$ git clone --branch first-edition \
+	--recursive \
+	https://github.com/CHERIoT-Platform/book-examples
 Cloning into 'book-examples'...
 \end{console}
+
+This will clone exactly the version used in the first edition.
+If you check out the \file{first-edition-update} branch, then you will have a version that may not exactly match the listings in the book, but which has been updated to work with a newer version of the RTOS.
+Any differences in this branch will be listed in the errata section of the online edition of the book.
 
 The examples are provided as a stand-alone repository containing a snapshot of the RTOS and network stack each as a \keyword{git submodule}.
 It provides a \keyword{development container} configuration (discussed in more detail in \ref{devcontainer}) that provides all of the tools required to build the examples.
