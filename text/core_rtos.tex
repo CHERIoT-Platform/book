@@ -96,7 +96,7 @@ This risk is mitigated in several ways:
 		Most errors simply forcibly unwind to the previous trusted stack frame, so a compartment that attempts to attack the switcher exits to its caller.}
 	\item{Like everything else in the system, it must follow the capability rules.
 		Unlike an operating system running in a privileged mode on mainstream hardware, it does not get to opt out of memory protection, it is not able to access beyond the bounds of capabilities passed to it or access any memory to which it does not have an explicit capability.}
-	\item{It is largely stateless, all state that it modifies is held in the trusted stack for the current thread.}
+	\item{It is largely stateless. All state that it modifies is held in the trusted stack for the current thread.}
 \end{itemize}
 
 The switcher appears to the rest of the system as a library.
@@ -134,7 +134,7 @@ The scheduler is, by definition, in the TCB for availability.
 It is the component that decides which threads run and which do not.
 A bug in the scheduler (with or without an active attacker) can result in a thread failing to run.
 
-It is not; however, in the TCB for confidentiality or integrity.
+It is not, however, in the TCB for confidentiality or integrity.
 The scheduler has no mechanism to inspect the state of an interrupted thread.
 When invoked explicitly, it is called with a normal cross-compartment call and so has no access to anything other than the arguments.
 
@@ -163,7 +163,7 @@ If it incorrectly configures revocation state or reuses memory too early then a 
 
 The allocator is not able to bypass capability permissions, it simply holds a capability that spans the whole of heap memory.
 As such, it is in the TCB only with respect to heap allocations.
-It cannot access globals (or code), held in other compartments and so a compartment that does not use the heap does not need to trust the allocator.
+It cannot access globals (or code) held in other compartments so a compartment that does not use the heap does not need to trust the allocator.
 
 The allocator also provides a rich set of mechanisms (described in \ref{shared_heap}) for two mutually distrusting compartments to ensure that memory is not deallocated at inconvenient times.
 
@@ -171,11 +171,11 @@ The allocator also provides a rich set of mechanisms (described in \ref{shared_h
 
 So far, this chapter has discussed the components of the system that provide distinct trust domains.
 CHERIoT RTOS also provides several \keyword{shared libraries}.
-Remember that (as discussed in \ref{libraries}), CHERIoT shared libraries do not have private globals, they provide functions that can be invoked from multiple compartments but which has no mutable state of its own.
+As discussed in \ref{libraries}, CHERIoT shared libraries do not have private globals, they provide functions that can be invoked from multiple compartments but which has no mutable state of its own.
 
 A C freestanding environment needs a small set of standard-library functions to exist.
 These are \c{memcpy}, \c{memset}, and so on.
-The compiler may insert different calls to these for things like \c{struct} assignment or initialisation and any C code may assume that they exist.
+The compiler may insert different calls to these for things like \c{struct} assignment or initialisation, and any C code may assume that they exist.
 
 These functions are fairly small (less than 0.5 KiB), but we do not want every compartment that contains them to have to include a copy of them because that small size can add up quickly when you have very large numbers of compartments.
 Instead, the RTOS includes a \library{freestanding} library that includes these functions.
@@ -183,7 +183,7 @@ Instead, the RTOS includes a \library{freestanding} library that includes these 
 C++ expects slightly more from a freestanding environment.
 CHERIoT RTOS does not provide support for exceptions, but does support thread-safe initialisation of statics.
 In C++, function-local \cxx{static} variables that have non-trivial constructors are initialised lazily the first time that they are invoked.
-The compiler emits a guard word that is used to mark whether the object is initialised and act as a lock to protect initialisation.
+The compiler emits a guard word that is used to mark whether the object is initialised and to act as a lock to protect initialisation.
 The compiler also emits a branch on the initialised bit at the point where the variable comes into scope.
 In the uninitialised case, this inserts a call to \c{__cxa_guard_acquire} to acquire the lock and then a call to \c{__cxa_guard_release} to release the lock.
 The acquire function also checks whether another thread has initialised the variable between the initial check and the call, preventing double initialisation.
@@ -263,7 +263,7 @@ Most of the C++ standard library that we provide is header-only, but where share
 The \file{lib} directory in the RTOS SDK contains all of the libraries.
 Some of these have been discussed already because they are part of a core environment that you might expect to be available for any compartment to use.
 
-Others are correspond more to operating system features and will be discussed in later chapters.
+Others correspond more to operating system features and will be discussed in later chapters.
 For example, those related to locking, message queues, and so on will be discussed in \ref{threads}.
 The features for debugging are discussed in \ref{debug}.
 
