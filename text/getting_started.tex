@@ -196,7 +196,7 @@ The MPACT simulator can usually manage over 5 MIPS, at least an order of magnitu
 
 Beyond software simulators there are currently two mature options for FPGA simulation.
 The SAFE project, as previously mentioned, can be run on the Arty A7.
-Unfortunately, Microsoft does not provide FPGA bitfiles and so you must build this yourself.
+Unfortunately, Microsoft does not provide FPGA bitfiles so you must build this yourself.
 
 lowRISC has produced an FPGA development board designed specifically for CHERIoT, using a slightly smaller version of the same FPGA as the Arty A7.
 This has a rich set of peripherals, including an LCD display.
@@ -214,7 +214,7 @@ CHERIoT RTOS uses the \href[src=https://xmake.io/#/]{xmake} build system.
 Xmake is a build system implemented in Lua.
 It was chosen because it is easy to add new kinds of build targets.
 
-In a typical system that uses the compile-link process invented by Mary Allen Wilkes in the '60s, you compile source files to object code and then link object code to produce executables.
+In a typical system that uses the compile-link process invented by Mary Allen Wilkes in the 1960s, you compile source files to object code and then link object code to produce executables.
 You may have an intermediate step that produces libraries.
 
 The CHERIoT build process was designed to enable separate compilation and binary distribution of components.
@@ -276,7 +276,7 @@ One is our entry point, the other is a function that we'll use as a simple examp
 	If they do not match, the compiler will raise an error that a function is defined in the wrong compartment.
 \end{caution}
 
-This example is going to make a cross-compartment call from the "hello" comparment to the "example_compartment" compartment and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
+This example is going to make a cross-compartment call from the "hello" compartment to the "example_compartment" compartment and then print the result using \c{printf}, which is provided by the \c{stdio} library from the RTOS.
 The cross-compartment call is exposed from \file{compartment.hh} as shown in \ref{lst:helloexport}.
 The only difference between this and a normal C/C++ function prototype is the \c{__cheriot_compartment} macro.
 This is explained in detail in \ref{exporting_functions}.
@@ -339,7 +339,7 @@ SUCCESS
 \end{console}
 
 \begin{note}
-	The current version of \command{xmake} does not automatically build the target and so it's good to get into the habit of using \command{xmake && xmake run}, which will build (if necessary) before running.
+	The current version of \command{xmake} does not automatically build the target so it's good to get into the habit of using \command{xmake && xmake run}, which will build (if necessary) before running.
 	This is expected to be changed in a future version of \command{xmake}.
 \end{note}
 
@@ -383,7 +383,7 @@ Either of these approaches will mount the SONATA filesystem as \file{/mnt/SONATA
 
 The run command typically provides a convenient default.
 Some simulators provide various options if you invoke them directly.
-For example, both the Sail and SAFE simulators provide instruction-level tracing
+For example, both the Sail and SAFE simulators provide instruction-level tracing.
 
 The Sail simulator is installed in the dev container as \file{/cheriot-tools/bin/cheriot_sim}.
 This will directly run an ELF binary, so you can recreate the behaviour of the \command{xmake run} command like this:
@@ -422,5 +422,5 @@ The simulator expects a \file{firmware} directory to exist in the current direct
 For both simulators, tracing provides a lot of output and redirecting this to a file may be useful.
 
 The MPACT simulator also provides an interactive mode, enabled with \file{-i}.
-This provides debugging environment.
+This provides a debugging environment.
 You can use \command{help} inside the interactive mode to see the commands, which include breakpoints, watchpoints, and so on.
