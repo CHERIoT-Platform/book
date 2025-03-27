@@ -72,13 +72,14 @@ This will then fetch the container for you, configure plugins for syntax highlig
 
 If, like me, your preferred development environment is a lightly modernised version of a 1970s minicomputer, you can still use the dev container.
 The container image is \file{ghcr.io/cheriot-platform/devcontainer:latest}.
-You can run this directly (from the directory where you checked out the RTOS repository):
+You can run this directly from the directory where you checked out the RTOS repository:
 
 \begin{console}
-$ docker run --rm -it \\
-	--mount source=$(pwd),target=/home/cheriot/cheriot-rtos,type=bind \\
+$ docker run --rm -it --mount \\
+	source=$(pwd),target=/home/cheriot/cheriot-rtos,type=bind \\
 	ghcr.io/cheriot-platform/devcontainer:latest
 \end{console}
+\amanda{In the PDF version, the line beginning with --mount is slightly too long and wraps.  I've edited it to avoid that, but you may wish to break it up differently.}
 
 This command will create a single instance of the container with the current directory mounted as \file{/home/cheriot/cheriot-rtos}.
 This creates an ephemeral instance. 
@@ -90,7 +91,7 @@ In the dev container, all of the CHERIoT tools are installed in \file{/cheriot-t
 	The dev container also exists to support \keyword{GitHub Code Spaces}.
 	These run a Visual Studio Code instance in a browser, attached to a dev container deployed in an Azure VM.
 	If you create a Code Space from the CHERIoT RTOS repository, it will be set up with everything that you need to develop for CHERIoT in the browser.
-	GitHub Code Spaces are a good way to start playing with CHERIoT, but the free tier is limited to 120 CPU hours (60 hours on the smallest VM tier) and so you will probably want to install the toolchain locally for serious development.
+	GitHub Code Spaces are a good way to start playing with CHERIoT, but the free tier is limited to 120 CPU hours (60 hours on the smallest VM tier) so you will probably want to install the toolchain locally for serious development.
 \end{note}
 
 \section{Setting up a development environment}
@@ -99,20 +100,20 @@ Having a copy of the RTOS software does not enable you to build it.
 You will also need a \keyword{toolchain}: a compiler, linker, and other associated tools that can take source code and turn it into a firmware image that can run on a device.
 If are using the dev container, these tools are all installed for you.
 
-The CHERIoT toolchain is based on LLVM, which used to stand for 'Low Level Virtual Machine' until it became clear that none of those words actually applied to the project and is now just a name.
+The CHERIoT toolchain is based on LLVM, which used to stand for 'Low Level Virtual Machine' until it became clear that none of those words actually applied to the project and it is now just a name.
 LLVM is a generic set of building blocks for writing compilers, structured around the \keyword{LLVM Intermediate Representation} (LLVM IR).
 It includes a mature C/C++ front end, a component that transforms C and C++ (and Objective-C) into LLVM IR.
 This front end, \command{clang}, is the default compiler on Apple platforms, Android, and FreeBSD.
 LLVM also includes a linker, \command{lld}.
 These two are sufficient to turn source code into something that can run on a system.
 LLVM also provides some other components that are useful for development.
-For example, \command{llvm-objdump} is used to disassemble a binary, which is useful when you have some telemetry that tells you that you've taken a CHERI bounds exception at address 0xbaadc0de but would quite like to know what that corresponds to in the source code where you might be able to fix the issue.
+For example, \command{llvm-objdump} is used to disassemble a binary, which is useful when you have some telemetry that tells you that you've taken a CHERI bounds exception at address 0xbaadc0de but you would quite like to know what that corresponds to in the source code where you might be able to fix the issue.
 It also includes \command{llvm-objcopy}, which is used on some targets to turn an \keyword{Executable and Linkable Format} (ELF) file into a raw stream of bytes to be loaded into memory.
 
 \begin{note}
 	The CHERIoT LLVM toolchain aims to upstream all of the CHERIoT support in mainline LLVM.
 	We hope to have the majority of this work done in 2025, so by the time that you read this it's possible that a generic LLVM install will be sufficient.
-	We expect to do new-feature development in the CHERIoT LLVM repository and so you may prefer to use it even if upstream works.
+	We expect to do new-feature development in the CHERIoT LLVM repository so you may prefer to use it even if upstream works.
 \end{note}
 
 You can build LLVM yourself, though it takes quite a lot of CPU time and memory.
@@ -140,7 +141,7 @@ C and C++ are more complex than many languages for syntax highlighting and cross
 Consider even a simple hello-world C program, which starts with \c{#include <stdio.h>}.
 Where does \file{stdio.h} come from?
 That typically depends on command-line arguments passed to the compiler.
-For native compilation, there may be some good places to guess (such as \file{/usr/include} on *NIX platforms) but for cross compilation, this is harder.
+For native compilation, there may be some good places to guess (such as \file{/usr/include} on *NIX platforms) but for cross-compilation, this is harder.
 This gets more complex with code that references macros passed on the command line.
 Without knowing the command line for the compiler, the syntax highlighter can't even tell the type of these identifiers.
 
