@@ -331,14 +331,14 @@ Sealing a capability transforms it from something that conveys rights and can be
 It can be transformed back with the converse unseal operation.
 
 Capabilities have one field that we have not yet discussed: an \keyword{object type}.
-THis is normally zero, representing an unsealed capability.
+This is normally zero, representing an unsealed capability.
 Any non-zero value indicates a sealed capability.
 
 When you seal a capability, you use a capability with permit-seal permission.
 The sealing operation sets the object type of the newly sealed capability to the address of the capability that authorised the seal operation.
 With a non-zero object type, the sealed capability cannot be modified.
 Any attempt to change the address, bounds, or permission will clear the tag and give an invalid capability.
-It can be copied but is always treated as an opqaue value.
+It can be copied but is always treated as an opaque value.
 Unsealing is the only operation that can modify a sealed capability.
 This requires a valid capability with permit-unseal permission and the same address as the capability that was used in the original seal operation.
 The unseal operation results in a capability that is identical to the one that was sealed.
@@ -399,7 +399,7 @@ Particularly in the embedded space, it's easy to provide a separate core and SRA
 Most useful workloads involve communication between distrusting entities.
 For example, if you want to connect an IoT device to a back-end service, your ethernet driver needs to communicate with the TCP/IP stack, which needs to communicate with the TLS stack, which needs to communicate with a higher-level protocol stack such as MQTT, which needs to communicate with your device-specific logic.
 
-CHERIoT provides two composable abstractions for isolation.
+CHERIoT provides two composable abstractions for isolation:
 
 \begin{itemize}
 	\item{Compartments are units of spatial isolation}
