@@ -13,7 +13,7 @@ This allows the compiler to know whether a particular function (which may be in 
 
 This can be used on either definitions or declarations but is most commonly used on declarations.
 
-If a function is defined while compiling a compilation unit belonging to a different compartment then the compiler will raise an error.
+If a function is defined while compiling a compilation unit belonging to a different compartment, the compiler will raise an error.
 In CHERIoT RTOS, this attribute is always used via the \c{__cheriot_compartment({name\})} macro.
 This makes it possible to simply use \c{#define __cheriot_compartment(x)} when compiling for other platforms.
 
@@ -154,7 +154,7 @@ The \c{cheriot_interrupt_state} attribute (commonly used as the C++11 / C23 attr
 \begin{description}
 	\item[tag=enabled]{Interrupts are enabled when calling this function.}
 	\item[tag=disabled]{Interrupts are disabled when calling this function.}
-	\item[tag=inherit]{ The interrupt state is unchanged (inherited from the caller) when invoking the function.}
+	\item[tag=inherit]{ The interrupt state is unchanged (inherited from the caller) when invoking this function.}
 \end{description}
 
 For most functions, \c{inherit} is the default.
@@ -190,7 +190,7 @@ The other thread in this program is shown in \ref{lst:highpriorityinterruptsdisa
 This runs with high priority and so will always preempt the low-priority thread when it is able to, but disabling interrupts means that preemption is impossible.
 Timer interrupts do not fire and so the scheduler cannot interrupt the function.
 
-\codelisting[filename=examples/interrupts_disabled/interrupts.cc,marker=high,label=lst:highpriorityinterruptsdisabled,caption="A high-priority thread that is starved but an interrupts-disabled function called from a low-priority thread."]{}
+\codelisting[filename=examples/interrupts_disabled/interrupts.cc,marker=high,label=lst:highpriorityinterruptsdisabled,caption="A high-priority thread that is starved by an interrupts-disabled function called from a low-priority thread."]{}
 
 When you run this, you will see that the actual time spent sleeping increases each iteration:
 
@@ -316,12 +316,13 @@ The permissions are expanded as the letters from the tables in \ref{permissions}
 The builtins are thing wrappers around the instructions, which represent the permissions as a bitmask.
 Individual bits must be extracted by a bitwise AND operation.
 
-\codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=print_capability,label=lst:prettyprintcapc,caption="Pretty printing a capability using the C builtin wrappers."]{}
+\codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=print_capability,label=lst:prettyprintcapc,caption="Pretty-printing a capability using the C builtin wrappers."]{}
 
 \ref{lst:capmanipc} uses this function to print some initial capabilities from both heap and stack memory and then manipulates them.
 First, it explicitly sets the bounds of the heap capability to 23 bytes, then removes all permissions except load.
 
 \codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=capability_manipulation,label=lst:capmanipc,caption="Manipulating capabilities using the C builtin wrappers."]{}
+\amanda{In the PDF, Listing 22 (this one) comes before Listing 21 ("Pretty-printing a capability using the C builtin wrappers".  I assume this is because Listing 22 is shorter and will fit on the page, but Listing 21 is longer so it prints at the top of the next page.  I do not have any idea how one would go about fixing this, but it looks very odd.  It does not help that the next line "When you run this example, you should see something like this" is the last line on the page, so the "something like this" that you should see comes AFTER the code listing.}
 
 When you run this example, you should see something like this (the exact addresses may vary):
 
@@ -341,6 +342,7 @@ These two conditions ensure that stack pointers (which lack global) can be store
 The bounds on the original heap allocation are rounded up to a multiple of the heap's allocation granule size.
 The CHERIoT allocator allocates 8-byte chunks, so this is rounded up to 24 (0x18) bytes.
 For a capability this small, CHERIoT can precisely represent the desired size and so the bounds-setting operation succeeds and you can derive a capability with the precise bounds that we requested.
+
 Next, this removes all permissions except load.
 This pointer now provides a read-only view of the data, which cannot be stored anywhere except on the stack and which cannot be used to load capabilities.
 
@@ -366,6 +368,8 @@ You can see the difference between the two in \ref{lst:capequal}.
 This creates a capability with a small offset into an on-stack buffer and then restricts the bounds and removes permissions from it, then compares them for equality using both the \c{==} operator and the \c{cheri_is_equal_exact} macro.
 
 \codelisting[filename=examples/compare_capabilities/example.c,marker=capability_equality,label=lst:capequal,caption="Comparing two capabilities for equality."]{}
+\amanda{In the PDF, this listing is pushed to the next page, but the example output is not finished, so it comes right in the middle of it.}
+\amanda{I almost want to suggest a change in formatting so that code listings have boxes around them, not unlike functiondocs.  That would make it much clearer what part is code and what part is output/text, and less confusing when they interrupt text that ought to be kept together.}
 
 When you run this example, you should see output that looks something like this:
 
@@ -533,7 +537,7 @@ The \file{manipulate_capabilities_cxx} example shows how to do the same things a
 First, \ref{lst:prettyprintcapcxx} reimplements the \cxx{print_capability} function using \cxx{CHERI::Capability}.
 This is slightly more verbose because it's printing with the \c{printf} function, which is a C variadic and so cannot take the result of \cxx{ptr.address()}, which is a proxy that allows you to manipulate the address.
 
-\codelisting[filename=examples/manipulate_capabilities_cxx/example.cc,marker=print_capability,label=lst:prettyprintcapcxx,caption="Pretty printing a capability using the C++ APIs."]{}
+\codelisting[filename=examples/manipulate_capabilities_cxx/example.cc,marker=print_capability,label=lst:prettyprintcapcxx,caption="Pretty-printing a capability using the C++ APIs."]{}
 
 \begin{note}
 The \cxx{using P = CHERI::Permission} is not good style.
