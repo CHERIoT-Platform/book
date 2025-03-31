@@ -61,15 +61,16 @@ The ID of each thread is stored in the register save area for that thread and th
 
 Thread IDs start at one (not zero!) because zero is used to indicate the idle thread and so is never visible.
 The \c{thread_count} function returns the number of threads that have been created in the system.
-This is not decremented when threads exit and so provides the upper bound on the number of threads that may exist.
+This is not decremented when threads exit, so it provides the upper bound on the number of threads that may exist.
 This can be used to size data structures that are indexed by thread ID.
 
 \functiondoc{thread_count}
+\amanda{In this functiondoc, the very last line should read "...safe to cache, as it will never change..."}
 
 \begin{caution}
 	Somewhat counter intuitively, \c{thread_id_get} is faster than \c{thread_count} to call.
 	The former is a libcall that that switcher implements, the latter is a cross-compartment call into the scheduler.
-	This is not normally a problem because the result of \c{thread_count} does not change and so can be cached in a compartment, whereas the result of \c{thread_id_get} depends on the current thread and so cannot be cached.
+	This is not normally a problem because the result of \c{thread_count} does not change and can be cached in a compartment, whereas the result of \c{thread_id_get} depends on the current thread and cannot be safely cached.
 \end{caution}
 
 The \file{current_thread} example shows calling these functions.
@@ -79,7 +80,7 @@ The entry point function for this is shown in \ref{lst:currentthread} and the th
 
 \lualisting[filename=examples/current_thread/xmake.lua,marker=threads,label=lst:currentthreadxmake,caption="The thread definitions for the current-thread example"]{}
 
-Note that thread two has a higher priority than thread one.
+Note that the second thread has a higher priority than thread one.
 When you run this example, you should see output like this:
 
 \begin{console}
@@ -135,7 +136,7 @@ This allows it to be forwarded to subsequent calls trivially.
 \begin{warning}
 Timeouts may not be stored on the heap.
 Any function checking timeouts may refuse to accept a heap-allocated timeout.
-It is difficult to work with heap-allocated timeouts because they may be deallocated while the thread is sleeping, which would then cause it to crash on updating the timeout structure.
+It is difficult to work with heap-allocated timeouts because they may be deallocated while the thread is sleeping, which would then cause it to crash upon updating the timeout structure.
 \end{warning}
 
 \section{Sleeping}
@@ -168,7 +169,7 @@ The scheduler may wake the yielding thread if no other thread is going to be run
 This allows high-priority threads to allow other threads to run, but continue using the CPU if no other thread is runnable.
 
 In some cases, you really want to sleep.
-For example, if you're updating a clock display, you will want to run once a second or once a minute to update a display.
+For example, if you're updating a clock display, you will want to run once a second or once a minute to update the display.
 The same applies if you're sending keep-alive packets or periodically monitoring some other component.
 In these cases you definitely have no useful work to do, irrespective of the state of any other threads that can or cannot run.
 You can pass \c{ThreadSleepNoEarlyWake} as the \c{flags} argument to \c{thread_sleep} to indicate that you really want to sleep.
@@ -195,9 +196,10 @@ If thread one did \textem{not} yield then it would be preempted after one tick.
 
 \begin{note}
 If you run this with the Sail simulator, do not be surprised if the cycle counts look very small.
-Sail is not a cycle-accurate model and so the cycle count is guaranteed to be monotonic, but not to represent a real system in any way.
+Sail is not a cycle-accurate model. The cycle count is guaranteed to be monotonic, but not to represent a real system in any way.
 The snippets in this section are using the Ibex simulator.
 \end{note}
+\amanda{This note comes in at a weird place.  Is it possible to change the "console" designation to not split in the middle?  It doesn't need to stay all on the same page, but notes or functiondocs coming in the middle of it make it more difficult to read.}
 
 Try modifying this example, adding \c{ThreadSleepNoEarlyWake}  as a second argument to the \c{thread_sleep} call.
 You should now see output that looks very similar, but shows lower cycle counts at the end:
@@ -212,7 +214,7 @@ Cycles elapsed: 252273
 \end{console}
 
 Here you see that the total execution time has gone from 265,806 cycles to 252,273.
-In the original version, when thread one slept (after doing far less than one tick's worth of work), there were no runnable threads and so the scheduler does nothing for a while.
+In the original version, when thread one slept (after doing far less than one tick's worth of work), there were no runnable threads so the scheduler does nothing for a while.
 Eventually, thread two (the high-priority thread) is runnable again and it resumes.
 In the version with \c{ThreadSleepNoEarlyWake}, thread two can resume as soon as thread one sleeps.
 Similarly, when thread two yields for the second time, thread one will resume.
