@@ -90,7 +90,7 @@ The \cxx{Debug::log()} function takes a format string and then a set of argument
 This is similar to \c{printf} or \cxx{std::format}, inserting the arguments into the output, replacing placeholders.
 The syntax here is modelled on \cxx{std::format}, but does not currently accept any format modifiers.
 The \cxx{{\}} syntax for placeholders makes it possible to add modifiers in the future.
-This class is designed to avoid needing heap allocation or large amounts of stack space and so is intentionally less flexible than a general-purpose formatting library.
+This class is designed to avoid needing heap allocation or large amounts of stack space and is intentionally less flexible than a general-purpose formatting library.
 
 Unsigned integers are printed as hex.
 Signed integers are printed as decimal.
@@ -137,7 +137,7 @@ Note that you may need to delete your \file{.xmake} and \file{build} before doin
 
 The standard formatting machinery in C++ can result in large code.
 The CHERIoT debug logging mechanism is intended to be small and intentionally omits features.
-It does provide a mechanism for pretty printing custom types.
+It does provide a mechanism for pretty-printing custom types.
 
 Most of the printing is done in the \library{debug} library, which contains code for printing different primitive types, including capabilities.
 The function from this library takes an array of arguments for printing, where each is identified by two \c{uintptr_t} variables.
@@ -160,7 +160,7 @@ If the value is not a pointer of the correct size or larger, you will get traps.
 The other argument is the writer, which is passed as an abstract class (interface) and provides callbacks into the \library{debug} library.
 This has various overloads of a \cxx{write} method that will print primitive values as if they were passed as arguments to the log function, as well as some with explicit control over formatting.
 
-This function also needs to be accompanied by an adaptor, as shown in \ref{lst:usingdebuglogcustomtypeadaptor} that constructs the pair of \c{uintptr_t}s that will be passed into the library.
+This function also needs to be accompanied by an adaptor, as shown in \ref{lst:usingdebuglogcustomtypeadaptor}, that constructs the pair of \c{uintptr_t}s that will be passed into the library.
 This is simply casting the pointer to a \c{uintptr_t} for the value and providing the helper function (also cast to \c{uintptr_t}) as the type value.
 
 \codelisting[filename=examples/debug_helpers/example.cc,marker=type_adaptor,label=lst:usingdebuglogcustomtypeadaptor,caption="Defining an adaptor for a custom type."]{}
@@ -220,7 +220,7 @@ The invariant is still checked and is triggering a trap, which leads to an unwin
 In some cases, you may find that the expression that calculates the assertion condition is expensive and the compiler does not successfully optimise it away in release builds.
 If the checks call functions in other compilation units, for example, or reads from \c{volatile} memory, the compiler cannot remove them even if the result is unused.
 To avoid this, you can replace the condition with a lambda that takes no arguments and returns a \c{bool}.
-The lambda is never executed in release builds and so the compiler will strip it away.
+The lambda is never executed in release builds so the compiler will strip it away.
 
 \section{Using the debug APIs from C}
 
