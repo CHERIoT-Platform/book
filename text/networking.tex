@@ -24,7 +24,7 @@ These do not include the SNTP and MQTT compartments, which we'll see later.
 \figure[label=networkstackstructure,src=figures/NetworkStack.svg,alt=An illustration of the compartments in the network stack]{The core compartments in the network stack.}
 
 The TCP/IP and TLS stacks are largely existing code, from the FreeRTOS+TCP and BearSSL projects, respectively.
-The BearSSL code has no platform dependencies and so is simply recompiled.
+The BearSSL code has no platform dependencies and is simply recompiled.
 The FreeRTOS+TCP code, unsurprisingly, assumes that it is running on FreeRTOS and is ported using the compatibility layer described in \ref{from_freertos}.
 
 In the initial port, the FreeRTOS+TCP code required only one change.
@@ -69,7 +69,7 @@ This provides a hard-coded relative location and allows it to be overridden with
 Next, you need to make sure that code using the network stack finds the headers by adding the include directory (\ref{lst:xmakesntpcompartment}).
 You must also explicitly add the SNTP compartment as a dependency in the compartment target, though this is somewhat redundant because we'll also add it globally later.
 Finally, the network stack provides an option to users to decide whether they want IPv6 support.
-This affects some of the definitions in headers and so you must define the same flag in your compartment to avoid linker errors.
+This affects some of the definitions in headers so you must define the same flag in your compartment to avoid linker errors.
 
 \lualisting[filename=examples/sntp/xmake.lua,marker=sntp,label=lst:xmakesntpcompartment,caption="Build system code for building a compartment that uses the network stack."]{}
 
@@ -176,7 +176,7 @@ This is useful if, for example, you wish to call \c{heap_free_all} on your defau
 \codelisting[filename=examples/tcp/tcp.cc,marker=connect,label=lst:tcpconnect,caption="Connecting to a remote server."]{}
 
 The result of this call is a valid \keyword{sealed capability} to the socket.
-All of the state required for the socket will be allocated with the allocator capability that you passed (and so counted against your quota), but is not directly accessible to you.
+All of the state required for the socket will be allocated with the allocator capability that you passed (and counted against your quota), but is not directly accessible to you.
 On a POSIX system, the result of a socket call is a file descriptor.
 On Windows, it is a \c{HANDLE}.
 These are both opaque types that reference some internal data structure that the kernel associates with your process.
@@ -244,7 +244,7 @@ __________[_]_[_]_[_]________/_]_[_\\_________________
 Listening sockets, like connected ones, require an authorising capability.
 This is shown in \ref{lst:tcplistencap} and includes the local port number that you can bind to along with the number of pending connections that are allowed.
 The second is important for limiting the amount of the TCP/IP compartment's memory you can consume.
-Each unaccepted socket requires some state in the TCP/IP stack and so allowing an unbounded number would consume an unlimited amount of memory.
+Each unaccepted socket requires some state in the TCP/IP stack so allowing an unbounded number would consume an unlimited amount of memory.
 For most embedded uses, one or two is adequate.
 
 \codelisting[filename=examples/tcp_echo_server/tcp.cc,marker=server_capability,label=lst:tcplistencap,caption="A static capability that authorises binding to a local port."]{}
@@ -426,7 +426,7 @@ Note that the lifetime of the \textem{certificate} is not the same as the lifeti
 You can easily generate a new certificate signing request for the same key and have a newly signed certificate valid for another year (or just for a week) using the same key.
 
 If we wanted to use either of the certificates that are directly sent by the server then we could simply copy the bit between \output{BEGIN CERTIFICATE} and \output{END CERTIFICATE} lines into a file.
-Unfortunately, we don't and so we have to go to the \href[src=https://www.digicert.com/kb/digicert-root-certificates.htm]{DigiCert web site} and download the correct certificate.
+Unfortunately, we don't so we have to go to the \href[src=https://www.digicert.com/kb/digicert-root-certificates.htm]{DigiCert web site} and download the correct certificate.
 
 Once you have the certificate, BearSSL's command-line tool can convert it into a form that the library expects.
 The command-line tools are not built by the CHERIoT network stack, so you will need to either build them from the copy of BearSSL in \file{network-stack/third_party/BearSSL} or install them from your operating system's package manager.
@@ -456,7 +456,7 @@ After initialising the network stack, you need to synchronise the clock, as show
 Connecting to a TLS server is very much like connecting to a TCP server.
 Compare \ref{lst:tcpconnect}, which established an unencrypted connection, to \ref{lst:tlsconnect}, which creates an encrypted connection.
 Aside from the connect function name, the only difference is that the TLS connect function requires the trust anchors.
-This is an intentional API choice: CHERIoT aims to be secure by default and so it should be as easy to create secured connections as it is to create insecure ones.
+This is an intentional API choice: CHERIoT aims to be secure by default, so it should be as easy to create secured connections as it is to create insecure ones.
 
 \codelisting[filename=examples/tls/https.cc,marker=tls_connect,label=lst:tlsconnect,caption="Connecting to a remote server with TLS."]{}
 
@@ -568,7 +568,7 @@ The call is shown in \ref{lst:mqttsuback}.
 
 \codelisting[filename=examples/mqtt/mqtt.cc,marker=suback,label=lst:mqttsuback,caption="Waiting for acknowledgement after subscribing to an MQTT topic."]{}
 
-The callback that \c{mqtt_run} invokes are the ones that were passed in \ref{lst:mqttconnect}.
+The callbacks that \c{mqtt_run} invoke are the ones that were passed in \ref{lst:mqttconnect}.
 These are CHERIoT cross-compartment callbacks.
 The one for acknowledgements is shown in \ref{lst:mqttackcallback}.
 This will run in the compartment that defined it, invisible to the MQTT compartment, and on a new \keyword{trusted stack} activation record.
@@ -588,6 +588,7 @@ MQTT example: Subscribing to test topic 'cheriot-book-example'.
 MQTT example: Now fetching the SUBACK.
 MQTT example: Got an ACK for packet 0x1
 \end{console}
+\amanda{Another example of why console{} should be non-breaking: in the PDF, this output spans three pages because of the mqtt_run functiondoc and mqttackcallback code listing.}
 
 Next, the example will publish a message on the same topic and make sure that it is received.
 The publish part is shown in \ref{lst:mqttpublish}.
@@ -642,7 +643,7 @@ It can fail, for example by running out of memory to hold the disconnection mess
 \section{Enforcing network access policies}
 
 The network stack comes with a \file{network_stack.rego} file that provides helpers for inspecting the state of the network stack.
-You pass this as an argument to the \flag{--module} (or \flag{-m}) flags for \command{cheriot-audit}.
+You pass this as an argument to the \flag{--module} (or \flag{-m}) flag for \command{cheriot-audit}.
 For the rest of this section, we'll use \command{cheriot-audit} to inspect and audit the \ref{mqtt} example.
 From the \file{examples/mqtt} directory, you will need to run a command like this:
 
@@ -657,7 +658,7 @@ This assumes that \command{cheriot-audit} is in your path.
 If it is not, provide the full path, for example \file{/cheriot-tools/bin/cheriot-audit} in the dev container.
 The first two arguments need to be paths to wherever the network stack and CHERIoT RTOS sources are located.
 The \flag{-j} flag should be copied as-is, this finds the JSON file that the linker created with the audit report for the firmware image.
-Finally, you will provide a query for the \flag{-q}, which will be different as you work through the example.
+Finally, you will provide a query for the \flag{-q}, which will be different as you work through the examples.
 
 If you want to actually read the JSON output, you will find that piping it to \command{jq} is helpful, which will pretty-print (and colour) the output.
 
@@ -700,8 +701,8 @@ You should see the following JSON as the result:
 This tells you that there are two compartments that can make sockets.
 The MQTT example compartment can make a TCP connection to the Mosquitto test server on port 8883.
 The SNTP compartment can create a UDP socket and open a firewall rule that allows it to communicate with the public NTP pool on the well-known NTP port.
-TCP is connection-oriented and so the network stack implicitly opens firewall rules on connection.
-UDP is connectionless and so there are explicit APIs for opening firewall rules that allow a UDP host to communicate with explicit peers.
+TCP is connection-oriented so the network stack implicitly opens firewall rules on connection.
+UDP is connectionless so there are explicit APIs for opening firewall rules that allow a UDP host to communicate with explicit peers.
 The connection capabilities are similar in both cases but their use is different.
 
 Remember that capabilities can be delegated.
@@ -756,6 +757,7 @@ data.compartment.compartments_calling_export_matching(
 	"TCPIP",
 	"network_socket_send_to.*") 
 \end{regosnippet}
+\amanda{Is there a reason that this snippet uses "" around network_socket_send_to.* instead of ``?}
 
 And now that we see that the only compartment sending data over UDP is the SNTP compartment:
 
@@ -790,7 +792,7 @@ This compartment exports a single symbol, which takes a single \c{Timeout} argum
 This could potentially leak data via the timeout.
 If you are concerned about this, you can wrap the calls to this function in another compartment and audit the source of that.
 
-There's another way that you might leak data to the SNTP compartment, via pre-shared objects.
+There's another way that you might leak data to the SNTP compartment: via pre-shared objects.
 You can ask if the SNTP compartment has access to any pre-shared objects with the following query:
 
 \begin{regosnippet}
@@ -815,7 +817,7 @@ This tells you that, yes, it does:
 ]
 \end{jsonsnippet}
 
-This can't contain capabilities, but it is readable and so if another compartment has write access to this object then it could communicate data to the SNTP compartment.
+This can't contain capabilities, but it is readable so if another compartment has write access to this object then it could communicate data to the SNTP compartment.
 We can check that with an allow-list query:
 
 \begin{regosnippet}
@@ -879,7 +881,7 @@ The remaining one was a failure to properly implement DNS, which could allow DNS
 
 All of these are mitigated by the compartmentalisation model in the CHERIoT network stack.
 The DNS attack may still be possible, but very hard to exploit.
-The vulnerability was that DNS responses were processed even if they did not accompany a query and so sending a DNS response to the device would cause it to add the entry to its cache and then not do the DNS query when it was requested.
+The vulnerability was that DNS responses were processed even if they did not accompany a query so sending a DNS response to the device would cause it to add the entry to its cache and then not do the DNS query when it was requested.
 The CHERIoT firewall drops in-bound DNS packets except when a DNS request is known to be in flight, so attempting to send the response to the device early would simply be ignored.
 An attacker would have needed to time the attack for when a DNS response was in flight.
 An attacker who can observe DNS requests leave the device and send packets in response can simply lie in the DNS response (unless DNSSEC is being used) and could achieve the same result on any system even without the bug.
@@ -923,7 +925,7 @@ When it reaches zero, the error handler knows that reset is finished.
 Other threads may allocate memory during the shutdown process, so the error handler will call \c{heap_free_all} several times during the shutdown process.
 
 Once everything is deallocated, the error handler increments an epoch counter.
-This is a 64-bit counter (and so will never overflow in the plausible lifetime of the device).
+This is a 64-bit counter (so it will never overflow in the plausible lifetime of the device).
 
 Every socket structure contains a copy of the epoch counter from when it was created.
 If a socket is not currently being used, it will have been removed from the list, but the memory won't have been freed because memory is allocated with the caller's quota and not the network stack's.
@@ -954,7 +956,7 @@ The TCP/IP compartment crashing is no different; it will appear as if the connec
 If DHCP is taking its usual amount of time, attempting to reconnect may fail for a second or two, and will then succeed.
 
 The failure will be propagated through any of the other compartments that you're using from the network stack.
-For example, if you're using MQTT then the TLS compartment will have a send or receive fail.
+For example, if you're using MQTT, the TLS compartment will have a send or receive fail.
 It will then report that the TLS session has been disconnected to the MQTT compartment.
 This, in turn, will report to you that the MQTT connection has dropped the next time you call publish, subscribe, or run functions.
 
