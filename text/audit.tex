@@ -23,7 +23,7 @@ This is an important property for a security system.
 If an attacker wants to break a system that fails open then they simply need to induce a fault of some kind and the failure mode will grant them the access that they require.
 
 The linker creates the audit report and also creates the instructions for the loader.
-If these instructions are omitted, the loader will not provide the compartment with a capability and so, even if the compartment gains knowledge of some address, it does not gain rights to access any memory.
+If these instructions are omitted, the loader will not provide the compartment with a capability so, even if the compartment gains knowledge of some address, it does not gain rights to access any memory.
 If an attacker manages to sneak something into object code that is linked into some firmware and this does not show up in the audit report then it should also not be used in the metadata that the linker generates to instruct the loader to provision capabilities.
 This approach is intended to ensure that hiding things from the audit report does not result in increased rights (failing closed).
 
@@ -75,7 +75,7 @@ The \command{cheriot-audit} command takes three mandatory inputs, provided as co
 		This provides all of the information about the linked image.}
 	\item[tag=The board description file.]{ This is provided with the \flag{--board} (or \flag{-b}) flag and normally found in the \file{boards} directory in the SDK, but may alternatively be provided by some other board support package.
 		This describes the memory layout and allows policies to map from the numerical addresses in the audit report to device names.}
-	\item[tag=The query to run.]{ This is the Rego query to run, provided with \flag{--query} (or \flag{-q}.}
+	\item[tag=The query to run.]{ This is the Rego query to run, provided with \flag{--query} (or \flag{-q}).}
 \end{description}
 
 Rego is modular.
@@ -118,7 +118,7 @@ If you want to invoke a rule from the \rego{compartment} module, it will be writ
 \section{Exploring a firmware image}
 
 Now that we can run \command{cheriot-audit} on the hello-world example, let's try to learn a bit about it.
-This example has no compartmentalisation and so the UART device is directly accessible in the single user-provided compartment in the example.
+This example has no compartmentalisation so the UART device is directly accessible in the single user-provided compartment in the example.
 Try this query, to see what compartments or libraries have access to the UART:
 
 \begin{regosnippet}
@@ -135,7 +135,7 @@ If everything is built correctly (and, in particular, if you're using the \texte
 \end{jsonsnippet}
 
 This tells us that the debug library is directly accessing the UART.
-Remember that CHERIoT shared libraries do not (unless they are carefully written assembly) protect their state against callers and so this means that any compartment that calls any of the entry points in that library should be assumed to be able to access the UART.
+Remember that CHERIoT shared libraries do not (unless they are carefully written assembly) protect their state against callers and this means that any compartment that calls any of the entry points in that library should be assumed to be able to access the UART.
 Ask \command{cheriot-audit} which compartments call functions in the debug library with this query:
 
 \begin{regosnippet}
