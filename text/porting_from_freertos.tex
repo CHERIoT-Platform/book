@@ -70,7 +70,7 @@ The compatibility layer exposes \c{xTaskCreate} and \c{xTaskCreateStatic} as mac
 This is intended to ease porting of code that conditionally uses these APIs.
 
 The best way to replace dynamic thread creation is usually to create the threads declaratively in the build system.
-If they need to be started only after a certain event, then you can wait on a futex (see \ref{futex}) and notify that futex at the point where the original code called `xTaskCreate`.
+If they need to be started only after a certain event, then you can wait on a futex (see \ref{futex}) and notify that futex at the point where the original code called \c{xTaskCreate}.
 
 \section{Using thread pools to replace coroutines}
 
@@ -154,7 +154,7 @@ A lot of users of the event groups API could use simpler wrappers around a futex
 \section{Adopting CHERIoT RTOS locks}
 
 CHERIoT RTOS provides futexes as the building block for most locks.
-This can be used to build counting semaphores, ticket locks, mutexes, priority-inheriting mutexes, and so on.
+These can be used to build counting semaphores, ticket locks, mutexes, priority-inheriting mutexes, and so on.
 Several of these are implemented in the locks library and exposed via \file{locks.h} (and \file{locks.hh} for C++ wrappers).
 
 
@@ -170,7 +170,7 @@ For example, FreeRTOS uses \c{SemaphoreHandle_t} to represent semaphores and rec
 These must be created with different functions and then locked and unlocked with different functions, but creating something as a semaphore and then trying to lock it as a recursive mutex will compile.
 In contrast, CHERIoT RTOS exposes these as distinct types and will fail to compile if you try to pass a semaphore to, for example, \c{recursivemutex_trylock}.
 
-The \file{FreeRTOS-Compat/semphr.h} header provides wrappers for the various kinds of FreeRTOS semaphore and mutex.
+The \file{FreeRTOS-Compat/semphr.h} header provides wrappers for the various kinds of FreeRTOS semaphores and mutexes.
 These expose the FreeRTOS APIs and wrap all of the relevant CHERIoT RTOS types in a union with a discriminator.
 This adds a small amount of overhead for dynamic dispatch. 
 Code that uses only one type of semaphore can avoid this.
