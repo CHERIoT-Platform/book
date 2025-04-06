@@ -8,19 +8,19 @@ If you have existing code that runs happily on bare metal, you may consider CHER
 	\item{You really love memory safety.}
 \end{itemize}
 
-These reasons are often some variation on needing to do two more more things in different security contexts on a single device.
-This means that your workloads are going to now run with their privileges reduced enough that they cannot interfere (beyond permitted amounts) with each other.
+These reasons are often some variation on needing to do two or more things in different security contexts on a single device.
+This means that your workloads are now going to run with their privileges reduced enough that they cannot interfere (beyond permitted amounts) with each other.
 
 \section{Replacing a real-time control loop}
 
 Control systems often run with a single loop that polls for some input, manages a (potentially very complex) state machine, and sets some output state.
 You can get precisely this model by running code in CHERIoT RTOS with interrupts disabled.
 
-A function that has the \c{[[cheriot::interrupt_state(disabled)]]} attribute will run with interrupts disabled and so has exclusive use of the core until it yields.
+A function that has the \c{[[cheriot::interrupt_state(disabled)]]} attribute will run with interrupts disabled and has exclusive use of the core until it yields.
 You can add this attribute to the entry point for the thread running your control loop to start with interrupts disabled.
 
 The scheduler will always schedule the highest-priority runnable thread (or round-robin schedule threads if more than one is runnable at the same priority).
-If your thread is the highest priority, it won't be preempted, but interrupts may still fire and cause the scheduler to perform some book-keeping work.
+If your thread is the highest priority, it won't be preempted, but interrupts may still fire and cause the scheduler to perform some bookkeeping work.
 Disabling interrupts and running with the highest priority ensures that a thread is scheduled first and continues to run for as long as it wants to.
 
 This is a direct replacement of a real-time control loop, but somewhat misses the point of running an RTOS: no other threads will run.
