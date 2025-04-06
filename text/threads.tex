@@ -61,15 +61,16 @@ The ID of each thread is stored in the register save area for that thread and th
 
 Thread IDs start at one (not zero!) because zero is used to indicate the idle thread and so is never visible.
 The \c{thread_count} function returns the number of threads that have been created in the system.
-This is not decremented when threads exit and so provides the upper bound on the number of threads that may exist.
+This is not decremented when threads exit, so it provides the upper bound on the number of threads that may exist.
 This can be used to size data structures that are indexed by thread ID.
 
 \functiondoc{thread_count}
+\amanda{In this functiondoc, the very last line should read "...safe to cache, as it will never change..."}
 
 \begin{caution}
 	Somewhat counter intuitively, \c{thread_id_get} is faster than \c{thread_count} to call.
 	The former is a libcall that that switcher implements, the latter is a cross-compartment call into the scheduler.
-	This is not normally a problem because the result of \c{thread_count} does not change and so can be cached in a compartment, whereas the result of \c{thread_id_get} depends on the current thread and so cannot be cached.
+	This is not normally a problem because the result of \c{thread_count} does not change and can be cached in a compartment, whereas the result of \c{thread_id_get} depends on the current thread and cannot be safely cached.
 \end{caution}
 
 The \file{current_thread} example shows calling these functions.
@@ -79,7 +80,7 @@ The entry point function for this is shown in \ref{lst:currentthread} and the th
 
 \lualisting[filename=examples/current_thread/xmake.lua,marker=threads,label=lst:currentthreadxmake,caption="The thread definitions for the current-thread example"]{}
 
-Note that thread two has a higher priority than thread one.
+Note that the second thread has a higher priority than thread one.
 When you run this example, you should see output like this:
 
 \begin{console}
@@ -135,7 +136,7 @@ This allows it to be forwarded to subsequent calls trivially.
 \begin{warning}
 Timeouts may not be stored on the heap.
 Any function checking timeouts may refuse to accept a heap-allocated timeout.
-It is difficult to work with heap-allocated timeouts because they may be deallocated while the thread is sleeping, which would then cause it to crash on updating the timeout structure.
+It is difficult to work with heap-allocated timeouts because they may be deallocated while the thread is sleeping, which would then cause it to crash upon updating the timeout structure.
 \end{warning}
 
 \section{Sleeping}
@@ -168,7 +169,7 @@ The scheduler may wake the yielding thread if no other thread is going to be run
 This allows high-priority threads to allow other threads to run, but continue using the CPU if no other thread is runnable.
 
 In some cases, you really want to sleep.
-For example, if you're updating a clock display, you will want to run once a second or once a minute to update a display.
+For example, if you're updating a clock display, you will want to run once a second or once a minute to update the display.
 The same applies if you're sending keep-alive packets or periodically monitoring some other component.
 In these cases you definitely have no useful work to do, irrespective of the state of any other threads that can or cannot run.
 You can pass \c{ThreadSleepNoEarlyWake} as the \c{flags} argument to \c{thread_sleep} to indicate that you really want to sleep.
@@ -195,9 +196,10 @@ If thread one did \textem{not} yield then it would be preempted after one tick.
 
 \begin{note}
 If you run this with the Sail simulator, do not be surprised if the cycle counts look very small.
-Sail is not a cycle-accurate model and so the cycle count is guaranteed to be monotonic, but not to represent a real system in any way.
+Sail is not a cycle-accurate model. The cycle count is guaranteed to be monotonic, but not to represent a real system in any way.
 The snippets in this section are using the Ibex simulator.
 \end{note}
+\amanda{This note comes in at a weird place.  Is it possible to change the "console" designation to not split in the middle?  It doesn't need to stay all on the same page, but notes or functiondocs coming in the middle of it make it more difficult to read.}
 
 Try modifying this example, adding \c{ThreadSleepNoEarlyWake}  as a second argument to the \c{thread_sleep} call.
 You should now see output that looks very similar, but shows lower cycle counts at the end:
@@ -212,7 +214,7 @@ Cycles elapsed: 252273
 \end{console}
 
 Here you see that the total execution time has gone from 265,806 cycles to 252,273.
-In the original version, when thread one slept (after doing far less than one tick's worth of work), there were no runnable threads and so the scheduler does nothing for a while.
+In the original version, when thread one slept (after doing far less than one tick's worth of work), there were no runnable threads so the scheduler does nothing for a while.
 Eventually, thread two (the high-priority thread) is runnable again and it resumes.
 In the version with \c{ThreadSleepNoEarlyWake}, thread two can resume as soon as thread one sleeps.
 Similarly, when thread two yields for the second time, thread one will resume.
@@ -226,8 +228,10 @@ This does not quite apply on a CHERIoT system, where there is no userspace, but 
 A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-sleep (\c{futex_timed_wait}) and notify (\c{futex_wake}) operations.
 
 \functiondoc{futex_timed_wait}
+\amanda{In this functiondoc, in the first paragraph, "until this the thread" should be "until the thread"}
 
 \functiondoc{futex_wake}
+\amanda{In this functiondoc, in the second paragraph, "must be a valid, unsealed, pointer" should be "valid unsealed pointer"}
 
 \begin{note}
 	In C++, \cxx{std::atomic<uint32_t>} provides \cxx{wait}, \cxx{notify_all}, and \cxx{notify_one} methods that expose futex functionality and may be more convenient to call than the raw futex APIs.
@@ -484,6 +488,7 @@ You can then subsequently wait for some of the events to be set with the \c{even
 This takes a set of events to wait for and can wait until either some or all of them are set.
 
 \functiondoc{eventgroup_wait}
+\amanda{In the PDF, this functiondoc appears after the beginning of the next section.}
 
 This call can also atomically clear the bits that you've waited on, giving them edge-triggered behaviour.
 
@@ -508,6 +513,7 @@ There is no expectation that it is protected from the caller.
 The functions exposed by the library are (by their nature as shared-library functions) shared between any compartments that use the library, but this is a code-size reduction exercise not a security boundary.
 
 \functiondoc{queue_create}
+\amanda{In this functiondoc, in the second paragraph, "The queue is has space" should be "The queue has space"}
 
 Queues can be freed simply with \c{heap_free} but doing so may result in deadlocks.
 If a thread is blocked trying to send or receive from a queue then it will remain blocking if the queue is freed out from underneath it.
@@ -520,12 +526,13 @@ Messages are sent with \c{queue_send} and received with \c{queue_receive}.
 These are blocking (if allowed to by a non-zero timeout) calls that send or receive a single message.
 
 \functiondoc{queue_send}
+\amanda{In this functiondoc, in the last paragraph, "This expected to be called" should be "This expects to be called" or "This is expected to be called"}
 
 \functiondoc{queue_receive}
 
 \begin{caution}
 The library interfaces to queues are not intended to be robust in the presence of malicious callers.
-They run in the same security context as the caller and so a caller may abuse them to corrupt its own state.
+They run in the same security context as the caller, so a caller may abuse them to corrupt its own state.
 They do aim to be robust with respect to the source or destination buffer for sending and receiving messages being invalid or concurrently deallocated.
 This robustness is implemented using the scoped error handling and so requires calling compartments to link the relevant error handler, as documented in \ref{_using_scoped_error_handling}.
 \end{caution}
@@ -566,10 +573,10 @@ Try adjusting the queue size and the priorities of the two threads to see how th
 \section{Sending messages between compartments}
 
 If you are passing messages between compartments, you should use the versions of these functions with the \c{_sealed} suffix.
-These are provided by the compartmentalised version and so ensure that the queue's internal state is not mutated by its callers.
+These are provided by the compartmentalised version and ensure that the queue's internal state is not mutated by its callers.
 
 The \c{queue_create_sealed} function creates a queue in exactly the same way as \c{queue_create} (and has the same argument structure) but returns a \keyword{sealed} pointer to it.
-Nowhere outside of the queue compartment can unseal this and so the queue is protected against tampering.
+Nowhere outside of the queue compartment can unseal this so the queue is protected against tampering.
 The queue may still contain malicious or malformed data, but you have guarantees that messages will arrive in order and that they won't be tampered with in flight.
 
 \functiondoc{queue_create_sealed}
@@ -601,6 +608,7 @@ Instead, the producer waits for the consumer to finish draining the queue and th
 \codelisting[filename=examples/producer_consumer_compartment/producer.cc,marker=queue_cleanup,label=lst:queuemulticompartmentfree,caption="Freeing a message queue once it is empty."]{}
 
 \functiondoc{queue_destroy_sealed}
+\amanda{In this functiondoc, in the PDF one of the lines overflows the box. I cannot tell why.}
 
 The corresponding send and receive functions are identical to their library counterparts, but take sealed queue handles.
 Sometimes, it's useful to be able to give one compartment the ability to write to a queue and another the ability to read.
