@@ -30,7 +30,7 @@ The memory layout will put code then globals into memory and then the heap after
 In most systems, there is more code than heap and so, to reduce costs, not all memory needs to support tags.
 
 Our security guarantees for the shared heap depend on the mechanism that allows the allocator to mark memory as quarantined.
-Any pointer to memory in this region is subject to a check (by the hardware) on load: if it points to deallocated memory then it will be invalidated on load.
+Any pointer to memory in this region is subject to a check (by the hardware) on load: if it points to deallocated memory, it will be invalidated on load.
 This mechanism is necessary only for memory that can be reused by different trust domains during a single boot.
 Memory used to hold globals and code does not require it so an implementation may save some hardware and power costs by supporting these temporal safety features for only a subset of memory.
 As such, we require a range of memory that is used for static code and data ('instruction memory') that is not required to support this mechanism and an additional range that \textem{must} support this for use as the shared heap ('heap memory').
@@ -140,7 +140,7 @@ Each of the paths in \file{driver_includes} is, by default, relative to the loca
 Optionally, it may include the string \json{$(sdk)}, which will be replaced by the full path of the SDK directory.
 For example, \json{"$(sdk)/include/platform/generic-riscv"} will expand to the generic RISC-V directory in the SDK.
 
-The driver headers use \c{#include_next} to include more generic files and so it is important to list the directories containing your overrides first.
+The driver headers use \c{#include_next} to include more generic files so it is important to list the directories containing your overrides first.
 
 \section{Enabling simulation support}
 
