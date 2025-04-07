@@ -9,7 +9,7 @@ They can export functions to be called from other compartments and can call func
 Like a shared library, they have code and globals associated with them, but a \keyword{cross-compartment call} crosses a security boundary, in the same way that an IPC message would.
 
 CHERIoT shared libraries are a lightweight way of reusing code without duplicating it into different compartments.
-They provide a very similar programming model to simply copying and pasting a function into every compartment that uses it, without the space overhead.
+They provide a very similar programmer model to simply copying and pasting a function into every compartment that uses it, without the space overhead.
 Calling a library function does not involve crossing a security boundary.
 Libraries contain code and read-only data but do not have mutable globals.
 It is possible for libraries to hold secrets but, unless library functions are written in very careful assembly, they should assume that any (immutable) globals in the library can leak to callers.
@@ -502,9 +502,6 @@ If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
 
 \functiondoc[usr="c:@N@CHERI@FT@>4#N$@N@CHERI@S@PermissionSet#Nb#Nb#Tcheck_pointer#&t0.3#i#b#"]{check_pointer}
-\amanda{In this functiondoc, in the 1st paragraph, "Space" should not be capitalized.}
-\amanda{In this functiondoc, in the 4th paragraph, "this will also set the permissions of passed capability reference to Permissions" should either be "a passed capability reference" or "passed capability references"}
-\amanda{In this functiondoc, "less" should be "fewer."  Permissions are discrete and countable.}
 
 \begin{note}
 Checking the pointer is not the only option.
