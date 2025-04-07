@@ -75,11 +75,11 @@ The container image is \file{ghcr.io/cheriot-platform/devcontainer:latest}.
 You can run this directly from the directory where you checked out the RTOS repository:
 
 \begin{console}
-$ docker run --rm -it --mount \\
+$ docker run --rm -it \\
+	--mount \\
 	source=$(pwd),target=/home/cheriot/cheriot-rtos,type=bind \\
 	ghcr.io/cheriot-platform/devcontainer:latest
 \end{console}
-\amanda{In the PDF version, the line beginning with --mount is slightly too long and wraps.  I've edited it to avoid that, but you may wish to break it up differently.}
 
 This command will create a single instance of the container with the current directory mounted as \file{/home/cheriot/cheriot-rtos}.
 This creates an ephemeral instance. 
@@ -141,7 +141,7 @@ C and C++ are more complex than many languages for syntax highlighting and cross
 Consider even a simple hello-world C program, which starts with \c{#include <stdio.h>}.
 Where does \file{stdio.h} come from?
 That typically depends on command-line arguments passed to the compiler.
-For native compilation, there may be some good places to guess (such as \file{/usr/include} on *NIX platforms) but for cross-compilation, this is harder.
+For native compilation, there may be some good places to guess (such as \file{/usr/include} on *NIX platforms) but for cross compilation, this is harder.
 This gets more complex with code that references macros passed on the command line.
 Without knowing the command line for the compiler, the syntax highlighter can't even tell the type of these identifiers.
 
