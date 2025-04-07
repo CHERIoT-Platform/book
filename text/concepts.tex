@@ -115,7 +115,7 @@ On a CHERIoT system, which is a CHERI RISC-V variant, this instruction looks sli
 
 Now, it is loading a word into \reg{s0} from offset eight relative to the \textem{capability} (not address) in register \reg{ca1} (\reg{a1} extended to hold a capability.)
 This instruction will check that the capability in \reg{ca1} is a valid capability, check that it has load permission, and check that the range covered by the four-byte load starting at offset eight from the current address is all in bounds.
-If, and only if, all of these checks pass, it will do the same load as the original version.
+If, and only if, all of these checks pass, will it do the same load as the original version.
 If any of these fail, the instruction will trap.
 The next section explains what it means for a capability to be valid and what permissions a capability can hold.
 
@@ -147,7 +147,7 @@ The latter avoids a large category of confused deputy attacks, where a component
 
 The phrase 'differently trusted' in the previous paragraph is not an attempt to extend political correctness to software components.
 Capability systems do not imply hierarchical trust models.
-Two components may hold disjointed or overlapping sets of capabilities that allow each to perform some set of actions that the other cannot.
+Two components may hold disjoint or overlapping sets of capabilities that allow each to perform some set of actions that the other cannot.
 In a CHERI system, this can include one component having read access to an object and another write access, or two components having access to different fields of the same structure.
 
 \section{Restricting memory access with compressed bounds}
