@@ -568,7 +568,7 @@ The call is shown in \ref{lst:mqttsuback}.
 
 \codelisting[filename=examples/mqtt/mqtt.cc,marker=suback,label=lst:mqttsuback,caption="Waiting for acknowledgement after subscribing to an MQTT topic."]{}
 
-The callbacks that \c{mqtt_run} invoke are the ones that were passed in \ref{lst:mqttconnect}.
+The callbacks that \c{mqtt_run} invokes are the ones that were passed in \ref{lst:mqttconnect}.
 These are CHERIoT cross-compartment callbacks.
 The one for acknowledgements is shown in \ref{lst:mqttackcallback}.
 This will run in the compartment that defined it, invisible to the MQTT compartment, and on a new \keyword{trusted stack} activation record.
@@ -714,6 +714,14 @@ data.compartment.compartments_calling_export_matching("NetAPI",
 `network_socket_connect_tcp\(.*`)
 \end{regosnippet}
 
+\begin{note}
+	Rego uses double quotes for normal strings.
+	These follow similar escaping rules to C so, for example, \rego{"\t"} is a string containing a tab character.
+	You can avoid this processing by using backticks to designate a \keyword{raw string}.
+	The Rego raw \rego{`\t`} is a string containing a backslash and the letter 't'.
+	It's common to use raw strings when constructing regular expressions to avoid needing to escape backslashes.
+\end{note}
+
 The report contains the mangled name of the export, which includes the types.
 This query uses a regular expression to match anything with the function name followed by an open bracket, so will catch any overload of the function (this function has no overloads but specifying all of the arguments is tedious).
 The output should look like this:
@@ -757,7 +765,6 @@ data.compartment.compartments_calling_export_matching(
 	"TCPIP",
 	"network_socket_send_to.*") 
 \end{regosnippet}
-\amanda{Is there a reason that this snippet uses "" around network_socket_send_to.* instead of ``?}
 
 And now that we see that the only compartment sending data over UDP is the SNTP compartment:
 
