@@ -56,8 +56,7 @@ In general (not limited to CHERIoT) they exist for two reasons:
 
 \begin{description}
 	\item[tag=Abstraction]{ A device driver allows software to be written to interface with a \keyword{device class} rather than a single device.}
-	\item[tag=Multiplexing]{ A device may need to be accessed by different software components.}
-\amanda{I recommend changing the description of multiplexing to read something like "A device driver allows multiple different software components to access the device." so that it's more consistent with the description for Abstraction.}
+	\item[tag=Multiplexing]{ A device driver allows multiple different software components to access the device.}
 \end{description}
 
 If you want to write a USB protocol stack or a network stack, you need some generic interface to USB controllers or Ethernet interfaces.
@@ -134,7 +133,7 @@ __always_inline volatile struct EthernetMMIO *ethernet_device()
 This macro must be used in code, it cannot be used for static initialisation.
 The macro expands to a load from the compartment's import table.
 Assigning the result of it to a global is an antipattern: you will get smaller code using it directly.
-The helper shown here will be inlined and expand to a single load capability load.
+The helper shown here will be inlined and expand to a single load capability.
 \amanda{Should "load" be in this sentence twice?}
 \end{note}
 
