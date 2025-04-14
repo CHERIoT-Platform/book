@@ -58,7 +58,7 @@ There are two compartments in this example, the entry compartment and the compar
 
 The exported (library and compartment) functions will print the stack, code, and globals regions, respectively.
 The compiler provides builtin functions to copy two of these (the program counter and stack capabilities) but the third, the globals pointer, requires some inline assembly.
-The inline assembly needs to run at the start of the function because this function does not reference any globals and so the compiler will otherwise spill this register to use it as a temporary.
+The inline assembly needs to run at the start of the function because this function does not reference any globals, so the compiler will otherwise spill this register to use it as a temporary.
 
 \codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
 
@@ -186,7 +186,7 @@ Any library or compartment that is a direct or indirect dependency of a firmware
 For this example, we show both forms.
 The entry compartment lists both the library and the example compartment as explicit dependencies because it calls both of them.
 The firmware definition (\ref{lst:xmakeaddcompartmentdeps}) adds the entry compartment as an explicit dependency, which then pulls in the other two.
-This firmware also depends on two libraries from the core RTOS, the freestanding library, which provides the core of the C run-time environment, and the debug library which is pretty-printing the debug messages.
+This firmware also depends on two libraries from the core RTOS, the freestanding library, which provides the core of the C run-time environment, and the debug library which pretty-prints the debug messages.
 
 \lualisting[filename=examples/library_or_compartment/xmake.lua,marker=compartments_as_dependencies,label=lst:xmakeaddcompartmentdeps,caption="Build system code for adding dependencies on compartment and library targets"]{}
 
@@ -215,7 +215,7 @@ It does not trust anything on the outside and assumes that everything else is tr
 The memory allocator is also written as a safebox, assuming that everything else is trying to either make it crash or leak powerful capabilities.
 For some operations, the scheduler invokes the allocator.
 The scheduler trusts the allocator to enforce heap memory safety.
-It does not, for example, try to check that the memory allocator is returning disjoint capabilities (it can't see every other caller of \c{heap_allocate}, and so couldn't validate this).
+It does not, for example, try to check that the memory allocator is returning disjoint capabilities (it can't see every other caller of \c{heap_allocate}, so it couldn't validate this).
 It is, however, written to assume that other compartments may try to maliciously call allocator APIs to cause it to crash, for example by freeing memory that the scheduler is using.
 When thinking about trust, it's worth trying to articulate the properties that other code is trusted to enforce or preserve.
 For example, everything in the CHERIoT system trusts the scheduler for availability.
@@ -319,7 +319,7 @@ The macro (\c{DECLARE_AND_DEFINE_COUNTER}) lets users of this API define a new c
 
 The increment function from this header is defined in \ref{lst:monotonicincrement}.
 This uses \cxx{token_unseal} to unseal the sealed argument.
-This will return null if the unseal fails, or a valid unsealed object.
+This will return a valid unsealed object, or null if the unseal fails.
 Note that this uses the static sealed value via the \c{STATIC_SEALING_TYPE} macro.
 The sealing type doesn't need to be declared, simply using it here ensures that it is exported from the compartment.
 Trying to use a sealing type that isn't exported from a function will result in a linker error.
@@ -426,7 +426,7 @@ At a high level, components are typically trusted (or not) with respect to three
 
 \begin{description}
 	\item[tag=Confidentiality]{How does information flow out of this component?}
-	\item[tag=Integrity]{What how can information be modified by this component?}
+	\item[tag=Integrity]{How can information be modified by this component?}
 	\item[tag=Availability]{What can this component prevent from working?}
 \end{description}
 
@@ -451,7 +451,7 @@ Doing this does not add security value.
 Neither compartment is exposed to an attacker and so you're just protecting against bugs.
 The compartment with direct access to the device is just passing a value from a function argument to the device.
 It is unlikely that there will be a bug in this code that can affect the rest of the system.
-Conversely, the code that can call this can do everything that this compartment can do and so you haven't reduced the damage that a bug can cause.
+Conversely, the code that can call this can do everything that this compartment can do, so you haven't reduced the damage that a bug can cause.
 
 Now imagine a slightly more complex device where, rather than lighting a single LED, you are driving an LED strip that takes a 24-bit colour value for each LED in the strip, encoded as a waveform down a two-wire serial line.
 If you generate the wrong waveform, you'll get the wrong pattern and so there is an availability property that you can protect by moving the code that pauses and toggles a GPIO pin into a separate driver compartment.
@@ -460,8 +460,8 @@ Running with interrupts disabled has availability implications on the rest of th
 If you put the driver in a separate compartment then you are protected in both directions:
 
 \begin{itemize}
-	\item{The driver is the only thing that can touch the relevant GPIO pin and so, if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.}
-	\item{The driver runs with interrupts disabled but the rest of the application runs with interrupts enabled and so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
+	\item{The driver is the only thing that can touch the relevant GPIO pin, so if the code in that driver is correct, nothing can cause the strip to be incorrectly programmed.}
+	\item{The driver runs with interrupts disabled but the rest of the application runs with interrupts enabled, so you can audit the driver code to ensure that it doesn't cause problems for anything else that the microcontroller is doing.}
 \end{itemize}
 
 This then gives you something to build on if you decide, for example, that you want to be able to update the lighting patterns from the Internet.
@@ -470,16 +470,16 @@ What does the threat model look like?
 
 The network stack is exposed to the Internet and so is the most likely place for an attack to start.
 If this needs to interact with the network hardware with interrupts disabled then you probably want to put that part in a separate network driver compartment so that an attacker can't cause the network stack to sit with interrupts disabled forever.
-A lot of common attacks on network stacks will simply fail on a CHERIoT system because they depend on violating memory safety but it's possible that an attacker will find novel techniques and compromise the network stack.
+A lot of common attacks on network stacks will simply fail on a CHERIoT system because they depend on violating memory safety, but it's possible that an attacker will find novel techniques and compromise the network stack.
 
 You will want narrow interfaces between the network stack and the TLS stack, so that the worst that an attacker with full control over the network stack compartment can do is provide invalid packets (and an attacker can do that from the Internet anyway).
 The TLS stack will decode complete messages and forward them to the interpreter compartment.
-TLS packets have cryptographic integrity protection and so anything that comes through this path is probably safe, unless the TLS compartment is compromised, but putting the interpreter in a separate compartment ensures that invalid interpreter code can provide different colours to the LEDs but can't damage the LEDs and can't launch attacks over the network.
+TLS packets have cryptographic integrity protection so anything that comes through this path is probably safe (unless the TLS compartment is compromised) but putting the interpreter in a separate compartment ensures that invalid interpreter code can provide different colours to the LEDs but can't damage the LEDs and can't launch attacks over the network.
 
 \section{Validating arguments}
 
 If a function that is exported from a compartment takes primitive values as arguments, there's little that an attacker can do other than provide invalid values.
-For things like integers, this doesn't matter, for enumerations it's important to ensure that they are valid values.
+For things like integers, this doesn't matter; for enumerations it's important to ensure that they are valid values.
 
 Pointers are more complicated.
 There are a few things that an attacker can do with pointer arguments to invoke a crash:
@@ -496,7 +496,7 @@ There are a few things that an attacker can do with pointer arguments to invoke 
 Any of these (or similar attacks) will allow an attacker to cause your compartment to encounter a fault when it tries to use the pointer.
 
 In general, you will want to check permissions and bounds on any pointer argument that you're passed.
-The \c{CHERI::check_pointer"} function helps here.
+The \c{CHERI::check_pointer} function helps here.
 It checks that a pointer has (at least) the bounds and permissions that you expect and that it isn't in your current stack region.
 If you don't specify a size, the default is the size of the argument type.
 You can use this to quickly check any pointer that's passed to you.
@@ -518,8 +518,9 @@ You can check whether a pointer refers to heap memory by calling \c{heap_address
 If this returns true, you can prevent deallocation by using the \keyword{claim} mechanism, described in \ref{heap_claim}.
 
 \functiondoc{heap_address_is_valid}
+\amanda{In this functiondoc, "check_pointer" should be formatted as a command.}
 
-Alternatively, you can use the ephemeral claim mechanism (also documented in \ref{heap_claim} to ensure that a pointer is either a pointer that cannot be freed, or to ensure that it remains live until the next cross-compartment call.
+Alternatively, you can use the ephemeral claim mechanism (also documented in \ref{heap_claim}) to ensure that a pointer is either a pointer that cannot be freed, or to ensure that it remains live until the next cross-compartment call.
 These techniques are all combined in \ref{lst:safeuartchecks}, which is a simple function that prints a string to the UART, defensively.
 
 \codelisting[marker=safe_uart,caption=Checks to ensure that a function does not crash.,label=lst:safeuartchecks, filename=examples/check_arguments/uart.cc]{}
