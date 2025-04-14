@@ -78,7 +78,8 @@ This combination of features allows the allocator to provide complete spatial an
 \functiondoc{heap_allocate}
 
 \functiondoc{heap_free}
-\amanda{In the PDF, this functiondoc appears after the start of the next section.}
+
+\functiondoc{heap_free_all}
 
 The \c{heap_allocate} and \c{heap_free} functions take a capability, as described above, that authorises allocation and deallocation.
 When an object is allocated with an explicit capability, it may be freed only by presenting the same capability.
@@ -90,12 +91,10 @@ This means that if you pass a heap-allocated buffer to another compartment, that
 	The allocator uses a priority-inheriting lock, which is dropped while blocking.
 	If a high-priority thread frees memory while a lower-priority thread owns the lock then the lower-priority thread will wake up, complete its allocation or deallocation, release the lock, and allow the higher-priority thread to resume.
 \end{note}
-\amanda{In the PDF, this note appears after the start of the next section.  It may be worthwhile to change the \section{} code to not start until the previous section has finished, if that is possible.}
 
 If you need to clean up all memory allocated by a particular capability, \c{heap_free_all} will walk the heap and deallocate everything owned by that capability.
 This is useful when a compartment has crashed, to reclaim all of its heap memory.
 
-\functiondoc{heap_free_all}
 
 \section{Using C/C++ default allocators}
 
@@ -145,7 +144,6 @@ The token APIs provide a lightweight mechanism for doing this.
 \functiondoc{token_obj_unseal}
 
 \functiondoc{token_obj_destroy}
-\amanda{In this functiondoc, "Destroy the obj" should be "Destroy the object" to make it consistent with the other token_* functiondocs.}
 
 When the delegated compartment calls \c{token_sealed_unsealed_alloc}, you must provide two capabilities:
 
@@ -199,7 +197,6 @@ If you need to ensure that an allocation remains valid for a brief, scoped perio
 This function places an ephemeral claim on one or two objects.
 
 \functiondoc{heap_claim_ephemeral}
-\amanda{In this functiondoc, in the second paragraph, "EINVAL" should probably be "-EINVAL"}
 
 Every thread has two \keyword{hazard slots} that can hold pointers.
 The \c{heap_claim_ephemeral} function manages these two slots.
