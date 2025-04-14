@@ -65,7 +65,6 @@ This is not decremented when threads exit, so it provides the upper bound on the
 This can be used to size data structures that are indexed by thread ID.
 
 \functiondoc{thread_count}
-\amanda{In this functiondoc, the very last line should read "...safe to cache, as it will never change..."}
 
 \begin{caution}
 	Somewhat counter intuitively, \c{thread_id_get} is faster than \c{thread_count} to call.
@@ -194,13 +193,6 @@ As before, thread two runs first, but then it yields and allows thread one to ru
 Thread one then yields and allows thread two to run, and so on.
 If thread one did \textem{not} yield then it would be preempted after one tick.
 
-\begin{note}
-If you run this with the Sail simulator, do not be surprised if the cycle counts look very small.
-Sail is not a cycle-accurate model. The cycle count is guaranteed to be monotonic, but not to represent a real system in any way.
-The snippets in this section are using the Ibex simulator.
-\end{note}
-\amanda{This note comes in at a weird place.  Is it possible to change the "console" designation to not split in the middle?  It doesn't need to stay all on the same page, but notes or functiondocs coming in the middle of it make it more difficult to read.}
-
 Try modifying this example, adding \c{ThreadSleepNoEarlyWake}  as a second argument to the \c{thread_sleep} call.
 You should now see output that looks very similar, but shows lower cycle counts at the end:
 
@@ -212,6 +204,12 @@ Current thread: 1 of 2
 Cycles elapsed: 249233
 Cycles elapsed: 252273
 \end{console}
+
+\begin{note}
+If you run this with the Sail simulator, do not be surprised if the cycle counts look very small.
+Sail is not a cycle-accurate model. The cycle count is guaranteed to be monotonic, but not to represent a real system in any way.
+The snippets in this section are using the Ibex simulator.
+\end{note}
 
 Here you see that the total execution time has gone from 265,806 cycles to 252,273.
 In the original version, when thread one slept (after doing far less than one tick's worth of work), there were no runnable threads so the scheduler does nothing for a while.
@@ -228,10 +226,8 @@ This does not quite apply on a CHERIoT system, where there is no userspace, but 
 A CHERIoT RTOS futex is a 32-bit word where the scheduler provides compare-and-sleep (\c{futex_timed_wait}) and notify (\c{futex_wake}) operations.
 
 \functiondoc{futex_timed_wait}
-\amanda{In this functiondoc, in the first paragraph, "until this the thread" should be "until the thread"}
 
 \functiondoc{futex_wake}
-\amanda{In this functiondoc, in the second paragraph, "must be a valid, unsealed, pointer" should be "valid unsealed pointer"}
 
 \begin{note}
 	In C++, \cxx{std::atomic<uint32_t>} provides \cxx{wait}, \cxx{notify_all}, and \cxx{notify_one} methods that expose futex functionality and may be more convenient to call than the raw futex APIs.
@@ -488,9 +484,12 @@ You can then subsequently wait for some of the events to be set with the \c{even
 This takes a set of events to wait for and can wait until either some or all of them are set.
 
 \functiondoc{eventgroup_wait}
-\amanda{In the PDF, this functiondoc appears after the beginning of the next section.}
 
 This call can also atomically clear the bits that you've waited on, giving them edge-triggered behaviour.
+
+% Prevent the preceding function docs overlapping the next section.
+
+\if[output=sile]{\eject{}}
 
 \section[label=message_queue]{Sending messages}
 
@@ -513,7 +512,6 @@ There is no expectation that it is protected from the caller.
 The functions exposed by the library are (by their nature as shared-library functions) shared between any compartments that use the library, but this is a code-size reduction exercise not a security boundary.
 
 \functiondoc{queue_create}
-\amanda{In this functiondoc, in the second paragraph, "The queue is has space" should be "The queue has space"}
 
 Queues can be freed simply with \c{heap_free} but doing so may result in deadlocks.
 If a thread is blocked trying to send or receive from a queue then it will remain blocking if the queue is freed out from underneath it.
@@ -526,7 +524,6 @@ Messages are sent with \c{queue_send} and received with \c{queue_receive}.
 These are blocking (if allowed to by a non-zero timeout) calls that send or receive a single message.
 
 \functiondoc{queue_send}
-\amanda{In this functiondoc, in the last paragraph, "This expected to be called" should be "This expects to be called" or "This is expected to be called"}
 
 \functiondoc{queue_receive}
 
@@ -608,7 +605,6 @@ Instead, the producer waits for the consumer to finish draining the queue and th
 \codelisting[filename=examples/producer_consumer_compartment/producer.cc,marker=queue_cleanup,label=lst:queuemulticompartmentfree,caption="Freeing a message queue once it is empty."]{}
 
 \functiondoc{queue_destroy_sealed}
-\amanda{In this functiondoc, in the PDF one of the lines overflows the box. I cannot tell why.}
 
 The corresponding send and receive functions are identical to their library counterparts, but take sealed queue handles.
 Sometimes, it's useful to be able to give one compartment the ability to write to a queue and another the ability to read.
@@ -680,3 +676,8 @@ Make sure that you don't starve one of the producers by biasing your consumption
 
 Remember that the CHERIoT RTOS scheduler also exposes interrupts as futexes.
 This means that the multiwaiter API can wait for multiple hardware and software events in a single call.
+
+% Make sure that the listing (which ends up on a new page) doesn't break the next chapter.
+
+\if[output=sile]{\eject{}}
+

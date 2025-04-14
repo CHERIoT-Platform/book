@@ -322,7 +322,6 @@ Individual bits must be extracted by a bitwise AND operation.
 First, it explicitly sets the bounds of the heap capability to 23 bytes, then removes all permissions except load.
 
 \codelisting[filename=examples/manipulate_capabilities_c/example.c,marker=capability_manipulation,label=lst:capmanipc,caption="Manipulating capabilities using the C builtin wrappers."]{}
-\amanda{In the PDF, Listing 22 (this one) comes before Listing 21 ("Pretty-printing a capability using the C builtin wrappers".  I assume this is because Listing 22 is shorter and will fit on the page, but Listing 21 is longer so it prints at the top of the next page.  I do not have any idea how one would go about fixing this, but it looks very odd.  It does not help that the next line "When you run this example, you should see something like this" is the last line on the page, so the "something like this" that you should see comes AFTER the code listing.}
 
 When you run this example, you should see something like this (the exact addresses may vary):
 
@@ -368,8 +367,6 @@ You can see the difference between the two in \ref{lst:capequal}.
 This creates a capability with a small offset into an on-stack buffer and then restricts the bounds and removes permissions from it, then compares them for equality using both the \c{==} operator and the \c{cheri_is_equal_exact} macro.
 
 \codelisting[filename=examples/compare_capabilities/example.c,marker=capability_equality,label=lst:capequal,caption="Comparing two capabilities for equality."]{}
-\amanda{In the PDF, this listing is pushed to the next page, but the example output is not finished, so it comes right in the middle of it.}
-\amanda{I almost want to suggest a change in formatting so that code listings have boxes around them, not unlike functiondocs.  That would make it much clearer what part is code and what part is output/text, and less confusing when they interrupt text that ought to be kept together. UPDATE: I will later (in threads.tex) suggest changing \console{} code to keep it together the same way that functiondocs and code listings are, and I think this is a better solution overall.}
 
 When you run this example, you should see output that looks something like this:
 

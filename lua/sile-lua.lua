@@ -8,8 +8,15 @@ local snippets = {
 }
 
 function visit(tree)
+	--local center = TextTree.new("center")
+	--local parbox = center:new_child("parbox")
+	local parbox = TextTree.new("parbox")
+	parbox:attribute_set("width", "100%fw")
+	parbox:attribute_set("valign", "middle")
+	parbox:attribute_set("minimize", "true")
+	parbox:append_child(tree)
 	tree.kind = "verbatim"
-	return {tree}
+	return {TextTree.new("noindent"), parbox}
 end
 
 function process(textTree)

@@ -60,8 +60,6 @@ The exported (library and compartment) functions will print the stack, code, and
 The compiler provides builtin functions to copy two of these (the program counter and stack capabilities) but the third, the globals pointer, requires some inline assembly.
 The inline assembly needs to run at the start of the function because this function does not reference any globals, so the compiler will otherwise spill this register to use it as a temporary.
 
-\codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
-
 When you run this code, you should see output something like this:
 
 \begin{console}
@@ -75,6 +73,9 @@ Compartment: Stack pointer: 0x80000cf0 (v:1 0x80000750-0x80000d10 l:0x5c0 o:0x0 
 Compartment: Program counter: 0x80005e20 (v:1 0x80005df8-0x80005ee0 l:0xe8 o:0x0 p: G R-cgm- X- ---)
 Compartment: Globals pointer: 0x800061fe (v:1 0x800061fc-0x80006200 l:0x4 o:0x0 p: G RWcgm- -- ---)
 \end{console}
+
+\codelisting[filename=examples/library_or_compartment/library.cc,marker=library_implementation,label=lst:printcompartmentregisters,caption="A simple print function to introspect compartment state."]{}
+
 
 Ignore the exact memory addresses, these may change depending on where you run the example.
 First, note that the program counter capability (the capability used for instruction fetch) is different in all three cases and the bounds do not overlap.
@@ -229,18 +230,24 @@ Note that there's nothing in this that indicates the trust model.
 From the perspective of the build, all compartments are just compartments.
 Trust relationships between them are a property of how you write the code in the compartments.
 
+\else[output=sile]{
 \lualisting[filename=examples/safebox/xmake.lua,marker=firmware,label=lst:xmakesafeboxcompartments,caption="Build system code for the safebox example."]{}
+}
 
 \ref{lst:guessthenumber} shows a complete implementation of a simple safebox for a guess-the-number game.
 This generates a (very weak!) pseudorandom number using the cycle counter and allows callers to guess it.
 
+\else[output=sile]{
 \codelisting[marker=safebox,caption=A safebox for a guess-the-numbers game,label=lst:guessthenumber, filename=examples/safebox/safebox.cc]{}
+}
 
 This is called from the runner compartment, shown in \ref{lst:guessthenumberrunner}.
 This compartment talks directly to the outside world and so is part of the attack surface.
 It's quite unlikely that a compartment that simply reads individual bytes and ignores anything not in the ASCII digit range could be vulnerable, but the same techniques can protect much more realistic examples.
 
+\else[output=sile]{
 \codelisting[marker=runner,caption=The runner compartment for the guess-the-numbers game,label=lst:guessthenumberrunner, filename=examples/safebox/runner.cc]{}
+}
 
 When you run this, you will see output something like the following:
 
@@ -259,6 +266,16 @@ Safebox: Guess was 2, secret was 3
 Safebox: Guess was 1, secret was 6
 Runner: Correct!  You guessed the secret was 3
 \end{console}
+
+% Moved down in the PDF to avoid breaks in awkward places.
+
+\if[output=sile]{
+\lualisting[filename=examples/safebox/xmake.lua,marker=firmware,label=lst:xmakesafeboxcompartments,caption="Build system code for the safebox example."]{}
+
+\codelisting[marker=safebox,caption=A safebox for a guess-the-numbers game,label=lst:guessthenumber, filename=examples/safebox/safebox.cc]{}
+
+\codelisting[marker=runner,caption=The runner compartment for the guess-the-numbers game,label=lst:guessthenumberrunner, filename=examples/safebox/runner.cc]{}
+}
 
 In this example, the extra compartmentalisation doesn't really buy us anything.
 You could combine these two compartments and have similar functionality.
@@ -518,7 +535,6 @@ You can check whether a pointer refers to heap memory by calling \c{heap_address
 If this returns true, you can prevent deallocation by using the \keyword{claim} mechanism, described in \ref{heap_claim}.
 
 \functiondoc{heap_address_is_valid}
-\amanda{In this functiondoc, "check_pointer" should be formatted as a command.}
 
 Alternatively, you can use the ephemeral claim mechanism (also documented in \ref{heap_claim}) to ensure that a pointer is either a pointer that cannot be freed, or to ensure that it remains live until the next cross-compartment call.
 These techniques are all combined in \ref{lst:safeuartchecks}, which is a simple function that prints a string to the UART, defensively.

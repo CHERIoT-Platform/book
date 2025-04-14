@@ -1,4 +1,0 @@
-ifeval::["{backend}" == "html5"]
-${multipage_toc()}
-endif::[]
-
