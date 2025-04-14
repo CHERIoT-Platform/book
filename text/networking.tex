@@ -588,7 +588,6 @@ MQTT example: Subscribing to test topic 'cheriot-book-example'.
 MQTT example: Now fetching the SUBACK.
 MQTT example: Got an ACK for packet 0x1
 \end{console}
-\amanda{Another example of why console{} should be non-breaking: in the PDF, this output spans three pages because of the mqtt_run functiondoc and mqttackcallback code listing.}
 
 Next, the example will publish a message on the same topic and make sure that it is received.
 The publish part is shown in \ref{lst:mqttpublish}.
@@ -716,9 +715,9 @@ data.compartment.compartments_calling_export_matching("NetAPI",
 
 \begin{note}
 	Rego uses double quotes for normal strings.
-	These follow similar escaping rules to C so, for example, \rego{"\t"} is a string containing a tab character.
+	These follow similar escaping rules to C so, for example, \rego{"\\t"} is a string containing a tab character.
 	You can avoid this processing by using backticks to designate a \keyword{raw string}.
-	The Rego raw \rego{`\t`} is a string containing a backslash and the letter 't'.
+	The Rego raw \rego{`\\t`} is a string containing a backslash and the letter 't'.
 	It's common to use raw strings when constructing regular expressions to avoid needing to escape backslashes.
 \end{note}
 
