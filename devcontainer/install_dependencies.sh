@@ -2,5 +2,5 @@ apt update
 echo | apt-get install -y software-properties-common
 add-apt-repository -y ppa:sile-typesetter/sile
 apt update
-echo | apt install -y git git-lfs sile luarocks make
+echo | apt install -y git git-lfs sile luarocks make epubcheck
 
