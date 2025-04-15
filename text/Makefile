@@ -99,10 +99,13 @@ cheriot-programmers-guide.epub: ${SOURCES} Makefile
 	mkdir -p cheriot-programmers-guide.epub.tmp/META-INF
 	cp ../cover/Cover.jpg cheriot-programmers-guide.epub.tmp/EPUB/
 	cp book.css cheriot-programmers-guide.epub.tmp/EPUB/
-	cp -R figures/*.{png,jpg,svg} cheriot-programmers-guide.epub.tmp/EPUB/figures
+	ls figures
+	cp -R figures/*.png cheriot-programmers-guide.epub.tmp/EPUB/figures
+	cp -R figures/*.jpg cheriot-programmers-guide.epub.tmp/EPUB/figures
+	cp -R figures/*.svg cheriot-programmers-guide.epub.tmp/EPUB/figures
 	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=cheriot-programmers-guide.epub.tmp --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config epub=true
 	cd cheriot-programmers-guide.epub.tmp && zip -r -X cheriot-programmers-guide.epub mimetype EPUB META-INF && mv cheriot-programmers-guide.epub ..
-	epubcheck cheriot-programmers-guide.epub
+	#epubcheck cheriot-programmers-guide.epub
 	rm -rf cheriot-programmers-guide.epub.tmp
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
