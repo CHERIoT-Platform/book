@@ -137,13 +137,6 @@ function buildPage(self)
 	-- to rejig the queue and reset state.
 	local function finish()
 		local moveState = self.state.movefloatstate
-		if self.state.movefloatstate then
-			if math.abs(adjustment) > moveState.bestPenalty then
-				log("Moving floats made things worse, resetting to a previous queue state")
-			else
-				log("Moving floats improved layout, had ", moveState.bestPenalty, " now have ", adjustment)
-			end
-		end
 		-- Redo the break calculation, this time with the real output queue
 		pageNodeList, res = SILE.pagebuilder:findBestBreak({
 			vboxlist = self.state.outputQueue,
@@ -153,7 +146,6 @@ function buildPage(self)
 		pageNodeList = self:runHooks("framebreak", pageNodeList)
 		self:setVerticalGlue(pageNodeList, self:getTargetLength())
 		self:outputLinesToPage(pageNodeList)
-		-- FIXME: This is not reinserting things.
 		if moveState then
 			local start = 1
 			for _, v in ipairs(moveState.moved) do
@@ -179,10 +171,6 @@ function buildPage(self)
 			moveState = {
 				-- What's the smallest glue adjustment that we've found so far?
 				bestPenalty = math.abs(adjustment),
-				-- How many things were on this list before we got there?
-				bestConsumed = consumed,
-				-- How many things did we have to move to get there?
-				bestMoved = 0,
 				-- What were they?
 				moved = {},
 			}
@@ -196,8 +184,8 @@ function buildPage(self)
 					math.abs(adjustment)
 				)
 				moveState.bestPenalty = math.abs(adjustment)
-				moveState.bestConsumed = consumed
-				moveState.bestFound = #moveState.moved
+			else
+				log("Moving floats made things worse, ignoring changes, using previous adjustment", moveState.bestPenalty)
 			end
 		end
 
@@ -214,6 +202,7 @@ function buildPage(self)
 			local function moveVBox(currentIndex, originalIndex)
 				table.insert(
 					moveState.moved,
+					1,
 					{ entry = table.remove(self.state.outputQueue, currentIndex), location = originalIndex }
 				)
 			end
