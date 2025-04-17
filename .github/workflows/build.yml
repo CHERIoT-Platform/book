@@ -40,11 +40,9 @@ jobs:
            docker pull ghcr.io/cheriot-platform/book-build-container:main
       - name: Build book
         run: |
-          #docker run --mount type=bind,src=$(pwd),target=/mnt --rm ghcr.io/cheriot-platform/book-build-container:main sh -c 'cd /mnt && sh devcontainer/install_dependencies.sh && cd text && luarocks --lua-version 5.1 --tree lua_modules install resilient.sile && make IGK_PATH=/igk/bin IGK_LIB_PATH=/igk/lib/ IGK_LUA_PATH=/igk/share/igk-lua html cheriot-programmers-guide.pdf cheriot-programmers-guide.epub'
-          docker run --mount type=bind,src=$(pwd),target=/mnt --rm ghcr.io/cheriot-platform/book-build-container:main sh -c 'cd /mnt && sh devcontainer/install_dependencies.sh && cd text && luarocks --lua-version 5.1 --tree lua_modules install resilient.sile && make IGK_PATH=/igk/bin IGK_LIB_PATH=/igk/lib/ IGK_LUA_PATH=/igk/share/igk-lua html cheriot-programmers-guide.epub'
+          docker run --mount type=bind,src=$(pwd),target=/mnt --rm ghcr.io/cheriot-platform/book-build-container:main sh -c 'cd /mnt && sh devcontainer/install_dependencies.sh && cd text && luarocks --lua-version 5.1 --tree lua_modules install resilient.sile && make IGK_PATH=/igk/bin IGK_LIB_PATH=/igk/lib/ IGK_LUA_PATH=/igk/share/igk-lua html cheriot-programmers-guide.pdf cheriot-programmers-guide.epub'
           cp -R text/_site _site
-          #cp text/cheriot-programmers-guide.{epub,pdf} _site/
-          cp text/cheriot-programmers-guide.epub _site/
+          cp text/cheriot-programmers-guide.{epub,pdf} _site/
           ls -lahR _site
       - name: Create backwards compatibility copies
         run: |
