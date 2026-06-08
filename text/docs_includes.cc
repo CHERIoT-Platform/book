@@ -1,6 +1,7 @@
 #include <cheri.hh>
 #include <compartment.h>
 #include <event.h>
+#include <futex.h>
 #include <multiwaiter.h>
 #include <queue.h>
 #include <switcher.h>
