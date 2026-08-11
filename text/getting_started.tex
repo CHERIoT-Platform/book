@@ -198,12 +198,12 @@ Beyond software simulators there are currently two mature options for FPGA simul
 The SAFE project, as previously mentioned, can be run on the Arty A7.
 Unfortunately, Microsoft does not provide FPGA bitfiles so you must build this yourself.
 
-lowRISC has produced an FPGA development board designed specifically for CHERIoT, using a slightly smaller version of the same FPGA as the Arty A7.
+lowRISC has produced an FPGA development board designed specifically for CHERIoT, called \href[src=https://github.com/lowRISC/sonata-system/releases]{Sonata}, using a slightly smaller version of the same FPGA as the Arty A7.
 This has a rich set of peripherals, including an LCD display.
 It also has set of LEDs that can display CHERI exceptions directly for the CHERIoT Ibex core, as shown in \ref{sonataexception}.
 These will glow red and gradually fade when a CHERIoT-specific exception is triggered in software.
 
-\figure[label=sonataexception,src=figures/sonata-exception-leds.jpg,alt=Sonata's CHERIoT exception LEDs]{CHERIoT exception LEDs on the Sonata FPGA development board.}
+\figure[label=sonataexception,src=figures/sonata-exception-leds.jpg,alt=Sonata's CHERIoT exception LEDs]{CHERIoT exception LEDs on lowRISC's Sonata FPGA development board.}
 
 At the time of writing, there are not yet any CHERIoT chips commercially available.
 SCI Semiconductor has announced their ICENI line of CHERIoT microcontrollers, the first of which should be available in 2025.
