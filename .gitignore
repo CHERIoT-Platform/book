@@ -4,3 +4,4 @@ _site
 build
 lua_modules
 cheriot-programmers-guide*
+cheriot-programmers-guide-styles.yml

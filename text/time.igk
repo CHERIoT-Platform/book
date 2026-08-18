@@ -1,0 +1,201 @@
+\chapter{Watching time elapse}
+
+Time is a complex topic.
+In computing systems, there are generally several notions of time.
+Digital circuits have clock sources that tick at different rates to drive circuits.
+These don't even have a notion of elapsed time, they simply trigger at a predictable rate that's within the range that allows signals to propagate across the circuit in one cycle.
+
+The simplest notion of elapsed time comes from simply counting the number of times one of these clocks has ticked.
+Assuming that this clock rate is constant, this gives a way of measuring \textem{elapsed} time but not a notion of points in time that are relevant to anyone else (or any other computer).
+There may be multiple such clock sources that operate at different rates, including ones specific to peripherals (for example, an analogue-to-digital converter may have its own clock that it uses for quantisation).
+
+Most computers expose something that they refer to as a \keyword{real-time clock} or a \keyword{wall clock}.
+CHERIoT RTOS prefers the latter term because this is \textem{not} the clock used in real-time systems and the overloaded term is confusing.
+The wall clock time is the time that you might find on a clock on the wall: a time where zero is some consensus value.
+These are usually defined in terms of UTC.
+For example, the UNIX epoch, specified in POSIX, is 00:00:00 UTC on 1 January 1970 (i.e. the beginning of 1970, UTC).
+UNIX time is the number of seconds since that date.
+
+This is a useful coordination point but times exposed to humans often also need to take \keyword{time zones} into account.
+If you're creating a user interface in, say, Australia, then a clock that presents UTC will be very confusing.
+You need to apply a displacement to calculate the local time.
+This is normally a number of hours (and may change for winter or summer), but a few are some, such as Nepal, that are offset by quarter of an hour.
+Embedded systems can often avoid this complexity and leave user interfaces to some external component, or provide minimal support for the time zones in their target markets.
+
+\section{Understanding the monotonic clock}
+
+CHERIoT RTOS requires a monotonic clock source.
+This is a single clock that increments at a fixed rate.
+The RISC-V specification defines the \reg{mtime} register to provide this source but implementations may choose to expose this as a memory-mapped I/O device or via some other mechanism (\ref{new_board} describes how to define this interface).
+
+This clock source has two requirements.
+It must increment at a constant rate and it must be possible to get an interrupt relative to this clock.
+The latter requirement can also be satisfied by having an interrupt source that counts down from a user-specified value at the same rate as the monotonic clock increments.
+
+Interfaces to the scheduler all use these units, or \keyword{ticks}, which are defined relative to the monotonic clock.
+For more discussion of ticks, see \ref{_converting_to_ticks}.
+
+The lowest-level interface to the monotonic clock is the \c{platform_monotonic_time_read} function, implemented in the \file{platform-time.h} header, which is provided by the board's platform integration code.
+
+\functiondoc{platform_monotonic_time_read}
+
+This API returns an unsigned 64-bit integer, which is intended to allow any plausible time, without overflow.
+If the clock increments at the CPU cycle speed, a 200 MHz microcontroller will elapse around 6.3 \textem{quadrillion} ticks per year.
+That's enough to overflow a 52-bit counter.
+At 2 GHz, that's 55 bits.
+Even at 2 GHz, a 64-bit counter would last for 512 years without overflow.
+Although CHERIoT aims to support long device lifetimes, supporting several centuries of uptime is probably unusual.
+
+This function is used to implement the POSIX-compatible \c{clock_gettime} call when used to read the monotonic clock.
+
+\functiondoc{clock_gettime}
+
+This API avoids the need to understand the tick rate of clocks and instead returns a structure (\c{struct timespec}) containing seconds and nanoseconds.
+
+\begin{note}
+Prior to C23, the nanoseconds (\c{tv_nsec}) field of \c{struct timespec} was defined to be \c{long} but it was undefined behaviour if the value was not between 0 and 999,999,999.
+C23 made this a user-defined type capable of storing that range.
+This precision requires a 29-bit value, so CHERIoT RTOS uses \c{uint32_t} for this field: negative out-of-range values are not expressible and overflow is well defined.
+\end{note}
+
+\section{Mapping between clocks}
+
+POSIX defines several clocks, of which CHERIoT RTOS implements a subset.
+\c{CLOCK_MONOTONIC} is the monotonic clock, as previously discussed.
+This is zero at boot at a stable rate.
+
+These two properties mean that, if you knew the monotonic time and wall-clock time for some point in the past, you can compute the wall-clock time for the present.
+This is precisely what the clocks subsystem does.
+It stores a pair of a monotonic time and a wall-clock time that corresponded to the same time.
+When you ask for the current wall-clock time, it subtracts the snapshot monotonic time from the current monotonic time and adds it to the snapshot wall-clock time.
+
+The \c{clock_gettime} function is implemented in the \library{clock_helpers} shared library.
+If you call \c{clock_gettime} with \c{CLOCK_REALTIME}, this library does the calculation described above.
+
+\begin{warning}
+If you query the wall-clock time, you may not get a meaningful value unless something has set it.
+\ref{_providing_a_wall-clock_source} describes how to plug in a time source.
+If you're using the network stack, you can use NTP to set the time (see \ref{_synchronising_time_with_sntp}).
+\end{warning}
+
+POSIX also defines a \c{CLOCK_THREAD_CPUTIME_ID} as the time that the current thread has spent running.
+This is the value that should be returned from the \c{clock} function.
+The CHERIoT RTOS scheduler does not track this by default, but can if built with the \flag{--scheduler-accounting=y} configure-time option.
+
+\functiondoc{clock}
+
+The other clock defined by POSIX relates to processes.
+The \c{CLOCK_PROCESS_CPUTIME_ID} clock is supposed to count the amount of time elapsed by the current process, including all threads, but CHERIoT RTOS does not have an abstraction that corresponds directly to a process.
+
+\ref{lst:clockgetttime} shows how to query ech of the clocks.
+If you run this in a simulator, you will likely see very similar values for each, for example output such as this:
+
+\begin{console}
+Clocks Example: Monotonic time: 2 seconds, 37220000 nanoseconds
+Clocks Example: Wall-clock time: 2 seconds, 83160000 nanoseconds
+Clocks Example: Thread CPU time: 2 seconds, 128640000 nanoseconds
+\end{console}
+
+This is because the wall-clock time offset has not been set, the wall-clock time is set to the same as the monotonic clock time.
+Similarly, there is a single thread, so the pre-thread CPU time will be the same as the monotonic time.
+
+\codelisting[filename=examples/clocks/clocks.cc,marker=gettime,label=lst:clockgetttime,caption="Querying the various clocks."]{}
+
+
+\section{Converting to ticks}
+
+CHERIoT RTOS provides a \keyword{tick} abstraction that mirrors that of FreeRTOS.
+This originated with old scheduler designs, which scheduled a regular timer interrupt (for example, every 10 ms) and made scheduling decisions when that interrupt fired.
+Both CHERIoT RTOS and FreeRTOS started with this design and both moved away.
+This is a simple model but it doesn't interact well with power management because the scheduler is always taking periodic interrupts, even when it has a single runnable thread.
+
+The CHERIoT RTOS scheduler is a \keyword{tickless scheduler}.
+Rather than scheduling a periodic tick, it requests a timer interrupt at the time that the next thread of a higher priority will wake.
+This reduces jitter and means that the core can spend longer in a wait-for-interrupts state.
+Ticks are still used for scheduling threads at the \textem{same} priority.
+If two (or more) threads are at the same priority and are both runnable, the tick defines the amount of time that each will run for before being preempted.
+This is configurable in the board file (or via an override), allowing individual deployments to trade latency and throughput.
+Longer tick times mean that is less overhead from context switching but threads spend longer between opportunities to run.
+
+The standard \c{CLOCKS_PER_SEC} constant in \file{time.h} defines the number of monotonic-clock increments per second.
+The CHERIoT-specific \file{ticks.h} header defines a \c{MS_TO_TICKS()} macro that takes a number of milliseconds as an argument and returns the number of ticks that are provided.
+Both of these are defined by two pre-defined macros that the build system sets.
+
+The \c{CPU_TIMER_HZ} macro defines the rate at which the monotonic clock increments.
+The \c{TICK_RATE_HZ} macro defines the number of scheduler ticks per second.
+
+\section{Providing a wall-clock source}
+
+The wall-clock compartment manages a set of clock sources.
+These are intentionally pluggable because they may relate to both the available hardware (for example, a battery-backed clock) or to the specific system.
+For example, the network stack's Simple Network Time Protocol (SNTP) compartment (see \ref{_synchronising_time_with_sntp}) provides a time source that fetches the time over the network.
+
+Each clock source advertises two high-level pieces of information.
+The first defines the behaviour: Does this simply provide a time value, or does it also record the time?
+For example, a battery-backed clock may give an initial time but then be possible to set with something more precise.
+The second defines whether this time source is 'cheap' to check.
+Cheap time sources are polled every time the wall-clock compartment is instructed to update the time, expensive sources are checked at most once a minute (this frequency will likely be configurable in a future version).
+
+When \c{clock_update_wall_clock} is called, the wall-clock compartment will iterate over the provided clock sources and query each in turn (possibly skipping expensive ones).
+Each clock source can then provide a wall-clock time, a monotonic time corresponding to that time, and a \textem{priority}.
+The source that provides the highest priority will be treated as the new reference.
+It will then be written back to any clock sources that support setting the time and 
+
+\begin{note}
+On more complex systems, setting a new time will slowly skew the clock, adjusting the rate at which the clock advances until it converges with the desired value.
+CHERIoT RTOS's wall-clock compartment does not do this, it simply updates the time.
+This can lead to abrupt jumps in the wall-clock time.
+\end{note}
+
+\functiondoc{clock_update_wall_clock}
+
+\ref{lst:clocksource} shows a simple example of a clock source.
+This is designed to work in simulators that don't have a real clock source.
+Instead, it parses the \c{__DATE__} and \c{__TIME__} built-in macros that define the build time (hidden here in the \c{build_time} call).
+This time is then set as associated with monotonic time zero.
+
+\codelisting[filename=examples/wall_clock/include/example_rtc.hh,marker=clocksource,label=lst:clocksource,caption="A trivial example of a clock source."]{}
+
+This example sets a priority of -5,000 because almost any other time is probably better than this one, which becomes more wrong the firmware image is deployed.
+For comparison, the fallback clock source, which simply sets both to zero (so the boot time is the POSIX Epoch time, the start of 1970) sets its priority as the smallest possible value.
+The SNTP compartment sets its priority at 1000.
+A battery-backed clock would probably set its priority somewhere below the NTP time, but above zero.
+The value of -5,000 means better than nothing but worse than anything sensible.
+This value does not need to be constant.
+For example, a clock source that has some known (but not fully quantified) drift may decay its priority the longer it's been since it was last set.
+
+The build system integration for this is shown in \ref{lst:xmakeclocksource}.
+The registration happens in \command{xmake}'s \lua{after_load} phase.
+This runs after all of the individual targets have been loaded and resolved but before any of them have been built.
+In this example, this hook is implemented on the firmware target but it can be on any target that is loaded as part of the build.
+For example, the SNTP compartment does the same in the compartment's build target so that any firmware image that builds the SNTP compartment also uses it as a clock source automatically.
+
+\lualisting[filename=examples/wall_clock/xmake.lua,marker=registerclocksource,label=lst:xmakeclocksource,caption="Registering the clock source in the build system."]
+
+This build-system snippet is setting three properties on the wall-clock compartment's target.
+The first is adding the \file{include/} directory relative to the example to the include search path for the wall-clock compartment.
+This allows it to find the header.
+The next specifies the name of the header to include.
+Finally, it adds the name of the type that the header defines.
+There is no requirement to have one type per header, you can provide a header that implements multiple clock sources.
+
+\section{Reading the wall-clock time}
+
+The interfaces for reading the wall-clock time are intended to follow POSIX.
+\ref{lst:readclocksource} shows an example that prints the human-readable time once per second.
+
+\codelisting[filename=examples/wall_clock/clocks.cc,marker=gettime,label=lst:readclocksource,caption="Read and print the wall-clock time."]{}
+
+This starts by calling \c{clock_update_wall_clock}, which instructs the wall-clock compartment to set the time using any of the available clock sources, as described in the previous section.
+It then loops, calling \c{gettimeofday} to get the current time and \c{gmtime} to convert it from a number of seconds since the POSIX epoch to a human-readable date.
+Finally, it sleeps for a second before retrying.
+
+\begin{note}
+If you run this example in a simulator then you will see that its internal notion of time is probably wrong.
+Simulators do not advance time at a rate that matches anything outside of their simulated world.
+Depending on the speed of your computer, this example may advance time much more quickly or slowly than one second per second.
+\end{note}
+
+If your time zone is not UTC, then you will notice that the time is offset because the \c{__TIME__} macro that the clock source in this example does not include a time zone.
+When you run this example, it should repeatedly print time, starting at the build time of the project and elapsing as the simulator models time.
+
