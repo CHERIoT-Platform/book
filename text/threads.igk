@@ -95,11 +95,20 @@ Normally, a higher-priority thread would \keyword{yield} to allow another thread
 \section[label=timeouts]{Limiting blocking with timeouts}
 
 Several RTOS APIs have timeouts.
-These are expressed as a pointer to a \c{Timeout} structure.
+Callers can specify timeouts as one of two things.
+They can be an absolute timeout, expressed in \c{clock_t} units against the monotonic clock, or as a pointer to a \c{Timeout} structure.
 This design is intended to allow a single timeout to be passed down a chain of operations.
 
+The \c{TimeoutArgument} type is a tagged union of the two.
+It uses the CHERI tag to differentiate between pointers to \c{Timeout} structures.
+In both C and C++ modes, this union can be transparently created from either an unsigned integer or a \c{Timeout*}.
+
+There are two symbolic constants for absolute timeouts.
+\c{TimeoutWaitForever} is a huge value that means that the call receiving it as a timeout parameter may block for an unbounded amount of time.
+\c{TimeoutNoWait} is zero and can be provided to make calls that take a timeout non-sleeping.
+
 \begin{note}
-Timeouts represent time spent blocking (yielding waiting to be runnable), not time spent running (doing useful work).
+The \c{Timeout} structure represents time spent blocking (yielding waiting to be runnable), not time spent running (doing useful work).
 \end{note}
 
 Timeouts measure time in \keyword{scheduler ticks}.
@@ -133,7 +142,7 @@ Functions that take a timeout should always expect it as the first argument.
 This allows it to be forwarded to subsequent calls trivially.
 
 \begin{warning}
-Timeouts may not be stored on the heap.
+\c{Timeout} structures may not be stored on the heap.
 Any function checking timeouts may refuse to accept a heap-allocated timeout.
 It is difficult to work with heap-allocated timeouts because they may be deallocated while the thread is sleeping, which would then cause it to crash upon updating the timeout structure.
 \end{warning}
@@ -216,6 +225,29 @@ In the original version, when thread one slept (after doing far less than one ti
 Eventually, thread two (the high-priority thread) is runnable again and it resumes.
 In the version with \c{ThreadSleepNoEarlyWake}, thread two can resume as soon as thread one sleeps.
 Similarly, when thread two yields for the second time, thread one will resume.
+
+\ref{lst:thread_sleep_absolute} shows a similar example that uses absolute timeouts.
+This is roughly the shape of a number of periodic operations: you want to wait for a certain amount of time between iterations counting from the \textem{start} of the operation.
+For example, if you have a display that needs updating at 100 Hz then you will want to wake up at regular 10ms intervals, irrespective of how long it took you to do one update.
+
+\codelisting[filename=examples/thread_sleep_absolute/current.cc,marker=entry,label=lst:thread_sleep_absolute,caption="A simple example of thread sleeping until an absolute timeout"]{}
+
+Running this gives output that looks something like this:
+
+\begin{console}
+Current thread: 2 of 2 woke at 198523, next wake at 238247
+Current thread: 1 of 2 woke at 204993, next wake at 224717
+Current thread: 1 of 2 woke at 225886, next wake at 264717
+Current thread: 2 of 2 woke at 239417, next wake at 278247
+Current thread: 1 of 2 woke at 265886, next wake at 304717
+Current thread: 2 of 2 woke at 279417, next wake at 318247
+Current thread: 1 of 2 woke at 305886, next wake at 344717
+Current thread: 2 of 2 woke at 319417, next wake at 358247
+\end{console}
+
+Note that the next-wake times are all consistent offsets from the start, independent of how long it takes to run, they're computed as a time relative to the thread starting.
+Similarly, after the first wakes for each thread, subsequent wakes are consistently 40,000 cycles apart, giving a regular tick.
+You can also see that, in this simulator, there is just under a 1,200 cycle delay between the timer firing and the thread reading the time (which isn't quite the first thing in the loop).
 
 \section[label=futex]{Waiting for events with futexes}
 

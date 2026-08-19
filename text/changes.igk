@@ -2,4 +2,5 @@
 
 A chapter (\ref{_watching_time_elapse}) was added to describe time.
 
+The new \c{TimeoutArgument}, allowing absolute times to be used instead of \c{Timeout*} timeouts was explained.
 
