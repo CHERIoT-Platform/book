@@ -89,6 +89,7 @@ html: ${SOURCES} Makefile
 	mkdir -p _site/figures
 	cp book.css _site/
 	cp figures/*.png _site/figures
+	cp ../cover/Cover.jpg _site/figures
 	cp figures/*.jpg _site/figures
 	cp -R figures/*.svg _site/figures
 	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config review=true

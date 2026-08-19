@@ -333,6 +333,11 @@ div.figure > img
 	max-width: 100%;
 }
 
+img.cover-image
+{
+	max-width: 100%;
+}
+
 div.figure > object
 {
 	max-width: 100%;
