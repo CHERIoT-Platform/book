@@ -7,22 +7,22 @@ IGK_LUA_PATH?=../../../igk/lua
 all: html cheriot-programmers-guide.pdf cheriot-programmers-guide.print.pdf
 
 SOURCES=\
-	audit.tex \
-	adding_a_new_board.tex \
-	book.tex \
-	compartments.tex \
-	concepts.tex \
-	core_rtos.tex \
-	debugging_apis.tex \
-	drivers.tex \
-	getting_started.tex \
-	language_extensions.tex \
-	memory.tex \
-	networking.tex \
-	porting_from_bare_metal.tex \
-	porting_from_freertos.tex \
-	preface.tex \
-	threads.tex
+	audit.igk \
+	adding_a_new_board.igk \
+	book.igk \
+	compartments.igk \
+	concepts.igk \
+	core_rtos.igk \
+	debugging_apis.igk \
+	drivers.igk \
+	getting_started.igk \
+	language_extensions.igk \
+	memory.igk \
+	networking.igk \
+	porting_from_bare_metal.igk \
+	porting_from_freertos.igk \
+	preface.igk \
+	threads.igk
 
 HTML_PASSES= \
 	--pass include \
@@ -92,7 +92,7 @@ html: ${SOURCES} Makefile
 	cp ../cover/Cover.jpg _site/figures
 	cp figures/*.jpg _site/figures
 	cp -R figures/*.svg _site/figures
-	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config review=true
+	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=_site --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config review=true
 
 cheriot-programmers-guide.epub: ${SOURCES} Makefile
 	rm -rf cheriot-programmers-guide.epub.tmp
@@ -105,17 +105,17 @@ cheriot-programmers-guide.epub: ${SOURCES} Makefile
 	cp -R figures/*.png cheriot-programmers-guide.epub.tmp/EPUB/figures
 	cp -R figures/*.jpg cheriot-programmers-guide.epub.tmp/EPUB/figures
 	cp -R figures/*.svg cheriot-programmers-guide.epub.tmp/EPUB/figures
-	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=cheriot-programmers-guide.epub.tmp --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config epub=true
+	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${HTML_PASSES} --config output_directory=cheriot-programmers-guide.epub.tmp --config output=html --config 'DTD=<!DOCTYPE html>' --config language=en-GB --config epub=true
 	cd cheriot-programmers-guide.epub.tmp && zip -r -X cheriot-programmers-guide.epub mimetype EPUB META-INF && mv cheriot-programmers-guide.epub ..
 	#epubcheck cheriot-programmers-guide.epub
 	rm -rf cheriot-programmers-guide.epub.tmp
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
-	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;background" --config output=sile > cheriot-programmers-guide.xml 
+	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;background" --config output=sile > cheriot-programmers-guide.xml 
 	./run_sile.sh cheriot-programmers-guide.xml
 
 cheriot-programmers-guide.print.pdf: ${SOURCES} Makefile
-	${IGK_PATH}/igk --file book.tex ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;background" --config output=sile --config print=true > cheriot-programmers-guide.print.xml 
+	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;background" --config output=sile --config print=true > cheriot-programmers-guide.print.xml 
 	./run_sile.sh cheriot-programmers-guide.print.xml
 
 cheriot-programmers-guide.print.mono.pdf: cheriot-programmers-guide.print.pdf
