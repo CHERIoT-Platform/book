@@ -44,6 +44,7 @@ SOFTWARE
 \compileflags[extension=.c]{compile_flags_c.txt}
 \docfile{docs_includes.cc}
 \include{preface.igk}
+\include{changes.igk}
 \include{concepts.igk}
 \include{core_rtos.igk}
 \include{getting_started.igk}
