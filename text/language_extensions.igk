@@ -582,3 +582,77 @@ If you want to compare two pointers for equality as address comparison, comparin
 
 See \file{cheri.hh} for more details and for other convenience wrappers around the compiler builtins.
 
+\section{Enforcing sub-object bounds}
+
+By default, CHERI C/C++ aims to support the same set of things that are defined behavior in non-CHERI C/C++.
+This leads to some conservative defaults.
+If you take the address of a structure member then C permits you to do arithmetic on this and cast it back to the original structure pointer and then access the whole structure.
+This is sometimes useful but is often undesirable.
+
+If you know that your code is not doing exciting pointer arithmetic then, you can opt into stricter bounds enforcement with by using the \lua{"cheriot.subobject-bounds"} rule, as shown in \ref{lst:xmakesubobjectboudns}.
+This rule adds an additional compiler flag that tells the compiler that, when you take the address of a field of a structure, the result should have the bounds reduced to cover only that member.
+
+
+\lualisting[filename=examples/subobject_bounds/xmake.lua,marker=enforce_bounds,label=lst:xmakesubobjectboudns,caption="Enabling sub-object bounds on a compartment."]{}
+
+\begin{caution}
+Enforcing sub-object bounds should be viewed as defence in depth.
+The compiler does not ensure that there is no way for actively malicious code within the same compartment to find a pointer with wider bounds.
+The heuristics that the compiler uses to decide where to apply bounds may also change over time.
+Nevertheless, it can eliminate entire classes of vulnerability and so is worth enabling.
+\end{caution}
+
+For example, consider the \c{Point} structure in \ref{lst:pointstruct}.
+It may sometimes be desirable to pass pointers to the \c{x} or \c{y} fields for other functions to fill them in but there is no likely use case where such a callee would want to (or should be allowed to) cast that pointer back to a pointer to the structure.
+
+\codelisting[filename=examples/subobject_bounds/bounds.cc,marker=point_definition,label=lst:pointstruct,caption="A simple structure representing a 2D point."]{}
+
+If we print this with sub-object bounds enforcement enabled, as shown in \ref{lst:pointprint}, we should see three capabilities printed as follows:
+
+\begin{console}
+0x80006668 (valid:1 length: 0x8 0x80006668-0x80006670 otype:0 permissions: - RWcgml -- -W)
+0x80006668 (valid:1 length: 0x4 0x80006668-0x8000666c otype:0 permissions: - RWcgml -- -W)
+0x8000666c (valid:1 length: 0x4 0x8000666c-0x80006670 otype:0 permissions: - RWcgml -- -W)
+\end{console}
+
+Note, in particular, the lengths.
+The first printed pointer, \c{&p}, has the bounds of the entire object, eight bytes.
+But each subsequent line, printing only one field, shows the field size of four bytes.
+The first two lines have the same base and address because the first field of a structure and a structure are mandated to have the same address by C.
+
+\codelisting[filename=examples/subobject_bounds/bounds.cc,marker=print_point,label=lst:pointprint,caption="Printing pointers to a 2D point's fields with sub-object bounds enforcement enabled."]{}
+
+Sometimes this behaviour is undesirable in a small number of instances.
+If most of your structures are used in a way that is compatible with sub-object bounds enforcement, you don't have to abandon this extra defence entirely.
+\ref{lst:unboundedpointstruct} shows the \c{[[cheri::no_subobject_bounds]]} attribute, which tells the compiler to not apply sub-object bounds when taking the address of this structure.
+
+\codelisting[filename=examples/subobject_bounds/bounds.cc,marker=unbounded_point,label=lst:unboundedpointstruct,caption="A simple structure representing a 2D point that opts out of sub-object bounds enforcement."]{}
+
+Printing a pointer to an instance of this structure and pointers to its two fields will now look something like this:
+
+\begin{console}
+0x80006660 (valid:1 length: 0x8 0x80006660-0x80006668 otype:0 permissions: - RWcgml -- -W)
+0x80006660 (valid:1 length: 0x8 0x80006660-0x80006668 otype:0 permissions: - RWcgml -- -W)
+0x80006664 (valid:1 length: 0x8 0x80006660-0x80006668 otype:0 permissions: - RWcgml -- -W)
+\end{console}
+
+All three pointers have the bounds of the entire object.
+You can take a pointer to the \c{y} field as an \c{int*}, subtract one from it (remember, in C, pointer subtraction subtracts the size of the pointee type from the address) and have a pointer to the \c{x} field.
+
+This is a contrived example.
+The most common reason to need this is the idiom popularised by the \c{containerof} macro from 4BSD and the associated intrusive data structures defined by it.
+These data structures defined lists and so on by creating a structure that held the pointers between elements and macros for operations on these structures.
+To use these data structures, you would embed the generic structure in your own and then invoke the macros with the name of your type and the name of the field that pointed to the structure.
+The \c{containerof} macro allowed the other macros, in their final step, to do pointer arithmetic to convert back to the enclosing structure.
+
+\ref{lst:pointliststruct} shows a simplified example of this.
+The \c{IntrusiveLinkedList} structure is designed to be embedded in another structure and is embedded here in the \c{PointList} structure.
+
+\codelisting[filename=examples/subobject_bounds/bounds.cc,marker=point_list,label=lst:pointliststruct,caption="A simple C intrusive linked list used to create a list of 2D points."]{}
+
+If you use this intrusive list structure to create a list of points, you expect routines that have a pointer to the \c{list} field to be able to subtract \c{offsetof(struct PointList, list)} from it and get a pointer to the enclosing \c{Pointlist} structure.
+At the same time, you \textem{do} want the compiler to apply bounds when you take the address of the \c{point} field or the \c{x} and \c{y} members of it.
+
+Placing the attribute on the \c{list} field means that the compiler won't apply tight bounds when you take a pointer to that field, but will apply them for other fields.
+
+\david{Add the output from this once CHERIoT-Platform/llvm-project#896 is fixed.}

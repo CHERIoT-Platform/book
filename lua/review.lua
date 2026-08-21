@@ -1,13 +1,13 @@
 function process(textTree)
 	local comments = 0
-	textTree:match_any({ "phil", "hugo", "amanda" }, function(review)
+	textTree:match_any({ "phil", "hugo", "amanda", "david" }, function(review)
 		comments = comments + 1
 		review:error("Remaining review comment")
 		if not config.review then
 			return {}
 		end
 		table.insert(review.children, 1, "[ ")
-		review:append_text(" - " .. review.kind .. " ]")
+		review:append_text(" - " .. review.kind:gsub("^%l", string.upper) .. " ]")
 		if config.output == "sile" then
 			review.kind = "color"
 			review:attribute_set("color", "blue")
