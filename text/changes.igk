@@ -4,3 +4,4 @@ A chapter (\ref{_watching_time_elapse}) was added to describe time.
 
 The new \c{TimeoutArgument}, allowing absolute times to be used instead of \c{Timeout*} timeouts was explained.
 
+The \ref{_enforcing_sub-object_bounds} section was added to document how the compiler can enforce bounds on address-taken structure fields.
