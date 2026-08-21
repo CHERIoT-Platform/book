@@ -393,6 +393,93 @@ When you allocate memory, you pass the allocator a static sealed object that rep
 These contain a quota that is decreased on allocation and increased on deallocation.
 A compartment can allocate memory only if it has an allocation capability and any allocation capability that it holds shows up in the audit report when linking a firmware image.
 
+\section{Using permissions on software-defined capabilities}
+
+In the original 64-bit research prototypes, CHERI capabilities had a large number of permissions that were reserved for software use.
+Scaling down to CHERIoT meant that we didn't have space for these.
+Nevertheless, there are some spare bits in a sealed capability defined with our token APIs: the low three bits of the address.
+These capabilities are all at least 8-byte aligned (and, because they point to the start of the \textem{header}, 8 bytes added to the base is always in bounds).
+
+The token APIs use these low three bits to represent three user-defined permissions.
+Any API that exposes a software-defined capability can choose how to interpret these.
+Typically, this will be done with an enumeration and a helper function as show in \ref{lst:softwarepermissions}, which extends the previous example to introduce permissions on the software capabilities for monotonic counters.
+
+\codelisting[filename=examples/software_capability_permissions/monotonic_counter.hh,marker=permissions,label=lst:softwarepermissions,caption="Assigning meaning to the software-defined permission bits."]{}
+
+The enumeration defines meanings for two of permission bits.
+The third is reserved for future use.
+If a future version of this added dynamic allocation of monotonic counters, for example, then this might be used as a permit-deallocate permission.
+
+The new \c{monotonic_counter_permissions_and} function wraps \c{token_permissions_and} to operate over the correct type.
+The underlying function is exposed from the token library and mirrors the and-permissions operation supported by CHERI capabilities.
+Removing hardware permissions is a single instruction.
+The library function is more expensive, it must unseal the object, get the address, do the masking, then seal the result.
+This is still fairly fast: around a dozen instructions with only one memory read.
+
+\ref{lst:reducesoftwarepermissions} shows how a caller might use these APIs.
+This gets an initial omnipotent capability and then creates two capabilities derived from it that have only one of the permissions.
+These all refer to the same counter, but each have different permissions, just as two CHERI capabilities may refer to the same object with different permissions.
+
+\codelisting[filename=examples/software_capability_permissions/caller.cc,marker=reduce_permissions,label=lst:reducesoftwarepermissions,caption="Getting three capabilities to the same monotonic counter with different permissions."]{}
+
+You will often want to implement permission checks in multiple places when using software-defined capabilities.
+Even this simple example will check them in three places, so does the checks in a helper function shown in \ref{lst:monotoniccheck_permissions}.
+This helper lets you check that a specific capability has at least the permissions that you requested.
+
+\codelisting[filename=examples/software_capability_permissions/monotonic.cc,marker=check_permissions,label=lst:monotoniccheck_permissions,caption="The helper function for checking the permissions on a capability to a monotonic counter."]{}
+
+\ref{lst:monotonicincrementpermissions} shows how the implementation of the monotonic counter uses the permissions.
+Note that the permissions are on the \textem{sealed} pointer, not the unsealed version.
+This implementation does two checks, one before and once after unsealing, but both must use the sealed version for checking.
+
+The increment function requires the permission to increment unconditionally and so simply fails without it.
+The second check, for the permission to read the value, affects the result reporting.
+This function will increment the value if you have the permission to do so but will report the new value if and only if you have the permission to read the result.
+If not, it will return zero to signal a successful increment where you are not allowed to see the result.
+
+\codelisting[filename=examples/software_capability_permissions/monotonic.cc,marker=increment,label=lst:monotonicincrementpermissions,caption="The increment function for a monotonic counter that supports restricted permissions."]{}
+
+The corresponding accessor function, in \ref{lst:monotonicgetpermissions}, has a single permission check.
+This returns an error code if this is either not the correct kind of capability or lacks the relevant permission, otherwise it reads the counter.
+As with increment, this uses negative numbers to represent errors.
+
+\begin{note}
+These examples check permissions before unsealing.
+The order of unsealing and permission checking doesn't matter for security but it does alter the error value that a caller will see.
+If a capability is both the wrong type and missing the corresponding user permission, doing the permission check first will result in a result of \c{-EPERM}, whereas the other way around would give \c{-EINVAL}.
+The permissions can be observed from the capability, so returning \c{-EPERM} doesn't leak anything that the caller couldn't already know.
+\end{note}
+
+\codelisting[filename=examples/software_capability_permissions/monotonic.cc,marker=get,label=lst:monotonicgetpermissions,caption="The get function for a monotonic counter that supports restricted permissions."]{}
+
+\ref{lst:usesoftwarepermissions} shows how the caller tries to use these restricted capabilities.
+This calls increment first with the capability that's authorised for everything, then again with the capability that can increment but not read the result back, and finally with the one that shouldn't be allowed to increment.
+Then it tries to get the current value with a capability that should and shouldn't work.
+
+\codelisting[filename=examples/software_capability_permissions/caller.cc,marker=use_capabilities,label=lst:usesoftwarepermissions,caption="Using three capabilities to the same monotonic counter with different permissions."]{}
+
+Running this example gives the following output:
+
+\begin{console}
+Counter increment with omnipotent capability returned 1
+Counter increment with increment-only capability returned 0
+Counter increment with read-only capability returned -2
+Reading counter with read-only counter returned 2
+Reading counter with increment-only counter returned -2
+\end{console}
+
+The first increment succeeds and increments the counter to 1.
+The second reports success, but does not disclose the new value.
+The third, with the read-only capability, does not succeed and reports -2, which is \c{-EPERM}.
+
+Reading with an authorised capability shows that the second increment did work: The value is now 2.
+The second attempt to read fails again with \c{-EPERM}.
+
+For some use cases, three permission bits is not sufficient.
+You can work around this, as always in computer science, with a layer of indirection.
+You can produce a capability with a different type that contains a pointer to the other sealed object and a set of permissions.
+Unlike the inline permissions, this requires and allocation on each capability with a new set of permissions.
+
 \section{Sharing globals between compartments}
 
 CHERIoT supports a notion of pre-shared objects.
