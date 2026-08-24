@@ -688,7 +688,7 @@ The normal caveats about race conditions apply: the queue may become full again 
 For example, consider the following sequence:
 
 \begin{enumerate}
-       \item{You try to send buy cannot because the queue is full.}
+       \item{You try to send but cannot because the queue is full.}
        \item{You use the multiwaiter to wait for the queue to become non-full.}
        \item{Another thread receives a message from the queue, which makes the queue non-full.}
        \item{Your thread becomes runnable because the futex wake triggered your futex wait to return but does not yet run.}
