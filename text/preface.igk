@@ -11,8 +11,8 @@ The drafts are also available in \href[src=https://cheriot.org/book/cheriot-prog
 
 \section{Acknowledgements}
 
-A few months ago, this book was less than half its current length.
-Completing this was supported by the UKRI Discribe Hub+, funded through the Economic and Social Research Council [ES/V003666/1].
+A few before the first edition was released, this book was less than half its current length.
+Completing the first edition was supported by the UKRI Discribe Hub+, funded through the Economic and Social Research Council [ES/V003666/1].
 
 The version that you are now reading has had some significant improvements in accuracy and structure thanks to some great feedback from technical reviewers Phil Day, Richard Edgar, Adam Finney, Hugo McNally.
 It was then copyedited by Amanda Robinson, who has done an excellent job in fixing my typos, missing words, baroque sentence structures and all of the places where I just forgot that sentences needed finishing.
@@ -20,6 +20,7 @@ Any remaining errors, omissions, or poor explanations are my responsibility.
 
 The cats on the cover represent safe, secure, compartmentalisation (what is safer or more secure than a cat in a box?).
 Each cat is in a separate, isolated, compartment, in the model for which CHERIoT was designed.
+The chip in the photograph is one of SCI Semiconductor's first CHERIoT test chips.
 
 The cat photos were contributed by some wonderful people from the Fediverse.
 Starting at the top left, numbered left to right then top to bottom, the photo credits are:
