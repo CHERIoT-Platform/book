@@ -111,11 +111,11 @@ cheriot-programmers-guide.epub: ${SOURCES} Makefile
 	rm -rf cheriot-programmers-guide.epub.tmp
 
 cheriot-programmers-guide.pdf: ${SOURCES} Makefile
-	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;background" --config output=sile > cheriot-programmers-guide.xml 
+	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;resilient.background" --config output=sile > cheriot-programmers-guide.xml 
 	./run_sile.sh cheriot-programmers-guide.xml
 
 cheriot-programmers-guide.print.pdf: ${SOURCES} Makefile
-	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;background" --config output=sile --config print=true > cheriot-programmers-guide.print.xml 
+	${IGK_PATH}/igk --file book.igk ${IGK_PLUGINS} ${PDF_PASSES} --config sile_packages="cheriot.listings;font-fallback;cheriot.indexer;masters;resilient.background" --config output=sile --config print=true > cheriot-programmers-guide.print.xml 
 	./run_sile.sh cheriot-programmers-guide.print.xml
 
 cheriot-programmers-guide.print.mono.pdf: cheriot-programmers-guide.print.pdf
