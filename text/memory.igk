@@ -19,7 +19,7 @@ Every caller of a memory allocation or deallocation function must present a capa
 This is a \keyword{sealed capability} to an \c{AllocatorCapabilityState} structure.
 Sealed capabilities were introduced in \ref{sealing_intro}.
 
-This uses the static sealing mechanism described in \ref{software_capabilities}.
+This uses the static sealing mechanism described in \ref{_using_permissions_on_software-defined_capabilities}.
 There is no limit to the number of allocator capabilities that a compartment can hold.
 Each allocation capability holds an independent quota.
 
@@ -43,7 +43,8 @@ This allows them to be defined in a header and used in multiple translation unit
 C does not expose a similar mechanism, so you must use the separate declare and define macros in C if your compartment has multiple compilation units that wish to share an allocator capability and define the capability in a single compilation unit.
 \end{caution}
 
-In future versions of CHERIoT RTOS, allocator capabilities are likely to gain additional restrictions (for example, separating the ability to allocate from the ability to claim).
+Allocator capabilities use the software permissions described in \ref{_using_permissions_on_software-defined_capabilities}.
+These allow you to delegate an allocator capability but not permit all operations.
 
 \section{Recalling the memory safety guarantees}
 
@@ -73,6 +74,7 @@ Any object that is in quarantine at the start of a sweep is safe to remove from 
 
 This combination of features allows the allocator to provide complete spatial and temporal safety for heap objects.
 
+\if[output=sile]{\eject{}}
 \section{Allocating with an explicit capability}
 
 \functiondoc{heap_allocate}
@@ -85,6 +87,11 @@ The \c{heap_allocate} and \c{heap_free} functions take a capability, as describe
 When an object is allocated with an explicit capability, it may be freed only by presenting the same capability.
 This means that if you pass a heap-allocated buffer to another compartment, that compartment cannot free it unless you also pass the authorising capability.
 
+The \c{heap_allocate} function requires the \c{AllocatorPermitAllocate} permission on authorising capability.
+Conversely, \c{heap_free} does not require any explicit permissions because anything that needs to be able to allocate memory is likely to need to be able to free in error-handling paths.
+Permission to free is treated as an \textem{implicit} permission: if you hold an allocation capability then you may free things allocated with that capability.
+You can pass an allocator capability with no user permissions to APIs that just need to do explicit cleanup of things that they explicitly allocated on your behalf and hold pointers to.
+
 \begin{note}
 	The allocation uses a timeout because the allocation API is able to block if insufficient memory is available.
 	In contrast the deallocation API will always make progress.
@@ -94,7 +101,29 @@ This means that if you pass a heap-allocated buffer to another compartment, that
 
 If you need to clean up all memory allocated by a particular capability, \c{heap_free_all} will walk the heap and deallocate everything owned by that capability.
 This is useful when a compartment has crashed, to reclaim all of its heap memory.
+This function has its own permission; \c{AllocatorPermitFreeAll}.
+This is generally not a permission that you would want to hand to another compartment, unless you use a separate quota for the memory that a compartment allocates on your behalf.
 
+The \c{allocator_permissions_and} function allows you to explicitly remove permissions from an allocator capability.
+
+\functiondoc{allocator_permissions_and}
+
+\ref{lst:delegatedalloc} shows an example of reducing permissions on an allocation capability to the minimum that's required before passing it to another compartment.
+The queue-related functions here are described in detail in \ref{message_queue} but for the purpose of this example the only thing that you need to know is that these two functions allocate and free an object using the caller's allocation capability.
+
+\codelisting[filename=examples/delegated_allocation/allocate.cc,marker=,queue_allocate,label=lst:delegatedalloc,caption="Restricting permissions on a heap allocation.."]{}
+
+The \c{queue_create_sealed} call is allocating an object and so, rather than passing \c{MALLOC_CAPABILITY} directly, the example creates a more restrictive capability.
+This involves removing two kinds of permission.
+First, \c{allocator_permissions_and} removes the software-defined permission to call \c{heap_free_all} (and any other permission that might be added in the future).
+Second, the example removes the CHERI global permission, which prevents the capability being stored anywhere except on the stack or in registers.
+
+This combination means that the \c{queue_create_sealed} function can allocate and free memory against the quota \textem{for the duration of the call}.
+Once the call returns, the caller knows that the function has not captured the capability, so it cannot subsequently allocate memory from this quota.
+
+The second call that destroys the queue takes a capability with \textem{no} software permissions.
+This is able to free things that it has pointers to that were allocated from this allocator capability but it cannot allocate more.
+The allocator capability retains its no-capture property, so the called compartment cannot free anything else from this quota after the call.
 
 \section{Using C/C++ default allocators}
 
