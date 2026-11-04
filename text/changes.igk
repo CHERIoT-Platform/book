@@ -8,4 +8,4 @@ The \ref{_enforcing_sub-object_bounds} section was added to document how the com
 
 The \ref{_using_permissions_on_software-defined_capabilities} section was added to document how user-defined capabilities work and are used.
 These are used in the core RTOS by the heap allocator.
-That use is now documented in \ref{_Allocating_with_an_explicit_capability}, which includes an example of passing an allocation capability across a compartment boundary.
+That use is now documented in \ref{_allocating_with_an_explicit_capability}, which includes an example of passing an allocation capability across a compartment boundary.
