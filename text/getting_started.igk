@@ -118,7 +118,7 @@ It also includes \command{llvm-objcopy}, which is used on some targets to turn a
 
 You can build LLVM yourself, though it takes quite a lot of CPU time and memory.
 Make sure you have at least 10-20 GiB of disk space available if you want to do this.
-You will find instructions in the \href[src=https://github.com/CHERIoT-Platform/cheriot-rtos/blob/main/docs/GettingStarted.md#building-cheriot-llvm]{CHERIoT RTOS Getting Started guide}.
+You will find instructions in the \href[src=https://github.com/CHERIoT-Platform/cheriot-rtos/blob/main/docs/user/GettingStarted.md#building-cheriot-llvm]{CHERIoT RTOS Getting Started guide}.
 Generally, building the toolchain yourself is recommended only if you have software supply-chain concerns or if you are working on the toolchain.
 For everyone else, it's better to use a pre-built version from the dev container.
 
